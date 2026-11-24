@@ -6,7 +6,9 @@ async function openMasters(page: Page, user = USERS.shipperHead, tab?: string) {
   await expect(page.getByRole('heading', { name: 'Carriers and lanes', level: 1 })).toBeVisible();
 }
 const drawer = (page: Page) => page.getByRole('dialog');
-const field = (page: Page, name: string) => drawer(page).getByRole('textbox', { name, exact: true });
+/** A drawer field by its visible label, ignoring the required "*" or "(optional)" suffix. */
+const field = (page: Page, label: string) =>
+  drawer(page).getByLabel(new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}( \\*| \\(optional\\))?$`));
 
 test.describe('Lanes and carriers (logistics head)', () => {
   test('lists seeded lanes with carriers, budget, rule and status', async ({ page }) => {
@@ -145,8 +147,10 @@ test.describe('Users and invites', () => {
   test('invite a colleague, they accept the link and land signed in', async ({ page, browser }) => {
     await openMasters(page, USERS.shipperHead, 'users');
     await page.getByRole('button', { name: '+ Add user' }).click();
-    const email = `rahul.${uniq()}@sunrisefoods.test`;
-    await field(page, 'Name').fill('Rahul Menon');
+    const suffix = uniq();
+    const person = `Rahul Menon ${suffix}`;
+    const email = `rahul.${suffix}@sunrisefoods.test`;
+    await field(page, 'Name').fill(person);
     await field(page, 'Mobile').fill(`93${String(Date.now()).slice(-8)}`);
     await field(page, 'Email').fill(email);
     await expect(drawer(page).getByRole('textbox', { name: /Can approve up to/ })).toHaveCount(0);
@@ -165,7 +169,7 @@ test.describe('Users and invites', () => {
     const link = await drawer(page).getByRole('textbox', { name: 'Invite link' }).inputValue();
     expect(link).toMatch(/\/invite\/[0-9a-f]{64}$/);
     await drawer(page).getByRole('button', { name: 'Done' }).click();
-    await expect(page.getByRole('row', { name: /Rahul Menon/ })).toContainText('Invited');
+    await expect(page.getByRole('row', { name: new RegExp(person) })).toContainText('Invited');
 
     const ctx = await browser.newContext();
     const rahul = await ctx.newPage();
@@ -177,13 +181,13 @@ test.describe('Users and invites', () => {
     await expect(rahul.getByText("The two passwords don't match.")).toBeVisible();
     await rahul.getByRole('textbox', { name: 'Type it again' }).fill('Kochi2026');
     await rahul.getByRole('button', { name: 'Set password and continue' }).click();
-    await expect(rahul.getByTestId('user-name')).toHaveText('Rahul Menon');
+    await expect(rahul.getByTestId('user-name')).toHaveText(person);
     await rahul.goto(link);
     await expect(rahul.getByRole('heading', { name: "This link doesn't work any more" })).toBeVisible();
     await ctx.close();
 
     await page.reload();
-    await expect(page.getByRole('row', { name: /Rahul Menon/ })).toContainText('Active');
+    await expect(page.getByRole('row', { name: new RegExp(person) })).toContainText('Active');
   });
 
   test('your own row cannot be deactivated', async ({ page }) => {

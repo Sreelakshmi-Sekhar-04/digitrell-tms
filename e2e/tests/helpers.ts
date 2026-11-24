@@ -26,7 +26,9 @@ export const test = base.extend<{ consoleErrors: string[]; allowedConsole: RegEx
       page.on('console', (m) => {
         if (m.type() !== 'error') return;
         const text = m.text();
-        if (/status of 40[013]/.test(text)) return; // deliberate auth failures in negative tests
+        // Deliberate 400/401/403/409 responses in negative tests (validation, auth, duplicates) are
+        // shown to the user by the app; the browser still logs the HTTP status, which is expected.
+        if (/status of 40[0139]/.test(text)) return;
         if (allowedConsole.some((re) => re.test(text))) return;
         errors.push(`console: ${text}`);
       });
