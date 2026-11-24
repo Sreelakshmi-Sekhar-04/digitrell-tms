@@ -3,7 +3,7 @@
 | Phase | Branch | Status | PR | Tests |
 |---|---|---|---|---|
 | 1 Foundation | `feature/shipper-phase-1-foundation` | Merged | [#1](https://github.com/Sreelakshmi-Sekhar-04/digitrell-tms/pull/1) | 30 / 30 passed |
-| 2 Masters and policies | `feature/shipper-phase-2-masters` | In review | see `phase-2-report.md` | 64 / 64 passed (incl. phase 1 regression) |
+| 2 Masters and policies | `feature/shipper-phase-2-masters` | In review | [#2](https://github.com/Sreelakshmi-Sekhar-04/digitrell-tms/pull/2) | 64 / 64 passed (incl. phase 1 regression) |
 | 3 Booking and award | `feature/shipper-phase-3-booking-award` | Pending | — | — |
 | 4 Execution and billing | `feature/shipper-phase-4-execution-billing` | Pending | — | — |
 | 5 Exceptions | `feature/shipper-phase-5-exceptions` | Pending | — | — |
