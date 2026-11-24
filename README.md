@@ -24,12 +24,25 @@ cd backend
 npm install
 cp .env.example .env      # set DATABASE_URL
 npx prisma migrate dev
+npm run seed              # test users: see the header of prisma/seed.ts
 npm run dev               # http://localhost:4000/health
 
 cd ../frontend
 npm install
 npm run dev               # http://localhost:3000
 ```
+
+## End-to-end tests (Playwright)
+
+```bash
+cd e2e
+npm install
+npm test                  # API + desktop UI + phone UI
+```
+
+Tests start their own API (port 4100) and web app (port 3100) against a separate database,
+`<your database>_test`, which is rebuilt and seeded on every run. Your dev database is never touched.
+They use the Chrome installed on the machine. Shipper module plan and phase reports: `docs/shipper/`.
 
 ## Working rules
 

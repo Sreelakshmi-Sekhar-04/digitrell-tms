@@ -1,6 +1,9 @@
 node_modules/
 dist/
 .next/
+.next-*/
+test-results/
+playwright-report/
 .env
 .env.*
 !.env.example
@@ -8,3 +11,4 @@ dist/
 uploads/
 coverage/
 .DS_Store
+*.tsbuildinfo
