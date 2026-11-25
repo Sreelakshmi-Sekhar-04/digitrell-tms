@@ -17,6 +17,7 @@ export const badRequest = (message: string, fields?: Record<string, string>) =>
 export const unauthorized = (message = 'Please sign in.') => new HttpError(401, 'UNAUTHENTICATED', message);
 export const forbidden = (message = 'You do not have access to this.') => new HttpError(403, 'FORBIDDEN', message);
 export const notFound = (message = 'Not found.') => new HttpError(404, 'NOT_FOUND', message);
+export const conflict = (message: string, fields?: Record<string, string>) => new HttpError(409, 'DUPLICATE', message, fields);
 
 /** Wraps an async route handler so rejected promises reach the error middleware. */
 export const asyncHandler =

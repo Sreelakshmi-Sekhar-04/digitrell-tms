@@ -20,6 +20,7 @@ interface AuthState {
   user: SessionUser | null;
   login: (email: string, password: string) => Promise<SessionUser>;
   logout: () => Promise<void>;
+  adoptSession: (token: string, user: SessionUser) => void;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -28,6 +29,7 @@ export const ROLE_LABELS: Record<string, string> = {
   LOGISTICS_HEAD: 'Logistics head (approver)',
   BOOKING_EXECUTIVE: 'Booking executive',
   ACCOUNTS_PAYABLE: 'Accounts payable',
+  APPROVER: 'Approver',
   OWNER: 'Owner',
 };
 
@@ -71,7 +73,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setStatus('signed-out');
   }, []);
 
-  const value = useMemo(() => ({ status, user, login, logout }), [status, user, login, logout]);
+  /** Starts a session the server already created (e.g. after accepting an invite). */
+  const adoptSession = useCallback((token: string, u: SessionUser) => {
+    tokenStore.set(token);
+    setUser(u);
+    setStatus('signed-in');
+  }, []);
+
+  const value = useMemo(() => ({ status, user, login, logout, adoptSession }), [status, user, login, logout, adoptSession]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

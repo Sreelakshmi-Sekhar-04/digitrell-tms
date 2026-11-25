@@ -7,6 +7,7 @@ export const USERS = {
   shipperExec: { email: 'karthik@sunrisefoods.test', password: 'Shipper@123', name: 'Karthik S', company: 'Sunrise Foods Pvt Ltd' },
   inactive: { email: 'inactive@sunrisefoods.test', password: 'Shipper@123' },
   carrier: { email: 'vijay@kaveri.test', password: 'Carrier@123', name: 'Vijay Kumar', company: 'Kaveri Roadlines' },
+  otherShipper: { email: 'meera@coastalpaints.test', password: 'Shipper@123', name: 'Meera Pillai', company: 'Coastal Paints' },
 };
 
 export const NAV = ['Home', 'Trips', 'New booking', 'Approvals', 'Carriers and lanes', 'Reports', 'Policies'];
@@ -25,7 +26,9 @@ export const test = base.extend<{ consoleErrors: string[]; allowedConsole: RegEx
       page.on('console', (m) => {
         if (m.type() !== 'error') return;
         const text = m.text();
-        if (/status of 40[013]/.test(text)) return; // deliberate auth failures in negative tests
+        // Deliberate 400/401/403/409 responses in negative tests (validation, auth, duplicates) are
+        // shown to the user by the app; the browser still logs the HTTP status, which is expected.
+        if (/status of 40[0139]/.test(text)) return;
         if (allowedConsole.some((re) => re.test(text))) return;
         errors.push(`console: ${text}`);
       });
@@ -49,3 +52,18 @@ export async function apiLogin(request: import('@playwright/test').APIRequestCon
   expect(res.status()).toBe(200);
   return (await res.json()).token as string;
 }
+
+/** A signed-in API client for one seeded user: `const anita = await asUser(request, USERS.shipperHead)`. */
+export async function asUser(request: import('@playwright/test').APIRequestContext, user: { email: string; password: string }) {
+  const token = await apiLogin(request, user);
+  const headers = { Authorization: `Bearer ${token}` };
+  return {
+    get: (path: string) => request.get(`${API_URL}${path}`, { headers }),
+    post: (path: string, data?: unknown) => request.post(`${API_URL}${path}`, { headers, data }),
+    patch: (path: string, data: unknown) => request.patch(`${API_URL}${path}`, { headers, data }),
+    put: (path: string, data: unknown) => request.put(`${API_URL}${path}`, { headers, data }),
+  };
+}
+
+/** A short unique suffix so repeated records in one run don't collide. */
+export const uniq = () => Math.random().toString(36).slice(2, 7);

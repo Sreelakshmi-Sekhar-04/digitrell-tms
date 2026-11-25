@@ -18,6 +18,7 @@ export default defineConfig({
     baseURL: `http://localhost:${WEB_PORT}`,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
+    actionTimeout: 15_000, // a wrong locator fails in 15 s instead of using the whole test timeout
   },
   projects: [
     { name: 'api', testMatch: /.*\.api\.spec\.ts/ },

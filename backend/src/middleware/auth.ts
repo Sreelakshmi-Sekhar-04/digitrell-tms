@@ -47,3 +47,13 @@ export function requireShipper(req: Request, _res: Response, next: NextFunction)
   if (req.user?.companyType !== 'SHIPPER') return next(forbidden('This part of DigitRell is for shipper users.'));
   next();
 }
+
+/** Allows only the given roles (checked after requireAuth). */
+export function requireRole(...roles: string[]) {
+  return (req: Request, _res: Response, next: NextFunction) => {
+    if (!req.user || !roles.includes(req.user.role)) {
+      return next(forbidden('Only the logistics head can change this. Ask them to make the change.'));
+    }
+    next();
+  };
+}
