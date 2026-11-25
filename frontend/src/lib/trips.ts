@@ -127,6 +127,7 @@ export const dateTimeIST = (iso: string) =>
 /** "18 min", "1 h 05 min", "2 days" since a time. */
 export function ago(iso: string) {
   const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+  if (mins < 1) return 'under 1 min';
   if (mins < 60) return `${mins} min`;
   if (mins < 24 * 60) return `${Math.floor(mins / 60)} h ${String(mins % 60).padStart(2, '0')} min`;
   const d = Math.floor(mins / (24 * 60));

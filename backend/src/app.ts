@@ -20,7 +20,16 @@ import { profileRouter } from './modules/users/profile.routes';
 /** Builds the Express app (kept separate from server.ts so tests can import it). */
 export function createApp() {
   const app = express();
-  app.use(cors());
+  app.disable('x-powered-by');
+  // CORS_ORIGIN = comma-separated web app origins (required in production); any origin in development.
+  const origins = (process.env.CORS_ORIGIN ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+  app.use(cors(origins.length ? { origin: origins } : undefined));
+  app.use((_req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('Referrer-Policy', 'no-referrer');
+    next();
+  });
   app.use(express.json({ limit: '1mb' }));
 
   app.get('/health', (_req, res) => res.json({ status: 'ok' }));

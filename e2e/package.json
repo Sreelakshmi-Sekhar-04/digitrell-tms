@@ -4,9 +4,10 @@
   "private": true,
   "description": "Playwright tests for the DigitRell TMS shipper module (own test database and ports)",
   "scripts": {
-    "test": "playwright test",
+    "test": "playwright test --project=api --project=ui --project=ui-phone --project=ui-tablet",
     "test:api": "playwright test --project=api",
-    "test:ui": "playwright test --project=ui --project=ui-phone",
+    "test:ui": "playwright test --project=ui --project=ui-phone --project=ui-tablet",
+    "capture": "playwright test --project=capture",
     "report": "playwright show-report"
   },
   "devDependencies": {

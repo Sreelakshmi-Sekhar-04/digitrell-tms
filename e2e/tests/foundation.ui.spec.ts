@@ -145,7 +145,7 @@ test.describe('App shell and navigation', () => {
 });
 
 test.describe('Not found', () => {
-  test.use({ allowedConsole: [/status of 404/] }); // the browser logs the page's own 404 status
+  test.use({ allowedConsole: /status of 404/ }); // the browser logs the page's own 404 status
 
   test('unknown page shows a branded not-found screen with a way home', async ({ page }) => {
     const res = await page.goto('/no-such-page');

@@ -16,9 +16,9 @@ export const NAV = ['Home', 'Trips', 'New booking', 'Approvals', 'Carriers and l
  * `test` with a guard that fails any UI test which logs a browser console error or an
  * uncaught page error (expected 4xx responses from deliberate negative tests are allowed).
  */
-export const test = base.extend<{ consoleErrors: string[]; allowedConsole: RegExp[] }>({
-  /** Extra console-error patterns a describe block expects, e.g. `test.use({ allowedConsole: [/404/] })`. */
-  allowedConsole: [[], { option: true }],
+export const test = base.extend<{ consoleErrors: string[]; allowedConsole: RegExp | null }>({
+  /** One extra console-error pattern a describe block expects, e.g. `test.use({ allowedConsole: /status of 404/ })`. */
+  allowedConsole: [null, { option: true }],
   consoleErrors: [
     async ({ page, allowedConsole }, use) => {
       const errors: string[] = [];
@@ -29,7 +29,7 @@ export const test = base.extend<{ consoleErrors: string[]; allowedConsole: RegEx
         // Deliberate 400/401/403/409 responses in negative tests (validation, auth, duplicates) are
         // shown to the user by the app; the browser still logs the HTTP status, which is expected.
         if (/status of 40[0139]/.test(text)) return;
-        if (allowedConsole.some((re) => re.test(text))) return;
+        if (allowedConsole?.test(text)) return;
         errors.push(`console: ${text}`);
       });
       await use(errors);

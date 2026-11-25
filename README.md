@@ -6,16 +6,22 @@ Shippers and carriers work through a bot on WhatsApp, SMS and email; desk users 
 
 **Release 1 scope:** shipper ↔ carrier, carrier's own/attached trucks (no vendors yet).
 
+**Status:** the **Shipper module** (web app + API) is complete: booking, quotes and award, trip
+tracking, POD, claims, invoices and payment, exceptions, dashboard, reports and activity log. Carrier,
+driver and messaging steps are reached through key-protected integration endpoints until those
+modules exist. See `docs/shipper/FINAL_REPORT.md`.
+
 ## Repository layout
 
 | Path | What |
 |---|---|
-| `backend/` | Express + TypeScript + Prisma API, bot layer, coordinator and agents |
-| `backend/src/modules/` | One folder per module (see `docs/MODULES.md`) |
-| `backend/src/shared/` | Shared contracts: trip statuses, bot message format |
-| `backend/prisma/` | Database schema and seeds |
-| `frontend/` | Next.js + Tailwind web app for desk users |
-| `docs/` | BRD, module plan, flow-spec template |
+| `backend/` | Express + TypeScript + Prisma API |
+| `backend/src/modules/` | One folder per module (auth, masters, users, policies, trips, approvals, insights, activity, integration) |
+| `backend/src/shared/` | Shared contracts: trip statuses, bot message format, master lists |
+| `backend/prisma/` | Schema, migrations and seed |
+| `frontend/` | Next.js 14 + Tailwind web app |
+| `e2e/` | Playwright tests (API, desktop, phone, tablet) and screenshot capture |
+| `docs/` | BRD, module plan; `docs/shipper/` has the shipper plan, phase reports, API reference, final report and screenshots |
 
 ## Getting started
 
@@ -23,26 +29,31 @@ Shippers and carriers work through a bot on WhatsApp, SMS and email; desk users 
 cd backend
 npm install
 cp .env.example .env      # set DATABASE_URL
-npx prisma migrate dev
+npx prisma migrate deploy # apply migrations (use deploy; `migrate dev` writes a no-op migration for the number sequences)
 npm run seed              # test users: see the header of prisma/seed.ts
 npm run dev               # http://localhost:4000/health
 
 cd ../frontend
 npm install
-npm run dev               # http://localhost:3000
+npm run dev               # http://localhost:3000  (NEXT_PUBLIC_API_URL defaults to http://localhost:4000/api)
 ```
+
+Production settings (`backend/.env`): `DATABASE_URL`, `CORS_ORIGIN` (the web app's origin) and
+`INTEGRATION_KEY` (for the integration endpoints). See `docs/shipper/FINAL_REPORT.md` → Deployment.
 
 ## End-to-end tests (Playwright)
 
 ```bash
 cd e2e
 npm install
-npm test                  # API + desktop UI + phone UI
+npm test                  # API + desktop + phone + tablet
+npm run test:api          # API only (no web app started)
+npm run capture           # screenshots of key screens → docs/shipper/screenshots
 ```
 
 Tests start their own API (port 4100) and web app (port 3100) against a separate database,
-`<your database>_test`, which is rebuilt and seeded on every run. Your dev database is never touched.
-They use the Chrome installed on the machine. Shipper module plan and phase reports: `docs/shipper/`.
+`<your database>_test`, which is rebuilt from the migrations and seeded on every run. Your dev
+database is never touched. They use the Chrome installed on the machine.
 
 ## Working rules
 
