@@ -4,6 +4,7 @@
  * Test logins (local development and Playwright only; never use in production):
  *   anita@sunrisefoods.test   / Shipper@123   Logistics head (approver, up to ₹2,00,000), Sunrise Foods (shipper)
  *   karthik@sunrisefoods.test / Shipper@123   Booking executive (cannot approve), Sunrise Foods (shipper)
+ *   priya@sunrisefoods.test   / Shipper@123   Approver up to ₹40,000, Sunrise Foods (tests the approval limit)
  *   inactive@sunrisefoods.test/ Shipper@123   Deactivated user — login must fail
  *   meera@coastalpaints.test  / Shipper@123   Logistics head, Coastal Paints (a second shipper, for data-isolation tests)
  *   vijay@kaveri.test         / Carrier@123   Owner, Kaveri Roadlines (carrier) — used to test shipper-only access
@@ -62,6 +63,7 @@ async function main() {
 
   await user(sunrise.id, 'anita@sunrisefoods.test', 'Anita Rao', 'LOGISTICS_HEAD', 'Shipper@123', { phone: '+919800000001', approvalLimit: 200000 });
   await user(sunrise.id, 'karthik@sunrisefoods.test', 'Karthik S', 'BOOKING_EXECUTIVE', 'Shipper@123', { phone: '+919800000002' });
+  await user(sunrise.id, 'priya@sunrisefoods.test', 'Priya Nair', 'APPROVER', 'Shipper@123', { phone: '+919800000003', approvalLimit: 40000 });
   await user(sunrise.id, 'inactive@sunrisefoods.test', 'Former Employee', 'BOOKING_EXECUTIVE', 'Shipper@123', { isActive: false });
   await user(coastal.id, 'meera@coastalpaints.test', 'Meera Pillai', 'LOGISTICS_HEAD', 'Shipper@123', { phone: '+919800000201', approvalLimit: 100000 });
   await user(kaveri.id, 'vijay@kaveri.test', 'Vijay Kumar', 'OWNER', 'Carrier@123', { phone: '+919800000101' });
@@ -75,6 +77,18 @@ async function main() {
   await lane(sunrise.id, 'Chennai', 'Bengaluru', '32ft MXL', 46000, 'ASK', [kaveri.id, northstar.id, deccan.id, sai.id]);
   await lane(sunrise.id, 'Pune', 'Hyderabad', '20ft SXL', 40000, 'AUTO_LOWEST', [kaveri.id, northstar.id]);
   await lane(coastal.id, 'Kochi', 'Coimbatore', '19ft', 22000, 'ASK', [deccan.id]);
+
+  // Track records (owned by the carrier/tracking modules later). Sai Ganesh, Velan etc. invited later have none.
+  const perf = [
+    [kaveri.id, 22, 96, 1.2, 91],
+    [northstar.id, 15, 93, 1.8, 88],
+    [deccan.id, 13, 84, 3.5, 79],
+    [sai.id, 14, 90, 2.1, 85],
+  ] as const;
+  for (const [carrierId, trips, onTimePct, podDays, acceptPct] of perf) {
+    const data = { trips, onTimePct, podDays: new Prisma.Decimal(podDays), acceptPct };
+    await prisma.carrierPerformance.upsert({ where: { carrierId }, update: data, create: { carrierId, ...data } });
+  }
 
   for (const c of [sunrise, coastal]) {
     await prisma.shipperPolicy.upsert({

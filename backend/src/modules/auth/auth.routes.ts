@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { prisma } from '../../lib/prisma';
 import { asyncHandler, badRequest, unauthorized } from '../../lib/errors';
 import { newSessionToken, verifyPassword } from '../../lib/password';
-import { requireAuth } from '../../middleware/auth';
+import { requireAuth, sessionUser } from '../../middleware/auth';
 
 const SESSION_HOURS = 12;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -30,7 +30,7 @@ authRouter.post(
     await prisma.auditLog.create({ data: { actor: user.id, action: 'LOGIN', data: { channel: 'web' } } });
     res.json({
       token,
-      user: { id: user.id, name: user.name, email: user.email, role: user.role, companyId: user.companyId, companyName: user.company.name, companyType: user.company.type },
+      user: sessionUser(user),
     });
   }),
 );

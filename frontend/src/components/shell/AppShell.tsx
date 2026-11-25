@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState, type ReactNode } from 'react';
 import { ROLE_LABELS, useAuth } from '@/lib/auth';
 import { SHIPPER_NAV, isActive } from '@/lib/nav';
+import { api } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
 
 function initials(name: string) {
@@ -18,8 +19,33 @@ export function AppShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const toast = useToast();
   const [moreOpen, setMoreOpen] = useState(false);
+  const [approvals, setApprovals] = useState(0);
 
   useEffect(() => setMoreOpen(false), [pathname]);
+
+  // Approvals waiting: refreshed on every navigation and when a screen decides one.
+  useEffect(() => {
+    if (!user) return;
+    let alive = true;
+    const load = () =>
+      api<{ count: number }>('/approvals')
+        .then((r) => alive && setApprovals(r.count))
+        .catch(() => undefined);
+    load();
+    window.addEventListener('dtms:approvals-changed', load);
+    return () => {
+      alive = false;
+      window.removeEventListener('dtms:approvals-changed', load);
+    };
+  }, [pathname, user]);
+
+  const badge = (href: string) =>
+    href === '/approvals' && approvals > 0 ? (
+      <>
+        <span aria-hidden="true" data-testid="approvals-badge" className="ml-auto min-w-[22px] rounded-full bg-attention px-1.5 text-center text-xs font-bold leading-[22px] text-white">{approvals}</span>
+        <span className="sr-only">, {approvals} waiting</span>
+      </>
+    ) : null;
 
   if (!user) return null;
 
@@ -67,6 +93,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 className={`flex min-h-[44px] items-center rounded-btn px-3.5 text-sm ${active ? 'bg-brand-tint font-bold text-brand' : 'font-medium text-ink-soft hover:bg-[#F1F5F4]'}`}
               >
                 {n.label}
+                {badge(n.href)}
               </Link>
             );
           })}
@@ -85,7 +112,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           const active = isActive(pathname, n.href);
           return (
             <Link key={n.href} href={n.href} aria-current={active ? 'page' : undefined} className={`flex min-h-[60px] items-center justify-center text-xs font-semibold ${active ? 'text-brand' : 'text-ink-muted'}`}>
-              {n.label}
+              <span className="flex items-center gap-1">{n.label}{badge(n.href)}</span>
             </Link>
           );
         })}

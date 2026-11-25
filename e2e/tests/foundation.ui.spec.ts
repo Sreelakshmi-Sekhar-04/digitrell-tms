@@ -93,7 +93,7 @@ test.describe('App shell and navigation', () => {
 
   test('sidebar lists the 7 shipper items in design order', async ({ page }) => {
     const nav = page.getByRole('navigation', { name: 'Main', exact: true });
-    await expect(nav.getByRole('link')).toHaveText(NAV);
+    await expect(nav.getByRole('link')).toHaveText(NAV.map((n) => new RegExp(`^${n}`))); // Approvals may carry a count
   });
 
   test('every menu item opens its screen and is marked current', async ({ page }) => {
@@ -108,17 +108,17 @@ test.describe('App shell and navigation', () => {
       Home: { url: /\/$/, heading: /Good (morning|afternoon|evening), Anita/ },
     };
     for (const [label, exp] of Object.entries(expected)) {
-      await nav.getByRole('link', { name: label, exact: true }).click();
+      await nav.getByRole('link', { name: new RegExp(`^${label}`) }).click();
       await expect(page).toHaveURL(exp.url);
       await expect(page.getByRole('heading', { level: 1 })).toHaveText(exp.heading);
-      await expect(nav.getByRole('link', { name: label, exact: true })).toHaveAttribute('aria-current', 'page');
+      await expect(nav.getByRole('link', { name: new RegExp(`^${label}`) })).toHaveAttribute('aria-current', 'page');
       await expect(nav.locator('[aria-current="page"]')).toHaveCount(1);
     }
   });
 
   test('screens not built yet say which phase brings them, with no dead controls', async ({ page }) => {
-    await page.goto('/trips');
-    await expect(page.getByRole('heading', { name: 'Arrives in phase 3' })).toBeVisible();
+    await page.goto('/reports'); // still a placeholder until phase 6
+    await expect(page.getByRole('heading', { name: 'Arrives in phase 6' })).toBeVisible();
     await expect(page.locator('main').getByRole('button')).toHaveCount(0);
   });
 

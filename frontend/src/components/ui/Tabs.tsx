@@ -31,7 +31,7 @@ export function Tabs<T extends string>({ tabs, value, onChange, label }: { tabs:
             className={`min-h-[40px] border-b-2 px-3.5 text-sm font-semibold ${active ? 'border-brand text-brand' : 'border-transparent text-ink-muted hover:text-ink'}`}
           >
             {t.label}
-            {t.count != null && <span className="ml-1.5 font-medium text-ink-muted">{t.count}</span>}
+            {t.count != null && <> <span className="ml-0.5 font-medium text-ink-muted">{t.count}</span></>}
           </button>
         );
       })}

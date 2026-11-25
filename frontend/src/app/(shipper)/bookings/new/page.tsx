@@ -1,5 +1,284 @@
-import { ComingInPhase } from '@/components/ComingInPhase';
+'use client';
+
+import Link from 'next/link';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useRouter } from 'next/navigation';
+import { api, ApiError } from '@/lib/api';
+import { useAuth } from '@/lib/auth';
+import { useApi } from '@/lib/useApi';
+import { TRUCK_TYPES, rupees } from '@/lib/masters';
+import { timeIST } from '@/lib/trips';
+import { Button } from '@/components/ui/Button';
+import { Card, EmptyState, PageHeader, Skeleton } from '@/components/ui/Card';
+import { SelectField, TextField } from '@/components/ui/Field';
+import { ChoiceChips } from '@/components/ui/Choice';
+import { useToast } from '@/components/ui/Toast';
+import type { Address } from '@/components/masters/types';
+
+interface Form {
+  pickupAddressId: string;
+  dropAddressId: string;
+  pickupDate: string;
+  truckType: string;
+  material: string;
+  weightTonnes: string;
+  receiverContact: string;
+  reference: string;
+  notes: string;
+}
+interface Recent {
+  pickupAddressId: string;
+  dropAddressId: string;
+  lane: string;
+  pickupName: string;
+  dropName: string;
+  truckType: string;
+  material: string;
+  weightTonnes: number | null;
+  lastBooked: string;
+}
+interface Preview {
+  lane: { origin: string; destination: string; budget: number | null; awardRule: string };
+  carriers: { id: string; name: string; status: string }[];
+  quoteWindowHours: number;
+  quotesClose: string;
+}
+
+const DRAFT_KEY = 'dtms.bookingDraft';
+const istDate = (offsetDays: number) => new Date(Date.now() + 5.5 * 3600_000 + offsetDays * 86400_000).toISOString().slice(0, 10);
+const EMPTY: Form = { pickupAddressId: '', dropAddressId: '', pickupDate: istDate(1), truckType: '', material: '', weightTonnes: '', receiverContact: '', reference: '', notes: '' };
+const prettyDate = (d: string) => new Date(`${d}T00:00:00Z`).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
+
+function loadDraft(): Form | null {
+  try {
+    const raw = window.localStorage.getItem(DRAFT_KEY);
+    if (!raw) return null;
+    const d = JSON.parse(raw) as Form;
+    return d.pickupDate < istDate(0) ? { ...d, pickupDate: istDate(1) } : d;
+  } catch {
+    return null;
+  }
+}
 
 export default function NewBookingPage() {
-  return <ComingInPhase title="New booking" subtitle="Six fields. Defaults come from your last booking on this lane." phase={3} what="Booking needs your lanes and addresses (phase 2) and is built in phase 3." />;
+  const router = useRouter();
+  const toast = useToast();
+  const { user } = useAuth();
+  const addresses = useApi<{ addresses: Address[] }>('/addresses');
+  const recent = useApi<{ recent: Recent[] }>('/bookings/recent');
+  const [form, setForm] = useState<Form>(EMPTY);
+  const [showMore, setShowMore] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [formError, setFormError] = useState<{ message: string; noLane?: boolean } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [preview, setPreview] = useState<Preview | null>(null);
+  const [windowHours, setWindowHours] = useState<number | null>(null);
+
+  useEffect(() => {
+    const d = loadDraft();
+    if (d) {
+      setForm(d);
+      if (d.receiverContact || d.reference || d.notes) setShowMore(true);
+    }
+  }, []);
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(DRAFT_KEY, JSON.stringify(form));
+    } catch {
+      /* draft is a convenience only */
+    }
+  }, [form]);
+
+  const pickups = useMemo(() => (addresses.data?.addresses ?? []).filter((a) => a.kind !== 'DROP'), [addresses.data]);
+  const drops = useMemo(() => (addresses.data?.addresses ?? []).filter((a) => a.kind !== 'PICKUP'), [addresses.data]);
+  const byId = (id: string) => addresses.data?.addresses.find((a) => a.id === id);
+
+  const set = (k: keyof Form, v: string) => {
+    setForm((f) => ({ ...f, [k]: v }));
+    setErrors((e) => ({ ...e, [k]: '' }));
+    setFormError(null);
+  };
+
+  const body = () => ({ ...form, weightTonnes: form.weightTonnes.trim(), quoteWindowHours: windowHours ?? undefined });
+
+  const showErrors = (err: unknown) => {
+    if (err instanceof ApiError) {
+      setErrors(err.body.fields ?? {});
+      setFormError({ message: err.body.message, noLane: err.body.code === 'NO_LANE' });
+    } else setFormError({ message: 'Something went wrong. Please try again.' });
+  };
+
+  const review = async (e: FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      const p = await api<Preview>('/bookings/preview', { method: 'POST', json: body() });
+      setPreview(p);
+      setWindowHours(p.quoteWindowHours);
+      window.scrollTo({ top: 0 });
+    } catch (err) {
+      showErrors(err);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const changeWindow = async (h: number) => {
+    setWindowHours(h);
+    try {
+      setPreview(await api<Preview>('/bookings/preview', { method: 'POST', json: { ...body(), quoteWindowHours: h } }));
+    } catch (err) {
+      showErrors(err);
+    }
+  };
+
+  const confirm = async () => {
+    setBusy(true);
+    try {
+      const { trip } = await api<{ trip: { id: string; number: string; quoteDeadline: string; carriersAsked: number } }>('/bookings', { method: 'POST', json: body() });
+      try {
+        window.localStorage.removeItem(DRAFT_KEY);
+      } catch {
+        /* ignore */
+      }
+      toast({ tone: 'success', title: `${trip.number} booked.`, text: `Quotes requested from ${trip.carriersAsked} carriers; they close at ${timeIST(trip.quoteDeadline)}.` });
+      router.push(`/trips/${trip.id}`);
+    } catch (err) {
+      setPreview(null);
+      showErrors(err);
+      setBusy(false);
+    }
+  };
+
+  const repeat = (r: Recent) => {
+    setForm((f) => ({ ...f, pickupAddressId: r.pickupAddressId, dropAddressId: r.dropAddressId, truckType: r.truckType, material: r.material, weightTonnes: r.weightTonnes != null ? String(r.weightTonnes) : '' }));
+    setErrors({});
+    setFormError(null);
+    setPreview(null);
+  };
+
+  if (addresses.loading && !addresses.data) return <Skeleton lines={4} />;
+
+  if (!pickups.length || !drops.length) {
+    return (
+      <div className="flex flex-col gap-5">
+        <PageHeader title="New booking" />
+        <Card>
+          <EmptyState title="Save your addresses first" action={<Link href="/masters?tab=addresses" className="inline-flex min-h-[44px] items-center rounded-btn bg-brand px-[18px] text-sm font-semibold text-white">Add addresses</Link>}>
+            Bookings pick the pickup and drop from your saved addresses, so the carrier and driver always get the right location and contact.
+          </EmptyState>
+        </Card>
+      </div>
+    );
+  }
+
+  const pickup = byId(form.pickupAddressId);
+  const drop = byId(form.dropAddressId);
+
+  return (
+    <div className="flex flex-col gap-5">
+      <PageHeader title="New booking" subtitle={preview ? 'Check the details. Nothing is sent until you confirm.' : 'Six fields. Pick a recent booking to fill them in one click.'} />
+      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
+        {preview && pickup && drop ? (
+          <Card className="p-6">
+            <h2 className="text-lg font-semibold">Check and confirm</h2>
+            <p className="mb-4 mt-1 text-sm text-ink-muted">Confirming asks your approved carriers for quotes.</p>
+            <dl className="grid grid-cols-[140px_1fr] gap-x-4 gap-y-2.5 text-[15px]">
+              <dt className="text-ink-muted">Lane</dt>
+              <dd className="font-semibold">{pickup.name}, {pickup.city} → {drop.name}, {drop.city}</dd>
+              <dt className="text-ink-muted">Pickup date</dt>
+              <dd className="font-semibold">{prettyDate(form.pickupDate)}</dd>
+              <dt className="text-ink-muted">Load</dt>
+              <dd className="font-semibold">{form.material} · {form.weightTonnes} t · {form.truckType}</dd>
+              <dt className="text-ink-muted">Quotes from</dt>
+              <dd>{preview.carriers.length} approved carriers: {preview.carriers.map((c) => c.name).join(', ')}</dd>
+              {preview.lane.budget != null && (<><dt className="text-ink-muted">Budget</dt><dd>{rupees(preview.lane.budget)} per trip{preview.lane.awardRule === 'AUTO_LOWEST' ? ' · lowest quote within budget is awarded automatically' : ''}</dd></>)}
+              <dt className="text-ink-muted">Quotes close</dt>
+              <dd className="flex flex-wrap items-center gap-2">
+                <span>at {timeIST(preview.quotesClose)}</span>
+                <label className="sr-only" htmlFor="qw">Quote window</label>
+                <select id="qw" value={windowHours ?? preview.quoteWindowHours} onChange={(e) => changeWindow(Number(e.target.value))} className="min-h-[36px] rounded-lg border border-line-strong bg-white px-2 text-[13px]">
+                  {[1, 2, 3, 4, 6, 12, 24].map((h) => <option key={h} value={h}>in {h} hour{h > 1 ? 's' : ''}</option>)}
+                </select>
+              </dd>
+              {(form.reference || form.receiverContact || form.notes) && (
+                <>
+                  <dt className="text-ink-muted">Extras</dt>
+                  <dd>{[form.reference && `Ref ${form.reference}`, form.receiverContact && `Receiver ${form.receiverContact}`, form.notes].filter(Boolean).join(' · ')}</dd>
+                </>
+              )}
+            </dl>
+            <div className="mt-6 flex flex-wrap gap-2.5">
+              <Button onClick={confirm} loading={busy}>Confirm and ask for quotes</Button>
+              <Button variant="secondary" onClick={() => setPreview(null)} disabled={busy}>Edit</Button>
+            </div>
+          </Card>
+        ) : (
+          <Card className="p-6">
+            <form onSubmit={review} noValidate className="flex flex-col gap-[18px]">
+              {formError && (
+                <div role="alert" className="rounded-xl border border-[#E9B8B8] bg-tone-danger-bg px-4 py-3 text-sm text-[#7A1616]">
+                  <strong>{formError.message}</strong>
+                  {formError.noLane && user?.role === 'LOGISTICS_HEAD' && (
+                    <> <Link href="/masters?tab=lanes" className="font-semibold underline">Open Carriers and lanes</Link></>
+                  )}
+                  {formError.noLane && user?.role !== 'LOGISTICS_HEAD' && <> Ask your logistics head to set it up.</>}
+                </div>
+              )}
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <SelectField label="Pickup" required value={form.pickupAddressId} onChange={(e) => set('pickupAddressId', e.target.value)} error={errors.pickupAddressId} help={<>Saved addresses. <Link href="/masters?tab=addresses" className="underline">Add one</Link></>}>
+                  <option value="">Choose pickup</option>
+                  {pickups.map((a) => <option key={a.id} value={a.id}>{a.name}, {a.city}</option>)}
+                </SelectField>
+                <SelectField label="Drop" required value={form.dropAddressId} onChange={(e) => set('dropAddressId', e.target.value)} error={errors.dropAddressId}>
+                  <option value="">Choose drop</option>
+                  {drops.map((a) => <option key={a.id} value={a.id}>{a.name}, {a.city}</option>)}
+                </SelectField>
+                <TextField label="Pickup date" required type="date" min={istDate(0)} value={form.pickupDate} onChange={(e) => set('pickupDate', e.target.value)} error={errors.pickupDate} />
+                <TextField label="Weight (tonnes)" required inputMode="decimal" placeholder="e.g. 14" value={form.weightTonnes} onChange={(e) => set('weightTonnes', e.target.value.replace(/[^\d.,]/g, ''))} error={errors.weightTonnes} />
+              </div>
+              <ChoiceChips label="Truck type" required options={TRUCK_TYPES.map((t) => ({ value: t, label: t }))} value={form.truckType} onChange={(v) => set('truckType', v)} error={errors.truckType} />
+              <div className="max-w-[420px]">
+                <TextField label="Material" required value={form.material} onChange={(e) => set('material', e.target.value)} error={errors.material} placeholder="e.g. Biscuits (packed cartons)" />
+              </div>
+              <Button variant="ghost" size="sm" className="self-start" aria-expanded={showMore} onClick={() => setShowMore((s) => !s)}>
+                {showMore ? '− Fewer details' : '+ Receiver contact, reference, notes'}
+              </Button>
+              {showMore && (
+                <div className="grid grid-cols-1 gap-4 border-t border-line-faint pt-4 sm:grid-cols-3">
+                  <TextField label="Receiver contact" optional value={form.receiverContact} onChange={(e) => set('receiverContact', e.target.value)} error={errors.receiverContact} placeholder="Name and mobile" help="Gets the ETA and the delivery code." />
+                  <TextField label="Your reference" optional value={form.reference} onChange={(e) => set('reference', e.target.value)} error={errors.reference} placeholder="PO or order no." />
+                  <TextField label="Notes for carrier" optional value={form.notes} onChange={(e) => set('notes', e.target.value)} error={errors.notes} placeholder="e.g. tarpaulin needed" />
+                </div>
+              )}
+              <div className="flex flex-wrap items-center gap-2.5 border-t border-line-faint pt-[18px]">
+                <Button type="submit" loading={busy}>Review and confirm</Button>
+                <Button variant="secondary" onClick={() => { setForm(EMPTY); setErrors({}); setFormError(null); }}>Clear</Button>
+                <span className="text-[13px] text-ink-muted">Draft is saved on this device as you type.</span>
+              </div>
+            </form>
+          </Card>
+        )}
+
+        <aside className="flex flex-col gap-4">
+          <Card className="p-5">
+            <h2 className="mb-2.5 text-base font-semibold">Repeat a recent booking</h2>
+            {recent.data && recent.data.recent.length === 0 && <p className="text-sm text-ink-muted">Your last three different bookings will appear here.</p>}
+            <div className="flex flex-col gap-2">
+              {(recent.data?.recent ?? []).map((r, i) => (
+                <button key={i} type="button" onClick={() => repeat(r)} className="min-h-[56px] rounded-btn border border-line px-3 py-2.5 text-left text-sm hover:border-brand hover:bg-brand-soft">
+                  <span className="block font-semibold">{r.lane}</span>
+                  <span className="mt-0.5 block text-xs text-ink-muted">{r.truckType} · {r.weightTonnes} t {r.material}</span>
+                </button>
+              ))}
+            </div>
+          </Card>
+          <Card className="p-5 text-sm leading-relaxed text-ink-soft">
+            <h2 className="mb-1.5 text-base font-semibold">Coming soon: book on WhatsApp</h2>
+            With the DigitRell WhatsApp bot you&apos;ll send pickup, drop, date and load as a message, voice note or slip photo, and the trip will appear here.
+          </Card>
+        </aside>
+      </div>
+    </div>
+  );
 }
