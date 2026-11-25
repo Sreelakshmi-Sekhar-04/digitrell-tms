@@ -122,12 +122,12 @@ function ComparePanel({ trip, onChanged }: { trip: TripDetail; onChanged: () => 
         </div>
         <Chip tone="action">Your decision</Chip>
       </div>
-      <div className="overflow-x-auto rounded-xl border border-line">
+      <div className="hidden overflow-x-auto rounded-xl border border-line sm:block">
         <table className="w-full border-collapse text-sm" aria-label="Quotes">
           <thead>
             <tr>
               {['Pick', 'Carrier', 'Quote', 'vs budget', 'On time', 'POD speed', 'Accepts', 'Score'].map((h) => (
-                <th key={h} scope="col" className="whitespace-nowrap border-b border-line bg-[#FAFBFB] px-3.5 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-ink-muted">{h}</th>
+                <th key={h} scope="col" className={`whitespace-nowrap border-b border-line bg-[#FAFBFB] px-3.5 py-2.5 text-xs font-semibold uppercase tracking-wide text-ink-muted ${h === 'Quote' ? 'text-right' : 'text-left'}`}>{h}</th>
               ))}
             </tr>
           </thead>
@@ -166,6 +166,33 @@ function ComparePanel({ trip, onChanged }: { trip: TripDetail; onChanged: () => 
           </tbody>
         </table>
       </div>
+      {/* Phones: one card per quote instead of a sideways-scrolling table (approved design, phone layout). */}
+      <fieldset className="flex flex-col gap-2.5 sm:hidden">
+        <legend className="sr-only">Quotes</legend>
+        {quoted.map((q) => {
+          const on = q.id === choice?.id;
+          return (
+            <label key={q.id} className={`flex cursor-pointer gap-3 rounded-xl p-3.5 ${on ? 'border-2 border-brand bg-[#F3F8F8]' : 'border border-line'}`}>
+              <input type="radio" name="award-phone" checked={on} onChange={() => setPicked(q.id)} aria-label={`Pick ${q.carrier}`} className="mt-1 h-[18px] w-[18px] flex-none accent-brand" />
+              <span className="flex-1">
+                <span className="flex justify-between gap-2"><strong>{q.carrier}</strong><strong className="tabular">{rupees(q.amount)}</strong></span>
+                {q.rank === 1 && <span className="block text-xs font-semibold text-brand-dark">Recommended · score {q.score}</span>}
+                <span className="mt-1 block text-[13px] text-ink-muted">
+                  {q.rank !== 1 && `Score ${q.score} · `}
+                  {q.onTimePct != null ? `${q.onTimePct}% on time · POD ${q.podDays} days` : 'No track record yet'}
+                  {q.vsBudget != null && ` · ${q.vsBudget <= 0 ? `${rupees(-q.vsBudget)} under` : `${rupees(q.vsBudget)} over`}`}
+                </span>
+              </span>
+            </label>
+          );
+        })}
+        {others.map((q) => (
+          <div key={q.id} className="flex items-center justify-between rounded-xl border border-dashed border-line px-3.5 py-2.5 text-sm text-ink-muted">
+            <span>{q.carrier}</span>
+            <Chip tone={QUOTE_CHIP[q.status].tone}>{QUOTE_CHIP[q.status].label}</Chip>
+          </div>
+        ))}
+      </fieldset>
       {trip.recommendation && (
         <p className="mt-3.5 rounded-xl bg-brand-soft px-4 py-3.5 text-sm leading-relaxed">
           <strong>Why {trip.recommendation.carrier}:</strong> {trip.recommendation.reason}

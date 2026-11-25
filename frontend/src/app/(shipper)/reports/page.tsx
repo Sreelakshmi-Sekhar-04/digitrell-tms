@@ -119,7 +119,7 @@ export default function ReportsPage() {
             <Kpi label="Average POD time" value={k.avgPodDays != null ? `${k.avgPodDays} days` : '—'} note="Delivery to accepted POD" />
             <Kpi label="Trips" value={String(k.trips)} note={`${k.awarded} awarded · ${k.claims} claim${k.claims === 1 ? '' : 's'}${k.claimValue ? ` (${rupees(k.claimValue)})` : ''}`} />
           </div>
-          <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-2">
+          <div className="grid grid-cols-1 items-start gap-5">
             <Card className="overflow-hidden">
               <h2 className="px-5 pb-1 pt-4 text-[17px] font-semibold">Freight awarded by lane</h2>
               <p className="px-5 pb-3 text-[13px] text-ink-muted">Awarded amounts in the period, against each lane&apos;s budget.</p>

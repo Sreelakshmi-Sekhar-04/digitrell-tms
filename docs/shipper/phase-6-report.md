@@ -76,7 +76,7 @@ After merge: `cd backend && npx prisma migrate deploy`.
 
 | Suite | Cases |
 |---|---|
-| `insights.api.spec.ts` (8) | first-time setup state; busy dashboard (top 3, count matches inbox, active trips); reports figures from known trips (on-time 50%, lane spend vs budget, scorecard, POD days); last month empty; trips CSV; activity filtered by trip, people, agents, settings, sign-ins excluded, other shipper sees none; activity CSV; message preferences defaults, validation, save |
+| `insights.api.spec.ts` (7) | first-time setup state; busy dashboard (top 3, count matches inbox, active trips); reports figures from known trips (on-time 50%, lane spend vs budget, scorecard, POD days); last month empty; trips CSV; activity filtered by trip, people, agents, settings, sign-ins excluded, other shipper sees none; activity CSV; message preferences defaults, validation, save |
 | `insights.ui.spec.ts` (7) | first-time checklist with done steps and link; approve from Home with badge update; Repeat last booking fills the form; header search from another page; reports KPIs, tables, CSV download, period change; activity log filters and CSV download; My messages save and persist |
 | `insights.phone.spec.ts` (1) | Home, Reports, activity log and My messages fit 390 px |
 | Earlier phases (123) | re-run as regression. Two Phase 1 checks updated: the placeholder test now asserts that **no** placeholders remain, and the phone *More* menu now includes *My messages* |
