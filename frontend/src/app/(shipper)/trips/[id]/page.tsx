@@ -13,6 +13,7 @@ import { Card, EmptyState, Skeleton } from '@/components/ui/Card';
 import { TextField } from '@/components/ui/Field';
 import { useToast } from '@/components/ui/Toast';
 import { ClaimsCard, DocumentsCard, InvoicePanel, PodAcceptedPanel, PodReviewPanel, ReadyPanel, TransitPanel } from '@/components/trips/ExecutionPanels';
+import { CancelledPanel, DelayNote, OnHoldPanel, TripActions, WidenRequest } from '@/components/trips/ExceptionPanels';
 
 const QUOTE_CHIP: Record<QuoteRow['status'], { label: string; tone: Tone }> = {
   REQUESTED: { label: 'Waiting', tone: 'neutral' },
@@ -180,6 +181,7 @@ function ComparePanel({ trip, onChanged }: { trip: TripDetail; onChanged: () => 
         <span className="text-[13px] text-ink-muted">Carriers never see each other&apos;s quotes.</span>
       </div>
       {rejecting && <RetenderForm tripId={trip.id} label="Reject all and ask again" onDone={onChanged} onCancel={() => setRejecting(false)} />}
+      {!trip.quotesClosedAt && <WidenRequest trip={trip} onChanged={onChanged} />}
     </Card>
   );
 }
@@ -232,6 +234,7 @@ function TaskPanel({ trip, onChanged }: { trip: TripDetail; onChanged: () => voi
           None of the {trip.quotes.length} carriers quoted. Ask them again with a new deadline, or <Link href="/masters?tab=lanes" className="underline">add carriers to this lane</Link> first.
         </p>
         <RetenderForm tripId={trip.id} label="Ask the same carriers again" onDone={onChanged} />
+        <WidenRequest trip={trip} onChanged={onChanged} />
       </Card>
     );
   }
@@ -245,11 +248,14 @@ function TaskPanel({ trip, onChanged }: { trip: TripDetail; onChanged: () => voi
         <div className="flex flex-wrap gap-2">
           {trip.quotes.map((q) => <Chip key={q.id} tone={QUOTE_CHIP[q.status].tone}>{q.carrier} · {QUOTE_CHIP[q.status].label.toLowerCase()}</Chip>)}
         </div>
+        <WidenRequest trip={trip} onChanged={onChanged} />
       </Card>
     );
   }
   if (trip.status === 'READY_FOR_PICKUP') return <ReadyPanel trip={trip} onChanged={onChanged} />;
-  if (trip.status === 'IN_TRANSIT') return <TransitPanel trip={trip} onChanged={onChanged} />;
+  if (trip.status === 'IN_TRANSIT') return <><TransitPanel trip={trip} onChanged={onChanged} /><DelayNote trip={trip} /></>;
+  if (trip.status === 'ON_HOLD') return <OnHoldPanel trip={trip} onChanged={onChanged} />;
+  if (trip.status === 'CANCELLED') return <CancelledPanel trip={trip} />;
   if (trip.status === 'DELIVERED') return <PodReviewPanel trip={trip} onChanged={onChanged} />;
   if (trip.status === 'POD_RECEIVED') return <PodAcceptedPanel trip={trip} onChanged={onChanged} />;
   if ((trip.status === 'INVOICED' || trip.status === 'CLOSED') && trip.invoice) return <InvoicePanel trip={trip} onChanged={onChanged} />;
@@ -277,14 +283,17 @@ export default function TripPage({ params }: { params: { id: string } }) {
         <span aria-hidden="true">/</span>
         <span className="font-semibold text-ink">{trip.number}</span>
       </nav>
-      <div>
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-[26px] font-bold">{trip.origin} → {trip.destination}</h1>
-          <TripStatusChip status={trip.status} />
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-[26px] font-bold">{trip.origin} → {trip.destination}</h1>
+            <TripStatusChip status={trip.status} />
+          </div>
+          <p className="mt-1.5 text-sm text-ink-muted">{trip.number} · {trip.material} · {trip.truckType} · {tonnes(trip.weightTonnes)} · Pickup {dateShort(trip.pickupDate)}</p>
         </div>
-        <p className="mt-1.5 text-sm text-ink-muted">{trip.number} · {trip.material} · {trip.truckType} · {tonnes(trip.weightTonnes)} · Pickup {dateShort(trip.pickupDate)}</p>
+        <TripActions trip={trip} onChanged={res.reload} />
       </div>
-      <Stepper status={trip.status} />
+      {trip.status !== 'CANCELLED' && <Stepper status={trip.status} />}
       <TaskPanel trip={trip} onChanged={res.reload} />
       <ClaimsCard trip={trip} onChanged={res.reload} />
       <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-3">

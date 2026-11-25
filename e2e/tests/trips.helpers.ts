@@ -92,3 +92,33 @@ export async function deliveredTrip(request: APIRequestContext, client: Client, 
   expect((await integration.delivered(request, trip.number, 220 - damaged, damaged)).status()).toBe(200);
   return trip;
 }
+
+// ---------- Phase 5: exceptions ----------
+
+export const exceptions = {
+  report: (request: APIRequestContext, n: string, body: Record<string, unknown>) => post(request, `/trips/${n}/exceptions`, body),
+  propose: (request: APIRequestContext, id: string, body: Record<string, unknown>) => post(request, `/exceptions/${id}/proposal`, body),
+  resolve: (request: APIRequestContext, id: string, body: Record<string, unknown> = {}) => post(request, `/exceptions/${id}/resolve`, body),
+};
+
+/** Awarded trip that is loaded and on the road. */
+export async function onTheRoad(request: APIRequestContext, client: Client, r: Awaited<ReturnType<typeof refs>>) {
+  const trip = await awardedTrip(request, client, r);
+  await integration.truck(request, trip.number);
+  await integration.event(request, trip.number, 'LOADED', { eta: new Date(Date.now() + 86400_000).toISOString() });
+  return trip;
+}
+
+/** A lane of its own (fresh addresses and carriers) so tests can change it freely. */
+export async function ownLane(client: Client, carriers = 1) {
+  const tag = Math.random().toString(36).slice(2, 6);
+  const phone = () => `9${Math.floor(100000000 + Math.random() * 899999999)}`;
+  const made = [];
+  for (let i = 0; i < carriers + 1; i++) made.push((await (await client.post('/carriers', { name: `Lane Carrier ${i} ${tag}`, phone: phone() })).json()).carrier);
+  const from = (await (await client.post('/addresses', { name: `Madurai Hub ${tag}`, city: 'Madurai', line1: 'Kappalur SIDCO', kind: 'PICKUP' })).json()).address;
+  // A city of its own per call: lanes are unique per pickup city, drop city and truck type.
+  const city = `Karur ${tag}`;
+  const to = (await (await client.post('/addresses', { name: `Karur DC ${tag}`, city, line1: 'Thanthonimalai', kind: 'DROP' })).json()).address;
+  const lane = (await (await client.post('/lanes', { origin: 'Madurai', destination: city, truckType: '17ft', budget: 20000, awardRule: 'ASK', carrierIds: made.slice(0, carriers).map((c) => c.id) })).json()).lane;
+  return { lane, carriers: made, spare: made[carriers], booking: { pickupAddressId: from.id, dropAddressId: to.id, truckType: '17ft', material: 'Rice bags', weightTonnes: 7 } };
+}

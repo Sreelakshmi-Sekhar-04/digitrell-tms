@@ -79,7 +79,29 @@ export interface TripDetail extends TripSummary {
     aboveThreshold: boolean;
   } | null;
   paymentApprovalAbove: number;
+  cancel: { allowed: boolean; roleOnly: boolean; reason: string | null; consequences: string[] };
+  edit: { load: boolean; extras: boolean; requotes: boolean };
+  carriersNotAsked: { id: string; name: string; status: string }[];
+  exception: {
+    id: string;
+    kind: string;
+    description: string;
+    status: 'OPEN' | 'AWAITING_SHIPPER' | 'APPROVED' | 'REJECTED';
+    proposal: { fix: string; label: string; newEta: string | null; extraCost: number; payer: 'CARRIER' | 'SHIPPER' } | null;
+    decisionReason: string | null;
+    at: string;
+  } | null;
+  delays: { description: string; at: string }[];
+  cancelled: { at: string; reason: string | null } | null;
 }
+
+export const CANCEL_REASONS = [
+  { value: 'ORDER_CANCELLED', label: 'Order cancelled by the customer' },
+  { value: 'WRONG_DETAILS', label: 'Wrong details, will rebook' },
+  { value: 'OTHER_MODE', label: 'Moved to another mode or vendor' },
+  { value: 'NO_SUITABLE_QUOTE', label: 'No suitable quote' },
+  { value: 'OTHER', label: 'Other (write below)' },
+];
 
 export const POD_RULE_LABEL: Record<string, string> = {
   DIGITAL: 'Digital photo accepted',

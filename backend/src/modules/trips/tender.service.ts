@@ -17,6 +17,7 @@ export const tripInclude = {
   documents: { orderBy: { createdAt: 'asc' as const } },
   claims: { orderBy: { createdAt: 'asc' as const } },
   invoices: { orderBy: { createdAt: 'desc' as const } },
+  exceptions: { orderBy: { createdAt: 'desc' as const } },
 } satisfies Prisma.TripInclude;
 export type TripFull = Prisma.TripGetPayload<{ include: typeof tripInclude }>;
 

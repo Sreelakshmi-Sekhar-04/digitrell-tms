@@ -4,6 +4,7 @@ import { HttpError, asyncHandler, notFound } from '../../lib/errors';
 import { Validator } from '../../lib/validate';
 import { receiveQuote, syncTrip } from '../trips/tender.service';
 import { TRACKING_EVENTS, claimResponse, delivered, invoiceRaised, podReceived, trackingEvent, truckConfirmed } from '../trips/billing.service';
+import { EXCEPTION_KINDS, FIX_KINDS, proposeFix, reportException, resolveException, type Proposal } from '../trips/exceptions.service';
 
 /**
  * INTEGRATION POINTS for modules that are not built yet (carrier quote agent, test tools).
@@ -165,6 +166,61 @@ integrationRouter.post(
     v.done();
     const trip = await tripByNumber(req.params.number);
     await invoiceRaised(trip.id, { number: number!, freight: freight!, detention: detention ?? 0, claimDeduction: claimDeduction ?? 0, dueDate });
+    res.json({ ok: true });
+  }),
+);
+
+/** Reads an optional fix proposal: { fix, label, newEta?, extraCost, payer }. */
+function readProposal(v: Validator, raw: unknown): Proposal | null {
+  if (raw == null) return null;
+  const p = new Validator(raw as Record<string, unknown>);
+  const fix = p.oneOf('fix', 'a fix', FIX_KINDS);
+  const label = p.text('label', 'what the fix is', { required: true, max: 120 });
+  const newEta = p.text('newEta', 'the new ETA');
+  const extraCost = (raw as Record<string, unknown>).extraCost ? p.money('extraCost', 'the extra cost') : 0;
+  const payer = p.oneOf('payer', 'who pays', ['CARRIER', 'SHIPPER'] as const);
+  for (const [k, m] of Object.entries(p.fields)) v.fail(`proposal.${k}`, m);
+  return fix && label && payer ? { fix, label, newEta: newEta && !Number.isNaN(Date.parse(newEta)) ? new Date(newEta).toISOString() : null, extraCost: extraCost ?? 0, payer } : null;
+}
+
+/** Driver bot / exception agent: a problem on the road, optionally with the proposed fix. */
+integrationRouter.post(
+  '/trips/:number/exceptions',
+  asyncHandler(async (req, res) => {
+    const v = new Validator(req.body);
+    const kind = v.oneOf('kind', 'a problem type', EXCEPTION_KINDS);
+    const description = v.text('description', 'what happened', { required: true, max: 200 });
+    const proposal = readProposal(v, req.body?.proposal);
+    v.done();
+    const trip = await tripByNumber(req.params.number);
+    await reportException(trip.id, kind!, description!, proposal);
+    const ex = await prisma.tripException.findFirst({ where: { tripId: trip.id }, orderBy: { createdAt: 'desc' } });
+    res.json({ ok: true, exceptionId: ex?.id });
+  }),
+);
+
+/** Exception agent: a (new) fix proposal, e.g. after the shipper rejected the first one. */
+integrationRouter.post(
+  '/exceptions/:id/proposal',
+  asyncHandler(async (req, res) => {
+    const v = new Validator({});
+    const proposal = readProposal(v, req.body);
+    if (!proposal) v.fail('proposal', 'Send a complete proposal.');
+    v.done();
+    await proposeFix(req.params.id, proposal!);
+    res.json({ ok: true });
+  }),
+);
+
+/** Carrier carried out the fix: back on the road. */
+integrationRouter.post(
+  '/exceptions/:id/resolve',
+  asyncHandler(async (req, res) => {
+    const v = new Validator(req.body);
+    const truckNumber = v.text('truckNumber', 'the new truck number', { max: 20 });
+    const eta = v.text('newEta', 'the new ETA');
+    v.done();
+    await resolveException(req.params.id, { newEta: eta && !Number.isNaN(Date.parse(eta)) ? new Date(eta) : null, truckNumber });
     res.json({ ok: true });
   }),
 );
