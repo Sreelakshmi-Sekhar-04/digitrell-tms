@@ -46,3 +46,49 @@ export async function ageAward(request: APIRequestContext, tripNumber: string) {
 }
 
 export const shipperHead = (request: APIRequestContext) => asUser(request, USERS.shipperHead);
+
+// ---------- Phase 4: execution and billing (carrier / driver / receiver stand-ins) ----------
+
+const post = (request: APIRequestContext, path: string, data: unknown = {}) => request.post(`${API_URL}/integration${path}`, { headers: KEY, data });
+
+export const integration = {
+  truck: (request: APIRequestContext, n: string, over: Record<string, unknown> = {}) =>
+    post(request, `/trips/${n}/truck`, {
+      truckNumber: 'TN 10 AZ 2210', driverName: 'Murugan V', driverPhone: '9790000008', lrNumber: `KR-${n.slice(3)}`,
+      ewayBillNumber: `1810${n.slice(3)}7731`, ewayValidUntil: new Date(Date.now() + 3 * 86400_000).toISOString(), ...over,
+    }),
+  event: (request: APIRequestContext, n: string, type: string, extra: Record<string, unknown> = {}) => post(request, `/trips/${n}/events`, { type, ...extra }),
+  delivered: (request: APIRequestContext, n: string, goodQty = 220, damagedQty = 0, remarks?: string) => post(request, `/trips/${n}/delivered`, { goodQty, damagedQty, remarks }),
+  pod: (request: APIRequestContext, n: string, extra: Record<string, unknown> = {}) => post(request, `/trips/${n}/pod`, { qrMatched: true, ...extra }),
+  invoice: (request: APIRequestContext, n: string, data: Record<string, unknown>) => post(request, `/trips/${n}/invoice`, data),
+  claimResponse: (request: APIRequestContext, claimNumber: string, accept: boolean, note?: string) => post(request, `/claims/${claimNumber}/response`, { accept, note }),
+};
+
+/** Sets Sunrise Foods' policy for a test (other tests may change it). */
+export async function setPolicy(client: Client, p: { podRule?: string; billing?: number; paymentApprovalAbove?: number } = {}) {
+  const res = await client.put('/policies', {
+    paymentApprovalAbove: p.paymentApprovalAbove ?? 50000, quoteWindowHours: 2, podRule: p.podRule ?? 'DIGITAL',
+    autonomy: { intake: 2, tender: 2, bidEvaluation: 1, billing: p.billing ?? 1 },
+  });
+  expect(res.status(), await res.text()).toBe(200);
+}
+
+/** Books Chennai → Bengaluru, gets a ₹42,500 Kaveri quote and awards it. */
+export async function awardedTrip(request: APIRequestContext, client: Client, r: Awaited<ReturnType<typeof refs>>, amount = 42500) {
+  const trip = await book(client, r);
+  await carrierQuotes(request, trip.number, r.kaveri, amount);
+  const t = (await (await client.get(`/trips/${trip.id}`)).json()).trip;
+  const res = await client.post(`/trips/${trip.id}/award`, { quoteId: t.quotes.find((q: { carrierId: string }) => q.carrierId === r.kaveri).id });
+  expect(res.status()).toBe(200);
+  return trip;
+}
+
+/** Runs an awarded trip through truck, loading and delivery. */
+export async function deliveredTrip(request: APIRequestContext, client: Client, r: Awaited<ReturnType<typeof refs>>, damaged = 0, amount = 42500) {
+  const trip = await awardedTrip(request, client, r, amount);
+  expect((await integration.truck(request, trip.number)).status()).toBe(200);
+  await integration.event(request, trip.number, 'REACHED_PICKUP');
+  await integration.event(request, trip.number, 'LOADED', { eta: new Date(Date.now() + 86400_000).toISOString() });
+  expect((await integration.delivered(request, trip.number, 220 - damaged, damaged)).status()).toBe(200);
+  return trip;
+}

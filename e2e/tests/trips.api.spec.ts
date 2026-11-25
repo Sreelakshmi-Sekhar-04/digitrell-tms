@@ -249,7 +249,7 @@ test.describe('Trips list API', () => {
     expect(all.counts.all).toBe(all.total);
     expect(all.counts.all).toBeGreaterThanOrEqual(all.counts.action + all.counts.transit);
     const transit = await (await anita.get('/trips?tab=transit')).json();
-    expect(transit.trips.every((t: { status: string }) => ['AWARDED', 'SOURCING_TRUCK', 'TRUCK_CONFIRMED', 'IN_TRANSIT'].includes(t.status))).toBe(true);
+    expect(transit.trips.every((t: { status: string }) => ['AWARDED', 'SOURCING_TRUCK', 'TRUCK_CONFIRMED', 'CLEARED', 'READY_FOR_PICKUP', 'IN_TRANSIT'].includes(t.status))).toBe(true);
 
     const lanes = (await (await anita.get('/lanes')).json()).lanes;
     const pune = lanes.find((l: { origin: string }) => l.origin === 'Pune');

@@ -12,6 +12,7 @@ import { Chip, TripStatusChip, type Tone } from '@/components/ui/Chip';
 import { Card, EmptyState, Skeleton } from '@/components/ui/Card';
 import { TextField } from '@/components/ui/Field';
 import { useToast } from '@/components/ui/Toast';
+import { ClaimsCard, DocumentsCard, InvoicePanel, PodAcceptedPanel, PodReviewPanel, ReadyPanel, TransitPanel } from '@/components/trips/ExecutionPanels';
 
 const QUOTE_CHIP: Record<QuoteRow['status'], { label: string; tone: Tone }> = {
   REQUESTED: { label: 'Waiting', tone: 'neutral' },
@@ -247,10 +248,15 @@ function TaskPanel({ trip, onChanged }: { trip: TripDetail; onChanged: () => voi
       </Card>
     );
   }
+  if (trip.status === 'READY_FOR_PICKUP') return <ReadyPanel trip={trip} onChanged={onChanged} />;
+  if (trip.status === 'IN_TRANSIT') return <TransitPanel trip={trip} onChanged={onChanged} />;
+  if (trip.status === 'DELIVERED') return <PodReviewPanel trip={trip} onChanged={onChanged} />;
+  if (trip.status === 'POD_RECEIVED') return <PodAcceptedPanel trip={trip} onChanged={onChanged} />;
+  if ((trip.status === 'INVOICED' || trip.status === 'CLOSED') && trip.invoice) return <InvoicePanel trip={trip} onChanged={onChanged} />;
   return (
     <Card className="p-5">
       <h2 className="text-lg font-semibold"><TripStatusChip status={trip.status} /></h2>
-      <p className="mt-2 text-sm text-ink-muted">Tracking, delivery and billing for this trip arrive in the next phase.</p>
+      <p className="mt-2 text-sm text-ink-muted">{trip.nextStep}</p>
     </Card>
   );
 }
@@ -280,28 +286,21 @@ export default function TripPage({ params }: { params: { id: string } }) {
       </div>
       <Stepper status={trip.status} />
       <TaskPanel trip={trip} onChanged={res.reload} />
+      <ClaimsCard trip={trip} onChanged={res.reload} />
       <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-3">
         <Card className="p-5">
           <h2 className="mb-3 text-base font-semibold">Details</h2>
           <dl className="grid grid-cols-[110px_1fr] gap-x-3 gap-y-2 text-sm">
             <dt className="text-ink-muted">Pickup</dt><dd>{trip.pickup ? `${trip.pickup.name}, ${trip.pickup.line1}, ${trip.pickup.city}` : '—'}</dd>
             <dt className="text-ink-muted">Drop</dt><dd>{trip.drop ? `${trip.drop.name}, ${trip.drop.line1}, ${trip.drop.city}` : '—'}</dd>
-            <dt className="text-ink-muted">Carrier</dt><dd>{trip.carrier ?? 'Not yet chosen'}</dd>
+            <dt className="text-ink-muted">Carrier</dt><dd>{trip.carrier ?? 'Not yet chosen'}{trip.amount != null ? ` · ${rupees(trip.amount)}` : ''}</dd>
+            {trip.truck && (<><dt className="text-ink-muted">Truck</dt><dd>{trip.truck.number} · {trip.truck.driverName}</dd></>)}
             {trip.reference && (<><dt className="text-ink-muted">Reference</dt><dd>{trip.reference}</dd></>)}
             {trip.receiverContact && (<><dt className="text-ink-muted">Receiver</dt><dd>{trip.receiverContact}</dd></>)}
             {trip.notes && (<><dt className="text-ink-muted">Notes</dt><dd>{trip.notes}</dd></>)}
           </dl>
         </Card>
-        <Card className="p-5">
-          <h2 className="mb-3 text-base font-semibold">Documents</h2>
-          <div className="flex flex-col text-sm">
-            {['LR', 'E-way bill', 'POD photo'].map((d) => (
-              <div key={d} className="flex items-center justify-between gap-2 border-b border-line-faint py-2 last:border-0">
-                <span>{d}</span><Chip tone="neutral">{d === 'POD photo' ? 'After delivery' : 'After truck is confirmed'}</Chip>
-              </div>
-            ))}
-          </div>
-        </Card>
+        <DocumentsCard trip={trip} />
         <Card className="p-5">
           <h2 className="mb-3 text-base font-semibold">Activity</h2>
           <ol className="flex flex-col gap-2.5 text-[13px]">

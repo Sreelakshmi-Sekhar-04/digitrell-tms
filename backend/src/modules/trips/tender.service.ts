@@ -14,6 +14,9 @@ export const tripInclude = {
   dropAddress: true,
   carrier: { select: { id: true, name: true } },
   quotes: { include: { carrier: { include: { performance: true } } }, orderBy: { createdAt: 'asc' as const } },
+  documents: { orderBy: { createdAt: 'asc' as const } },
+  claims: { orderBy: { createdAt: 'asc' as const } },
+  invoices: { orderBy: { createdAt: 'desc' as const } },
 } satisfies Prisma.TripInclude;
 export type TripFull = Prisma.TripGetPayload<{ include: typeof tripInclude }>;
 

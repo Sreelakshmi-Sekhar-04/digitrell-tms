@@ -50,7 +50,42 @@ export interface TripDetail extends TripSummary {
   recommendation: { quoteId: string; carrier: string; amount: number; reason: string } | null;
   quotes: QuoteRow[];
   activity: { at: string; actor: string; action: string; text: string }[];
+  truck: { number: string; driverName: string | null; driverPhone: string | null } | null;
+  eta: string | null;
+  lastLocation: string | null;
+  lastUpdateAt: string | null;
+  delivery: { at: string; goodQty: number | null; damagedQty: number | null; remarks: string | null } | null;
+  pod: { rule: 'DIGITAL' | 'HARD_COPY' | 'BOTH'; photo: boolean; accepted: boolean; hardCopy: boolean; readyToBill: boolean; readyToPay: boolean; acceptedAt: string | null; hardCopyAt: string | null };
+  documents: { id: string; kind: 'LR' | 'EWAY_BILL' | 'POD' | string; number: string | null; validUntil: string | null; fileUrl: string | null; at: string }[];
+  claims: { id: string; number: string; kind: string; qty: number; unitValue: number; amount: number; description: string; status: 'RAISED' | 'ACCEPTED' | 'DISPUTED' | 'WITHDRAWN'; carrierNote: string | null; at: string }[];
+  acceptedClaims: number;
+  invoice: {
+    id: string;
+    number: string;
+    status: 'RECEIVED' | 'APPROVED' | 'PAID' | 'QUERIED';
+    freight: number;
+    detention: number;
+    claimDeduction: number;
+    total: number;
+    dueDate: string;
+    queryReason: string | null;
+    approvedAt: string | null;
+    paidAt: string | null;
+    paymentMode: string | null;
+    paymentRef: string | null;
+    receivedAt: string;
+    checks: { label: string; ok: boolean; detail: string }[];
+    needsApproval: boolean;
+    aboveThreshold: boolean;
+  } | null;
+  paymentApprovalAbove: number;
 }
+
+export const POD_RULE_LABEL: Record<string, string> = {
+  DIGITAL: 'Digital photo accepted',
+  HARD_COPY: 'Hard copy required before billing',
+  BOTH: 'Photo to bill, hard copy before payment',
+};
 
 /** The 7 stages on the trip progress bar; each BRD status maps to one. */
 export const STAGES = ['Booked', 'Quotes', 'Awarded', 'Truck and documents', 'In transit', 'Delivered and POD', 'Billed and paid'];
