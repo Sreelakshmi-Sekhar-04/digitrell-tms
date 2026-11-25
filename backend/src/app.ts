@@ -13,6 +13,9 @@ import { bookingsRouter } from './modules/trips/bookings.routes';
 import { tripsRouter } from './modules/trips/trips.routes';
 import { approvalsRouter } from './modules/approvals/approvals.routes';
 import { integrationRouter } from './modules/integration/integration.routes';
+import { insightsRouter } from './modules/insights/insights.routes';
+import { activityRouter } from './modules/activity/activity.routes';
+import { profileRouter } from './modules/users/profile.routes';
 
 /** Builds the Express app (kept separate from server.ts so tests can import it). */
 export function createApp() {
@@ -34,6 +37,9 @@ export function createApp() {
   app.use('/api/bookings', shipper, bookingsRouter);
   app.use('/api/trips', shipper, tripsRouter);
   app.use('/api/approvals', shipper, approvalsRouter);
+  app.use('/api/insights', shipper, insightsRouter);
+  app.use('/api/activity', shipper, activityRouter);
+  app.use('/api/profile', shipper, profileRouter);
 
   // Stand-ins for modules not built yet (carrier quotes) and test tools. Key-protected.
   app.use('/api/integration', integrationRouter);

@@ -20,6 +20,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const toast = useToast();
   const [moreOpen, setMoreOpen] = useState(false);
   const [approvals, setApprovals] = useState(0);
+  const [search, setSearch] = useState('');
 
   useEffect(() => setMoreOpen(false), [pathname]);
 
@@ -69,12 +70,29 @@ export function AppShell({ children }: { children: ReactNode }) {
             <span className="block text-xs text-ink-muted" data-testid="company-name">{user.companyName}</span>
           </span>
         </Link>
+        <form
+          role="search"
+          className="order-last hidden w-full md:order-none md:flex md:w-auto"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const q = search.trim();
+            router.push(q ? `/trips?q=${encodeURIComponent(q)}&days=all` : '/trips');
+          }}
+        >
+          <label className="flex min-h-[40px] w-full items-center gap-2 rounded-btn border border-line-strong bg-[#FAFBFB] px-3 md:w-[300px]">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#52606D" strokeWidth="2" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg>
+            <input aria-label="Search all trips" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search trip, city, carrier, ref." className="w-full bg-transparent text-sm outline-none" />
+          </label>
+        </form>
         <div className="flex items-center gap-3">
           <span aria-hidden="true" className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-tint text-[13px] font-bold text-brand-dark">{initials(user.name)}</span>
           <span className="hidden text-[13px] leading-tight sm:block">
             <span className="block font-semibold" data-testid="user-name">{user.name}</span>
             <span className="block text-ink-muted">{ROLE_LABELS[user.role] ?? user.role}</span>
           </span>
+          <Link href="/profile/messages" className="hidden min-h-[36px] items-center rounded-lg px-3 text-[13px] font-semibold text-brand-dark hover:bg-brand-tint md:inline-flex">
+            My messages
+          </Link>
           <button type="button" onClick={signOut} className="hidden min-h-[36px] rounded-lg px-3 text-[13px] font-semibold text-brand-dark hover:bg-brand-tint md:inline-flex md:items-center">
             Sign out
           </button>
@@ -127,6 +145,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               {n.label}
             </Link>
           ))}
+          <Link href="/profile/messages" className="flex min-h-[48px] items-center rounded-btn px-3 text-sm font-medium hover:bg-brand-tint">My messages</Link>
           <button type="button" onClick={signOut} className="flex min-h-[48px] w-full items-center rounded-btn px-3 text-left text-sm font-semibold text-brand-dark hover:bg-brand-tint">
             Sign out
           </button>

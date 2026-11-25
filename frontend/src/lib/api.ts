@@ -48,3 +48,18 @@ export async function api<T>(path: string, init: RequestInit & { json?: unknown 
   }
   return data as T;
 }
+
+/** Downloads a file from the API (e.g. a CSV export) with the session token. */
+export async function download(path: string, filename: string) {
+  const token = tokenStore.get();
+  const res = await fetch(`${API_URL}${path}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+  if (!res.ok) throw new ApiError(res.status, { code: 'HTTP_' + res.status, message: 'The export could not be prepared. Please try again.' });
+  const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}

@@ -40,6 +40,15 @@ function TripsInner() {
   const page = Number(params.get('page') ?? 1);
   const [search, setSearch] = useState(q);
   const searchTimer = useRef<number | undefined>(undefined);
+  // Keep the box in step when the URL's search changes from outside (e.g. the header search), but
+  // never overwrite what is being typed: our own updates are recorded in `sentQ` and ignored here.
+  const sentQ = useRef(q);
+  useEffect(() => {
+    if (q !== sentQ.current) {
+      sentQ.current = q;
+      setSearch(q);
+    }
+  }, [q]);
   // The filters we last asked for. router.replace is asynchronous, so quick successive changes build
   // on this instead of on a URL that may not have updated yet.
   const wanted = useRef(params.toString());
@@ -63,10 +72,14 @@ function TripsInner() {
   const onSearch = (value: string) => {
     setSearch(value);
     window.clearTimeout(searchTimer.current);
-    searchTimer.current = window.setTimeout(() => setParams({ q: value.trim() }), 300);
+    searchTimer.current = window.setTimeout(() => {
+      sentQ.current = value.trim();
+      setParams({ q: value.trim() });
+    }, 300);
   };
   const clearFilters = () => {
     window.clearTimeout(searchTimer.current);
+    sentQ.current = '';
     setSearch('');
     wanted.current = '';
     router.replace(pathname);

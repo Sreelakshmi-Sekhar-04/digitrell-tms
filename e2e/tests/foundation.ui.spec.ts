@@ -116,10 +116,13 @@ test.describe('App shell and navigation', () => {
     }
   });
 
-  test('screens not built yet say which phase brings them, with no dead controls', async ({ page }) => {
-    await page.goto('/reports'); // still a placeholder until phase 6
-    await expect(page.getByRole('heading', { name: 'Arrives in phase 6' })).toBeVisible();
-    await expect(page.locator('main').getByRole('button')).toHaveCount(0);
+  test('every shipper screen is built: no "arrives in phase" placeholders remain', async ({ page }) => {
+    // (Phases 1–5 showed placeholders for screens still to come; after phase 6 there are none.)
+    for (const path of ['/', '/trips', '/bookings/new', '/approvals', '/masters', '/reports', '/policies', '/reports/activity', '/profile/messages']) {
+      await page.goto(path);
+      await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+      await expect(page.getByText(/Arrives in phase/)).toHaveCount(0);
+    }
   });
 
   test('design tokens: primary teal, Inter body, Space Grotesk headings, canvas background', async ({ page }) => {
