@@ -17,7 +17,7 @@ consecutive full runs**.
 | 4 | Execution, POD, claims, invoices and payment | [#4](https://github.com/Sreelakshmi-Sekhar-04/digitrell-tms/pull/4) | 103 |
 | 5 | Exceptions: cancel, edit, widen quote requests, on-hold fixes | [#5](https://github.com/Sreelakshmi-Sekhar-04/digitrell-tms/pull/5) | 123 |
 | 6 | Dashboard, reports, activity log, search, message preferences | [#6](https://github.com/Sreelakshmi-Sekhar-04/digitrell-tms/pull/6) | 138 |
-| 7 | Integration and final validation (this phase) | PR_LINK | 148 |
+| 7 | Integration and final validation (this phase) | [#7](https://github.com/Sreelakshmi-Sekhar-04/digitrell-tms/pull/7) | 148 |
 
 Phase reports: `phase-1-report.md` … `phase-6-report.md`. API: `API.md`. Plan and open questions: `IMPLEMENTATION_PLAN.md`.
 

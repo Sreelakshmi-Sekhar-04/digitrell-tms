@@ -8,7 +8,7 @@
 | 4 Execution and billing | `feature/shipper-phase-4-execution-billing` | Merged | [#4](https://github.com/Sreelakshmi-Sekhar-04/digitrell-tms/pull/4) | 103 / 103 passed, twice (incl. phases 1–3 regression) |
 | 5 Exceptions | `feature/shipper-phase-5-exceptions` | Merged | [#5](https://github.com/Sreelakshmi-Sekhar-04/digitrell-tms/pull/5) | 123 / 123 passed, twice (incl. phases 1–4 regression) |
 | 6 Dashboard and reports | `feature/shipper-phase-6-dashboard-reports` | Merged | [#6](https://github.com/Sreelakshmi-Sekhar-04/digitrell-tms/pull/6) | 138 / 138 passed, twice (incl. phases 1–5 regression) |
-| 7 Integration and final validation | `feature/shipper-phase-7-integration` | In review | (PR link added after creation) | 148 / 148 passed, twice (full suite) |
+| 7 Integration and final validation | `feature/shipper-phase-7-integration` | In review | [#7](https://github.com/Sreelakshmi-Sekhar-04/digitrell-tms/pull/7) | 148 / 148 passed, twice (full suite) |
 
 Open business questions: see `IMPLEMENTATION_PLAN.md` §7.
 
