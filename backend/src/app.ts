@@ -9,6 +9,10 @@ import { lanesRouter } from './modules/masters/lanes.routes';
 import { usersRouter } from './modules/users/users.routes';
 import { invitesRouter } from './modules/users/invites.routes';
 import { policiesRouter } from './modules/policies/policies.routes';
+import { bookingsRouter } from './modules/trips/bookings.routes';
+import { tripsRouter } from './modules/trips/trips.routes';
+import { approvalsRouter } from './modules/approvals/approvals.routes';
+import { integrationRouter } from './modules/integration/integration.routes';
 
 /** Builds the Express app (kept separate from server.ts so tests can import it). */
 export function createApp() {
@@ -27,6 +31,12 @@ export function createApp() {
   app.use('/api/lanes', shipper, lanesRouter);
   app.use('/api/users', shipper, usersRouter);
   app.use('/api/policies', shipper, policiesRouter);
+  app.use('/api/bookings', shipper, bookingsRouter);
+  app.use('/api/trips', shipper, tripsRouter);
+  app.use('/api/approvals', shipper, approvalsRouter);
+
+  // Stand-ins for modules not built yet (carrier quotes) and test tools. Key-protected.
+  app.use('/api/integration', integrationRouter);
 
   app.use('/api', notFoundHandler);
   app.use(errorHandler);

@@ -14,7 +14,7 @@ test.describe('Phone layout (390 × 844)', () => {
     await expect(page.getByRole('navigation', { name: 'Main', exact: true })).toBeHidden();
 
     const tabs = page.getByRole('navigation', { name: 'Main (phone)' });
-    await expect(tabs.getByRole('link')).toHaveText(['Home', 'Trips', 'Approvals']);
+    await expect(tabs.getByRole('link')).toHaveText([/^Home/, /^Trips/, /^Approvals/]);
     await expect(tabs.getByRole('button', { name: 'More' })).toBeVisible();
 
     await tabs.getByRole('link', { name: 'Trips' }).click();

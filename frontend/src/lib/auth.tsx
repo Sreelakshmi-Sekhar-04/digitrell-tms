@@ -11,6 +11,7 @@ export interface SessionUser {
   companyId: string;
   companyName: string;
   companyType: 'SHIPPER' | 'CARRIER';
+  approvalLimit: number | null;
 }
 
 type Status = 'loading' | 'signed-in' | 'signed-out';

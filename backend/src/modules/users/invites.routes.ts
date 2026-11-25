@@ -3,6 +3,7 @@ import { prisma } from '../../lib/prisma';
 import { asyncHandler, badRequest, notFound } from '../../lib/errors';
 import { hashPassword, newSessionToken } from '../../lib/password';
 import { audit } from '../../lib/audit';
+import { sessionUser } from '../../middleware/auth';
 
 /** Public: an invited user opens their one-time link and sets a password. */
 export const invitesRouter = Router();
@@ -40,7 +41,7 @@ invitesRouter.post(
     await audit(u.id, 'INVITE_ACCEPTED');
     res.json({
       token,
-      user: { id: u.id, name: u.name, email: u.email, role: u.role, companyId: u.companyId, companyName: u.company.name, companyType: u.company.type },
+      user: sessionUser(u),
     });
   }),
 );

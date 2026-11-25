@@ -113,10 +113,12 @@ test.describe('Lanes and carriers API', () => {
 
   test('edit replaces approved carriers; deactivate keeps the lane', async ({ request }) => {
     const anita = await asUser(request, USERS.shipperHead);
-    const lanes = (await (await anita.get('/lanes')).json()).lanes;
-    const lane = lanes.find((l: { origin: string; destination: string }) => l.origin === 'Pune' && l.destination === 'Hyderabad');
     const carriers = (await (await anita.get('/carriers')).json()).carriers;
-    const deccan = carriers.find((c: { name: string }) => c.name === 'Deccan Freight Carriers');
+    const byName = (n: string) => carriers.find((c: { name: string }) => c.name === n).id;
+    const deccan = { id: byName('Deccan Freight Carriers') };
+    // Its own lane, so the seeded lanes stay as they are for the booking tests.
+    const created = await anita.post('/lanes', { origin: 'Nashik', destination: 'Surat', truckType: '22ft', budget: 30000, awardRule: 'AUTO_LOWEST', carrierIds: [byName('Kaveri Roadlines'), byName('NorthStar Logistics')] });
+    const { lane } = await created.json();
     const res = await anita.patch(`/lanes/${lane.id}`, { carrierIds: [deccan.id], isActive: false });
     expect(res.status()).toBe(200);
     const { lane: updated } = await res.json();

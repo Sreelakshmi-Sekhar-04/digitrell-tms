@@ -85,6 +85,14 @@ test.describe('Lanes and carriers (logistics head)', () => {
     const row = page.getByRole('row', { name: /Chennai → Bengaluru/ });
     await expect(row).toContainText('₹47,000');
     await expect(row).not.toContainText('Sai Ganesh');
+
+    // Put the seeded lane back so later booking tests see the original 4 carriers and budget.
+    await page.getByRole('button', { name: 'Edit Chennai to Bengaluru' }).click();
+    await field(page, 'Budget per trip (₹)').fill('46000');
+    await drawer(page).getByRole('checkbox', { name: /Sai Ganesh Transport/ }).check();
+    await drawer(page).getByRole('button', { name: 'Save changes' }).click();
+    await expect(row).toContainText('₹46,000');
+    await expect(row).toContainText('Sai Ganesh');
   });
 
   test('closing with unsaved changes asks once; Keep editing keeps the input', async ({ page }) => {

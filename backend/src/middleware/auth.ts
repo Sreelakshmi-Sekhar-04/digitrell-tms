@@ -1,4 +1,5 @@
 import type { NextFunction, Request, Response } from 'express';
+import type { Company, User } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { forbidden, unauthorized } from '../lib/errors';
 
@@ -10,6 +11,7 @@ export interface AuthUser {
   companyId: string;
   companyName: string;
   companyType: 'SHIPPER' | 'CARRIER';
+  approvalLimit: number | null;
 }
 
 declare global {
@@ -34,7 +36,7 @@ export async function requireAuth(req: Request, _res: Response, next: NextFuncti
       return next(unauthorized('Your session has ended. Please sign in again.'));
     }
     const u = session.user;
-    req.user = { id: u.id, name: u.name, email: u.email, role: u.role, companyId: u.companyId, companyName: u.company.name, companyType: u.company.type };
+    req.user = sessionUser(u);
     req.sessionToken = token;
     next();
   } catch (err) {
@@ -55,5 +57,13 @@ export function requireRole(...roles: string[]) {
       return next(forbidden('Only the logistics head can change this. Ask them to make the change.'));
     }
     next();
+  };
+}
+
+/** The user as the web app sees it (never includes the password hash or invite token). */
+export function sessionUser(u: User & { company: Company }): AuthUser {
+  return {
+    id: u.id, name: u.name, email: u.email, role: u.role, companyId: u.companyId, companyName: u.company.name,
+    companyType: u.company.type, approvalLimit: u.approvalLimit != null ? Number(u.approvalLimit.toString()) : null,
   };
 }
