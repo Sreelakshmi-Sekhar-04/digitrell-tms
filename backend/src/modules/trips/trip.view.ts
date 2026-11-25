@@ -1,5 +1,6 @@
 import { toNumber } from '../../lib/validate';
 import { scored, UNDO_MINUTES, type TripFull } from './tender.service';
+import { acceptedClaims, currentInvoice, invoiceChecks, podState } from './billing.service';
 
 /** Tabs on the Trips list (design: All / Needs action / In transit / Delivered and billed / Closed). */
 export const GROUPS = {
@@ -20,10 +21,30 @@ export function groupOf(t: TripFull): keyof typeof GROUPS | 'waiting' {
   return 'waiting';
 }
 
+const fmtDateTime = (d: Date) =>
+  d.toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Kolkata' });
+const fmtDate = (d: Date) => d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' });
+
 /** The one-line "Next step" column. */
-export function nextStep(t: TripFull): string {
+export function nextStep(t: TripFull, podRule = 'DIGITAL'): string {
   const quoted = t.quotes.filter((q) => q.status === 'QUOTED').length;
+  const inv = currentInvoice(t);
   switch (t.status) {
+    case 'READY_FOR_PICKUP':
+      return `Truck ${t.truckNumber ?? ''} reporting for pickup`.replace('  ', ' ');
+    case 'IN_TRANSIT':
+      return t.eta ? `ETA ${fmtDateTime(t.eta)}` : 'On the road';
+    case 'DELIVERED':
+      return t.documents.some((d) => d.kind === 'POD') ? 'Review the POD' : 'Waiting for the POD photo';
+    case 'POD_RECEIVED':
+      return podRule === 'HARD_COPY' && !t.podHardCopyAt ? 'Waiting for the POD hard copy' : 'Waiting for the carrier invoice';
+    case 'INVOICED':
+      if (!inv) return '—';
+      if (inv.status === 'RECEIVED') return `Approve invoice ₹${Number(inv.total).toLocaleString('en-IN')}`;
+      if (inv.status === 'APPROVED') return podRule !== 'DIGITAL' && !t.podHardCopyAt ? 'Pay after the POD hard copy arrives' : `Pay by ${fmtDate(inv.dueDate)}`;
+      return 'Invoice queried; waiting for the carrier';
+    case 'CLOSED':
+      return t.closedAt ? `Paid ${fmtDate(t.closedAt)}` : 'Closed';
     case 'QUOTES_REQUESTED':
       return t.quotesClosedAt ? 'No quotes: ask again or change carriers' : `Quotes close ${t.quoteDeadline ? fmtTime(t.quoteDeadline) : 'soon'}`;
     case 'QUOTES_RECEIVED':
@@ -39,7 +60,7 @@ export function nextStep(t: TripFull): string {
 
 const date = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
 
-export function tripSummary(t: TripFull) {
+export function tripSummary(t: TripFull, podRule = 'DIGITAL') {
   return {
     id: t.id,
     number: t.number,
@@ -54,16 +75,42 @@ export function tripSummary(t: TripFull) {
     carrier: t.carrier?.name ?? null,
     amount: toNumber(t.awardedAmount),
     budget: toNumber(t.lane?.budget),
-    nextStep: nextStep(t),
+    nextStep: nextStep(t, podRule),
     createdAt: t.createdAt,
   };
 }
 
-export function tripDetail(t: TripFull, activity: { at: Date; actor: string; action: string; text: string }[]) {
+export function tripDetail(
+  t: TripFull,
+  activity: { at: Date; actor: string; action: string; text: string }[],
+  policy: { podRule: string; paymentApprovalAbove: number },
+) {
   const { list, reason } = scored(t);
   const scoreById = new Map(list.map((q, i) => [q.id, { ...q, rank: i + 1 }]));
+  const inv = currentInvoice(t);
   return {
-    ...tripSummary(t),
+    ...tripSummary(t, policy.podRule),
+    truck: t.truckNumber ? { number: t.truckNumber, driverName: t.driverName, driverPhone: t.driverPhone } : null,
+    eta: t.eta,
+    lastLocation: t.lastLocation,
+    lastUpdateAt: t.lastUpdateAt,
+    delivery: t.deliveredAt ? { at: t.deliveredAt, goodQty: t.goodQty, damagedQty: t.damagedQty, remarks: t.deliveryRemarks } : null,
+    pod: { ...podState(t, policy.podRule), acceptedAt: t.podAcceptedAt, hardCopyAt: t.podHardCopyAt },
+    documents: t.documents.filter((d) => !d.isVoid).map((d) => ({ id: d.id, kind: d.kind, number: d.number, validUntil: d.validUntil, fileUrl: d.fileUrl, at: d.createdAt })),
+    claims: t.claims.map((c) => ({
+      id: c.id, number: c.number, kind: c.kind, qty: c.qty, unitValue: toNumber(c.unitValue), amount: toNumber(c.amount),
+      description: c.description, status: c.status, carrierNote: c.carrierNote, at: c.createdAt,
+    })),
+    acceptedClaims: acceptedClaims(t),
+    invoice: inv && {
+      id: inv.id, number: inv.number, status: inv.status, freight: toNumber(inv.freight), detention: toNumber(inv.detention),
+      claimDeduction: toNumber(inv.claimDeduction), total: toNumber(inv.total), dueDate: inv.dueDate, queryReason: inv.queryReason,
+      approvedAt: inv.approvedAt, paidAt: inv.paidAt, paymentMode: inv.paymentMode, paymentRef: inv.paymentRef, receivedAt: inv.createdAt,
+      checks: invoiceChecks(t, inv),
+      needsApproval: inv.status === 'RECEIVED',
+      aboveThreshold: toNumber(inv.total)! > policy.paymentApprovalAbove,
+    },
+    paymentApprovalAbove: policy.paymentApprovalAbove,
     pickup: t.pickupAddress && { id: t.pickupAddress.id, name: t.pickupAddress.name, city: t.pickupAddress.city, line1: t.pickupAddress.line1 },
     drop: t.dropAddress && { id: t.dropAddress.id, name: t.dropAddress.name, city: t.dropAddress.city, line1: t.dropAddress.line1 },
     laneId: t.laneId,

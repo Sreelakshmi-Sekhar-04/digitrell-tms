@@ -3,6 +3,7 @@ import { prisma } from '../../lib/prisma';
 import { HttpError, asyncHandler, notFound } from '../../lib/errors';
 import { Validator } from '../../lib/validate';
 import { receiveQuote, syncTrip } from '../trips/tender.service';
+import { TRACKING_EVENTS, claimResponse, delivered, invoiceRaised, podReceived, trackingEvent, truckConfirmed } from '../trips/billing.service';
 
 /**
  * INTEGRATION POINTS for modules that are not built yet (carrier quote agent, test tools).
@@ -60,6 +61,110 @@ integrationRouter.post(
     if (process.env.NODE_ENV === 'production') throw notFound();
     const trip = await tripByNumber(req.params.number);
     await prisma.trip.update({ where: { id: trip.id }, data: { awardedAt: new Date(Date.now() - 3600_000) } });
+    res.json({ ok: true });
+  }),
+);
+
+const isoDate = (v: Validator, key: string, label: string, required = false) => {
+  const s = v.text(key, label, { required });
+  if (!s) return null;
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) {
+    v.fail(key, `Enter ${label} as an ISO date.`);
+    return null;
+  }
+  return d;
+};
+
+/** Carrier module: truck and driver confirmed; documents agent issues LR and e-way bill. */
+integrationRouter.post(
+  '/trips/:number/truck',
+  asyncHandler(async (req, res) => {
+    const v = new Validator(req.body);
+    const truckNumber = v.text('truckNumber', 'the truck number', { required: true, max: 20 });
+    const driverName = v.text('driverName', 'the driver name', { required: true, max: 60 });
+    const driverPhone = v.phone('driverPhone', 'the driver mobile', { required: true });
+    const lrNumber = v.text('lrNumber', 'the LR number', { required: true, max: 30 });
+    const ewayBillNumber = v.text('ewayBillNumber', 'the e-way bill number', { required: true, max: 30 });
+    const ewayValidUntil = isoDate(v, 'ewayValidUntil', 'the e-way bill expiry', true);
+    v.done();
+    const trip = await tripByNumber(req.params.number);
+    await truckConfirmed(trip.id, { truckNumber: truckNumber!, driverName: driverName!, driverPhone: driverPhone!, lrNumber: lrNumber!, ewayBillNumber: ewayBillNumber!, ewayValidUntil: ewayValidUntil! });
+    res.json({ ok: true });
+  }),
+);
+
+/** Driver bot: Reached pickup / Loaded / location / Reached drop. */
+integrationRouter.post(
+  '/trips/:number/events',
+  asyncHandler(async (req, res) => {
+    const v = new Validator(req.body);
+    const type = v.oneOf('type', 'an event type', TRACKING_EVENTS);
+    const location = v.text('location', 'the location', { max: 80 });
+    const eta = isoDate(v, 'eta', 'the ETA');
+    v.done();
+    const trip = await tripByNumber(req.params.number);
+    await trackingEvent(trip.id, type!, location, eta);
+    res.json({ ok: true });
+  }),
+);
+
+/** Receiver confirms delivery with the one-time code. */
+integrationRouter.post(
+  '/trips/:number/delivered',
+  asyncHandler(async (req, res) => {
+    const v = new Validator(req.body);
+    const goodQty = v.int('goodQty', 'units received in good order', 0, 1_000_000);
+    const damagedQty = v.int('damagedQty', 'damaged or short units', 0, 1_000_000);
+    const remarks = v.text('remarks', 'remarks', { max: 200 });
+    v.done();
+    const trip = await tripByNumber(req.params.number);
+    await delivered(trip.id, { goodQty: goodQty!, damagedQty: damagedQty!, remarks });
+    res.json({ ok: true });
+  }),
+);
+
+/** Driver sends the signed-LR photo; the POD agent reports whether its QR matched the LR. */
+integrationRouter.post(
+  '/trips/:number/pod',
+  asyncHandler(async (req, res) => {
+    const v = new Validator(req.body);
+    const remarks = v.text('remarks', 'remarks read from the POD', { max: 200 });
+    const photoUrl = v.text('photoUrl', 'the photo link', { max: 500 });
+    v.done();
+    const trip = await tripByNumber(req.params.number);
+    await podReceived(trip.id, { qrMatched: req.body?.qrMatched !== false, remarks, photoUrl });
+    res.json({ ok: true });
+  }),
+);
+
+/** Carrier accepts or disputes a claim. */
+integrationRouter.post(
+  '/claims/:number/response',
+  asyncHandler(async (req, res) => {
+    const claim = await prisma.claim.findUnique({ where: { number: req.params.number } });
+    if (!claim) throw notFound(`No claim ${req.params.number}.`);
+    const v = new Validator(req.body);
+    const note = v.text('note', 'a note', { max: 200 });
+    v.done();
+    await claimResponse(claim.id, req.body?.accept === true, note);
+    res.json({ ok: true });
+  }),
+);
+
+/** Carrier billing: invoice for a trip. */
+integrationRouter.post(
+  '/trips/:number/invoice',
+  asyncHandler(async (req, res) => {
+    const v = new Validator(req.body);
+    const number = v.text('number', 'the invoice number', { required: true, max: 30 });
+    const freight = v.money('freight', 'the freight amount', { required: true });
+    const detention = req.body?.detention ? v.money('detention', 'detention') : 0;
+    const claimDeduction = req.body?.claimDeduction ? v.money('claimDeduction', 'the claim deduction') : 0;
+    const dueDate = isoDate(v, 'dueDate', 'the due date');
+    v.done();
+    const trip = await tripByNumber(req.params.number);
+    await invoiceRaised(trip.id, { number: number!, freight: freight!, detention: detention ?? 0, claimDeduction: claimDeduction ?? 0, dueDate });
     res.json({ ok: true });
   }),
 );

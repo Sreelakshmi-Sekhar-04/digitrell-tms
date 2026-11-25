@@ -20,8 +20,8 @@ module.exports = {
         },
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
-        display: ['"Space Grotesk"', 'Inter', 'system-ui', 'sans-serif'],
+        sans: ['var(--font-inter)', 'Inter', 'system-ui', 'sans-serif'],
+        display: ['var(--font-grotesk)', '"Space Grotesk"', 'Inter', 'system-ui', 'sans-serif'],
       },
       borderRadius: { btn: '10px', card: '14px' },
       boxShadow: { float: '0 12px 32px rgba(23,33,43,.14)' },

@@ -234,9 +234,27 @@ model Trip {
   awardedAt  DateTime?
   awardedById String?
   createdById String?
+  // Execution (reported by the carrier / driver modules through integration points).
+  truckNumber    String?
+  driverName     String?
+  driverPhone    String?
+  eta            DateTime?
+  lastLocation   String?
+  lastUpdateAt   DateTime?
+  deliveredAt    DateTime?
+  goodQty        Int?
+  damagedQty     Int?
+  deliveryRemarks String?
+  // POD (BRD §4.10). Accepted by rule when clean, or by a person when it shows a problem.
+  podAcceptedAt  DateTime?
+  podAcceptedById String?
+  podHardCopyAt  DateTime?
+  closedAt       DateTime?
   quotes     Quote[]
   documents  Document[]
   approvals  Approval[]
+  claims     Claim[]
+  invoices   Invoice[]
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
 
@@ -270,7 +288,55 @@ model Document {
   number    String?
   isVoid    Boolean  @default(false)
   fileUrl   String?
+  validUntil DateTime?
   createdAt DateTime @default(now())
+}
+
+// Shortage or damage claim against the carrier, raised from the POD (BRD §4.10).
+model Claim {
+  id          String   @id @default(cuid())
+  number      String   @unique @default(dbgenerated("'CL-' || nextval('claim_number_seq')"))
+  tripId      String
+  trip        Trip     @relation(fields: [tripId], references: [id])
+  kind        String   // DAMAGE | SHORTAGE
+  qty         Int
+  unitValue   Decimal  @db.Decimal(12, 2)
+  amount      Decimal  @db.Decimal(12, 2)
+  description String
+  // RAISED → ACCEPTED | DISPUTED; WITHDRAWN by the shipper.
+  status      String   @default("RAISED")
+  carrierNote String?
+  raisedById  String
+  respondedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// Carrier's invoice to the shipper (BRD §4.11). One open invoice per trip; a queried one is replaced.
+model Invoice {
+  id             String   @id @default(cuid())
+  number         String
+  tripId         String
+  trip           Trip     @relation(fields: [tripId], references: [id])
+  carrierId      String
+  freight        Decimal  @db.Decimal(12, 2)
+  detention      Decimal  @default(0) @db.Decimal(12, 2)
+  claimDeduction Decimal  @default(0) @db.Decimal(12, 2)
+  total          Decimal  @db.Decimal(12, 2)
+  dueDate        DateTime
+  // RECEIVED → APPROVED → PAID; QUERIED (carrier must resend) | REPLACED.
+  status         String   @default("RECEIVED")
+  queryReason    String?
+  approvedById   String?
+  approvedAt     DateTime?
+  paidAt         DateTime?
+  paymentMode    String?  // UPI | BANK
+  paymentRef     String?
+  postedToErp    Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([tripId])
 }
 
 model Approval {
