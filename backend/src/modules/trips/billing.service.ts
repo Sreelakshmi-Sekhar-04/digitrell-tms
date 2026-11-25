@@ -101,7 +101,10 @@ export async function trackingEvent(tripId: string, type: (typeof TRACKING_EVENT
   if (!allowed.includes(trip.status)) throw conflict('WRONG_STATE', `“${type}” doesn't fit a trip that is ${trip.status.toLowerCase().replace(/_/g, ' ')}.`);
   await prisma.trip.update({
     where: { id: trip.id },
-    data: { status: type === 'LOADED' ? 'IN_TRANSIT' : undefined, lastLocation: location ?? undefined, eta: eta ?? undefined, lastUpdateAt: new Date() },
+    data: {
+      status: type === 'LOADED' ? 'IN_TRANSIT' : undefined, lastLocation: location ?? undefined, eta: eta ?? undefined, lastUpdateAt: new Date(),
+      promisedEta: type === 'LOADED' && eta && !trip.promisedEta ? eta : undefined,
+    },
   });
   await audit('tracking-agent', `TRACK_${type}`, { location, eta }, { tripId: trip.id });
 }

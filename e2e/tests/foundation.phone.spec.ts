@@ -23,7 +23,7 @@ test.describe('Phone layout (390 × 844)', () => {
 
     await tabs.getByRole('button', { name: 'More' }).click();
     const more = page.locator('#more-menu');
-    await expect(more.getByRole('link')).toHaveText(['New booking', 'Carriers and lanes', 'Reports', 'Policies']);
+    await expect(more.getByRole('link')).toHaveText(['New booking', 'Carriers and lanes', 'Reports', 'Policies', 'My messages']);
     await more.getByRole('link', { name: 'Reports' }).click();
     await expect(page).toHaveURL(/\/reports$/);
     await expect(more).toBeHidden();

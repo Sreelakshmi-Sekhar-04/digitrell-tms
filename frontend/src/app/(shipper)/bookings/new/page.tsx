@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
@@ -156,6 +156,18 @@ export default function NewBookingPage() {
     setFormError(null);
     setPreview(null);
   };
+
+  // Home's "Repeat last booking" opens this page with ?repeat=last: fill the form from the latest booking once.
+  const repeatedFromLink = useRef(false);
+  useEffect(() => {
+    const latest = recent.data?.recent[0];
+    if (repeatedFromLink.current || !latest) return;
+    if (new URLSearchParams(window.location.search).get('repeat') === 'last') {
+      repeatedFromLink.current = true;
+      repeat(latest);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recent.data]);
 
   if (addresses.loading && !addresses.data) return <Skeleton lines={4} />;
 

@@ -77,7 +77,7 @@ tripsRouter.get(
   }),
 );
 
-const ACTION_TEXT: Record<string, (d: Record<string, unknown>) => string> = {
+export const ACTION_TEXT: Record<string, (d: Record<string, unknown>) => string> = {
   BOOKED: (d) => `Booked on the ${d.channel ?? 'web'}`,
   QUOTES_REQUESTED: (d) => `Quote request sent to ${(d.carriers as string[])?.length ?? 0} carriers`,
   QUOTE_RECEIVED: (d) => `${d.carrier} quoted ₹${Number(d.amount).toLocaleString('en-IN')}`,
@@ -117,7 +117,7 @@ const ACTION_TEXT: Record<string, (d: Record<string, unknown>) => string> = {
   FIX_REJECTED: (d) => `Fix rejected: ${d.label}`,
   EXCEPTION_RESOLVED: (d) => `Back on the road${d.truck ? ` with truck ${d.truck}` : ''}`,
 };
-const AGENTS: Record<string, string> = {
+export const AGENTS: Record<string, string> = {
   'tender-agent': 'Tender agent', 'bid-evaluation-agent': 'Bid evaluation agent', 'documents-agent': 'Documents agent',
   'tracking-agent': 'Tracking agent', 'pod-agent': 'POD agent', 'billing-agent': 'Billing agent', 'exception-agent': 'Exception agent', coordinator: 'Coordinator', carrier: 'Carrier',
 };

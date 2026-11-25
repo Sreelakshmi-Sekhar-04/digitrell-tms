@@ -15,13 +15,26 @@ import { decideFix, type Proposal } from '../trips/exceptions.service';
 export const approvalsRouter = Router();
 const inr = (n: number) => '₹' + n.toLocaleString('en-IN', { maximumFractionDigits: 2 });
 
-approvalsRouter.get(
-  '/',
-  asyncHandler(async (req, res) => {
-    const companyId = req.user!.companyId;
+export interface ApprovalItem {
+  id: string;
+  kind: 'AWARD' | 'PAYMENT' | 'EXCEPTION';
+  kindLabel: string;
+  tripId: string;
+  ref: string;
+  summary: string;
+  reason: string;
+  amount: number;
+  quoted?: number;
+  asked?: number;
+  createdAt: Date;
+}
+
+/** Everything waiting for a shipper decision, oldest first (also used by the Home dashboard). */
+export async function listApprovals(companyId: string): Promise<ApprovalItem[]> {
+  {
     await syncDueTrips(companyId);
     const pending = await prisma.approval.findMany({ where: { companyId, status: 'PENDING' }, orderBy: { createdAt: 'asc' } });
-    const items = [];
+    const items: ApprovalItem[] = [];
     for (const a of pending) {
       if (!a.tripId) continue;
       const trip = await loadTrip(a.tripId, companyId);
@@ -59,6 +72,14 @@ approvalsRouter.get(
         });
       }
     }
+    return items;
+  }
+}
+
+approvalsRouter.get(
+  '/',
+  asyncHandler(async (req, res) => {
+    const items = await listApprovals(req.user!.companyId);
     res.json({ approvals: items, count: items.length });
   }),
 );
