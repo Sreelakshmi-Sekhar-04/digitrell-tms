@@ -250,11 +250,16 @@ model Trip {
   podAcceptedById String?
   podHardCopyAt  DateTime?
   closedAt       DateTime?
+  // Cancellation (BRD §5: from any status before Delivered, with a reason).
+  cancelledAt    DateTime?
+  cancelledById  String?
+  cancelReason   String?
   quotes     Quote[]
   documents  Document[]
   approvals  Approval[]
   claims     Claim[]
   invoices   Invoice[]
+  exceptions TripException[]
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
 
@@ -371,4 +376,25 @@ model AuditLog {
   reason    String?
   data      Json?
   createdAt DateTime @default(now())
+}
+
+// A problem on the road (BRD §4.9): breakdown, accident or delay, with the fix the agent proposes.
+model TripException {
+  id          String   @id @default(cuid())
+  tripId      String
+  trip        Trip     @relation(fields: [tripId], references: [id])
+  kind        String   // BREAKDOWN | ACCIDENT | DELAY | OTHER
+  description String
+  // Proposed fix: { fix: SWAP|WAIT|REPAIR|TRANSHIP, label, newEta, extraCost, payer: CARRIER|SHIPPER }
+  proposal    Json?
+  // OPEN (carrier handling) | AWAITING_SHIPPER (extra cost to the shipper) | APPROVED | REJECTED | RESOLVED
+  status      String   @default("OPEN")
+  decidedById String?
+  decisionReason String?
+  decidedAt   DateTime?
+  resolvedAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tripId])
 }

@@ -25,6 +25,9 @@ const fmtDateTime = (d: Date) =>
   d.toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Kolkata' });
 const fmtDate = (d: Date) => d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' });
 
+/** The problem the trip is on hold for, if any. */
+export const openException = (t: TripFull) => t.exceptions.find((x) => !['RESOLVED', 'NOTICE'].includes(x.status)) ?? null;
+
 /** The one-line "Next step" column. */
 export function nextStep(t: TripFull, podRule = 'DIGITAL'): string {
   const quoted = t.quotes.filter((q) => q.status === 'QUOTED').length;
@@ -43,6 +46,12 @@ export function nextStep(t: TripFull, podRule = 'DIGITAL'): string {
       if (inv.status === 'RECEIVED') return `Approve invoice ₹${Number(inv.total).toLocaleString('en-IN')}`;
       if (inv.status === 'APPROVED') return podRule !== 'DIGITAL' && !t.podHardCopyAt ? 'Pay after the POD hard copy arrives' : `Pay by ${fmtDate(inv.dueDate)}`;
       return 'Invoice queried; waiting for the carrier';
+    case 'ON_HOLD': {
+      const ex = openException(t);
+      if (ex?.status === 'AWAITING_SHIPPER') return 'Approve or reject the proposed fix';
+      const p = ex?.proposal as { label?: string } | null;
+      return p?.label ? `Carrier fixing: ${p.label}` : 'Problem reported; carrier proposing a fix';
+    }
     case 'CLOSED':
       return t.closedAt ? `Paid ${fmtDate(t.closedAt)}` : 'Closed';
     case 'QUOTES_REQUESTED':
@@ -111,6 +120,12 @@ export function tripDetail(
       aboveThreshold: toNumber(inv.total)! > policy.paymentApprovalAbove,
     },
     paymentApprovalAbove: policy.paymentApprovalAbove,
+    exception: (() => {
+      const x = openException(t);
+      return x && { id: x.id, kind: x.kind, description: x.description, status: x.status, proposal: x.proposal, decisionReason: x.decisionReason, at: x.createdAt };
+    })(),
+    delays: t.exceptions.filter((x) => x.status === 'NOTICE').map((x) => ({ description: x.description, at: x.createdAt })),
+    cancelled: t.cancelledAt ? { at: t.cancelledAt, reason: t.cancelReason } : null,
     pickup: t.pickupAddress && { id: t.pickupAddress.id, name: t.pickupAddress.name, city: t.pickupAddress.city, line1: t.pickupAddress.line1 },
     drop: t.dropAddress && { id: t.dropAddress.id, name: t.dropAddress.name, city: t.dropAddress.city, line1: t.dropAddress.line1 },
     laneId: t.laneId,

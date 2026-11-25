@@ -89,3 +89,5 @@ Each phase: build → run app → Playwright (UI + API, positive and negative) �
 5. **Claim value source.** Design uses the shipper's invoice value per carton. Where does that value come from (ERP, manual)?
 6. **Approval routing.** If the approver has no limit high enough, who is next — the logistics head only, or a chain?
 7. **Payment.** Record-only in Release 1, or a real UPI collect/pay link (which provider)?
+
+8. Cancellation charges: should a cancellation after the award (or on the road) calculate a charge, and from what (rate card, fixed fee, agreement)?

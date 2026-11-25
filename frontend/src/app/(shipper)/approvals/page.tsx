@@ -49,7 +49,8 @@ export default function ApprovalsPage() {
     setBusy(a.id);
     try {
       await api(`/approvals/${a.id}/approve`, { method: 'POST' });
-      if (a.kind === 'PAYMENT') toast({ tone: 'success', title: `Invoice ${a.ref} approved.`, text: 'Record the payment on the trip when it is done.' });
+      if (a.kind === 'EXCEPTION') toast({ tone: 'success', title: `${a.ref}: fix approved.`, text: 'The carrier goes ahead; you get the new ETA.' });
+      else if (a.kind === 'PAYMENT') toast({ tone: 'success', title: `Invoice ${a.ref} approved.`, text: 'Record the payment on the trip when it is done.' });
       else toast({ tone: 'success', title: `${a.ref} awarded.`, text: 'Other carriers are told after 10 minutes. Truck details follow.' });
     } catch (err) {
       toast({ tone: 'error', title: err instanceof ApiError ? err.body.message : 'Could not approve.' });
@@ -64,7 +65,8 @@ export default function ApprovalsPage() {
     setBusy(a.id);
     try {
       await api(`/approvals/${a.id}/reject`, { method: 'POST', json: { reason } });
-      if (a.kind === 'PAYMENT') toast({ tone: 'success', title: `Invoice ${a.ref} queried.`, text: 'The carrier is asked for a corrected invoice.' });
+      if (a.kind === 'EXCEPTION') toast({ tone: 'success', title: `${a.ref}: fix rejected.`, text: 'The carrier is asked for another option.' });
+      else if (a.kind === 'PAYMENT') toast({ tone: 'success', title: `Invoice ${a.ref} queried.`, text: 'The carrier is asked for a corrected invoice.' });
       else toast({ tone: 'success', title: `${a.ref}: quotes rejected.`, text: 'The same carriers are asked again with a new deadline.' });
       setRejecting(null);
       setReason('');
@@ -95,7 +97,7 @@ export default function ApprovalsPage() {
               return (
                 <Fragment key={a.id}>
                   <tr>
-                    <td className={td}><Chip tone={a.kind === 'PAYMENT' ? 'billing' : 'action'}>{a.kindLabel}</Chip></td>
+                    <td className={td}><Chip tone={a.kind === 'PAYMENT' ? 'billing' : a.kind === 'EXCEPTION' ? 'danger' : 'action'}>{a.kindLabel}</Chip></td>
                     <td className={`${td} font-semibold`}><Link href={`/trips/${a.tripId}`} className="hover:underline">{a.ref}</Link></td>
                     <td className={td}>
                       <div className="font-semibold">{a.summary}</div>
@@ -107,7 +109,7 @@ export default function ApprovalsPage() {
                       <div className="inline-flex gap-1.5">
                         <Button size="sm" onClick={() => approve(a)} loading={busy === a.id} disabled={overLimit} title={overLimit ? (limit == null ? "Your role can't approve" : `Above your limit of ${rupees(limit)}`) : undefined}>Approve</Button>
                         <Button size="sm" variant="secondary" onClick={() => router.push(`/trips/${a.tripId}`)}>Change</Button>
-                        <Button size="sm" variant="danger" onClick={() => { setRejecting(a.id); setReason(''); setReasonError(''); }} disabled={limit == null}>{a.kind === 'PAYMENT' ? 'Query' : 'Reject'}</Button>
+                        <Button size="sm" variant="danger" onClick={() => { setRejecting(a.id); setReason(''); setReasonError(''); }} disabled={limit == null}>{a.kind === 'PAYMENT' ? 'Query' : a.kind === 'EXCEPTION' ? 'Reject fix' : 'Reject'}</Button>
                       </div>
                     </td>
                   </tr>
@@ -116,9 +118,9 @@ export default function ApprovalsPage() {
                       <td colSpan={6} className="border-b border-line-faint bg-brand-soft px-3.5 py-3">
                         <div className="flex flex-wrap items-end gap-2.5">
                           <div className="min-w-[260px] flex-1">
-                            <TextField label={a.kind === 'PAYMENT' ? `What is wrong with invoice ${a.ref}?` : `Why reject all quotes for ${a.ref}?`} required value={reason} onChange={(e) => { setReason(e.target.value); setReasonError(''); }} error={reasonError} placeholder={a.kind === 'PAYMENT' ? 'e.g. Detention not agreed' : 'e.g. All quotes above budget'} />
+                            <TextField label={a.kind === 'PAYMENT' ? `What is wrong with invoice ${a.ref}?` : a.kind === 'EXCEPTION' ? `Why reject the fix for ${a.ref}?` : `Why reject all quotes for ${a.ref}?`} required value={reason} onChange={(e) => { setReason(e.target.value); setReasonError(''); }} error={reasonError} placeholder={a.kind === 'PAYMENT' ? 'e.g. Detention not agreed' : 'e.g. All quotes above budget'} />
                           </div>
-                          <Button size="sm" variant="danger" onClick={() => reject(a)} loading={busy === a.id}>{a.kind === 'PAYMENT' ? 'Send query' : 'Reject and ask again'}</Button>
+                          <Button size="sm" variant="danger" onClick={() => reject(a)} loading={busy === a.id}>{a.kind === 'PAYMENT' ? 'Send query' : a.kind === 'EXCEPTION' ? 'Reject fix' : 'Reject and ask again'}</Button>
                           <Button size="sm" variant="ghost" onClick={() => setRejecting(null)}>Cancel</Button>
                         </div>
                       </td>

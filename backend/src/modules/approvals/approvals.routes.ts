@@ -6,6 +6,7 @@ import { getPolicy } from '../policies/policies.routes';
 import { awardQuote, loadTrip, retender, scored } from '../trips/tender.service';
 import { syncDueTrips } from '../trips/trips.routes';
 import { approveInvoice, currentInvoice, invoiceChecks, queryInvoice } from '../trips/billing.service';
+import { decideFix, type Proposal } from '../trips/exceptions.service';
 
 /**
  * The approvals inbox (BRD §4: recommendation, reasons, alternatives; Approve / Change / Reject).
@@ -46,6 +47,16 @@ approvalsRouter.get(
           reason: failed.length ? `Check: ${failed.map((c) => `${c.label.toLowerCase()} — ${c.detail}`).join('; ')}.` : 'POD accepted, invoice matches the award.',
           amount: toNumber(inv.total)!, createdAt: a.createdAt,
         });
+      } else if (a.kind === 'EXCEPTION') {
+        const ex = trip.exceptions.find((x) => x.status === 'AWAITING_SHIPPER');
+        const p = ex?.proposal as unknown as Proposal | null;
+        if (!ex || !p) continue;
+        items.push({
+          id: a.id, kind: 'EXCEPTION', kindLabel: 'Exception fix', tripId: trip.id, ref: trip.number,
+          summary: `${p.label} on ${lane}`,
+          reason: `${ex.description}. ${p.newEta ? `New ETA ${new Date(p.newEta).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Kolkata' })}. ` : ''}Extra ${inr(p.extraCost)}, billed to you.`,
+          amount: p.extraCost, createdAt: a.createdAt,
+        });
       }
     }
     res.json({ approvals: items, count: items.length });
@@ -69,6 +80,10 @@ approvalsRouter.post(
       await approveInvoice(a.tripId!, req.user!.companyId, actor);
       return res.json({ ok: true });
     }
+    if (a.kind === 'EXCEPTION') {
+      await decideFix(a.tripId!, req.user!.companyId, { ...actor, role: req.user!.role }, true, null);
+      return res.json({ ok: true });
+    }
     const trip = await loadTrip(a.tripId!, req.user!.companyId);
     const top = scored(trip).list[0];
     if (!top) throw new HttpError(409, 'NO_QUOTES', 'There is no quote to award yet.');
@@ -88,6 +103,10 @@ approvalsRouter.post(
     const actor = { id: req.user!.id, name: req.user!.name };
     if (a.kind === 'PAYMENT') {
       await queryInvoice(a.tripId!, req.user!.companyId, actor, reason!);
+      return res.json({ ok: true });
+    }
+    if (a.kind === 'EXCEPTION') {
+      await decideFix(a.tripId!, req.user!.companyId, { ...actor, role: req.user!.role }, false, reason);
       return res.json({ ok: true });
     }
     const policy = await getPolicy(req.user!.companyId);

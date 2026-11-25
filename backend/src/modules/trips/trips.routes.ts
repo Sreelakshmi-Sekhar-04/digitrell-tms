@@ -6,6 +6,7 @@ import { Validator } from '../../lib/validate';
 import { awardQuote, loadTrip, retender, syncTrip, tripInclude, undoAward } from './tender.service';
 import { GROUPS, tripDetail, tripSummary } from './trip.view';
 import { acceptPod, approveInvoice, markHardCopy, payInvoice, queryInvoice, raiseClaim, withdrawClaim } from './billing.service';
+import { CANCEL_REASONS, askMoreCarriers, cancelPreview, cancelTrip, carriersNotAsked, decideFix, editBooking, editRules, extendDeadline } from './exceptions.service';
 import { getPolicy } from '../policies/policies.routes';
 
 export const tripsRouter = Router();
@@ -105,10 +106,20 @@ const ACTION_TEXT: Record<string, (d: Record<string, unknown>) => string> = {
   INVOICE_QUERIED: (d) => `Invoice ${d.invoice} queried`,
   INVOICE_PAID: (d) => `Paid ₹${Number(d.total).toLocaleString('en-IN')} by ${d.mode === 'UPI' ? 'UPI' : 'bank transfer'}, ref ${d.reference}`,
   TRIP_CLOSED: () => 'Trip closed',
+  TRIP_CANCELLED: () => 'Booking cancelled',
+  BOOKING_EDITED: (d) => `Booking edited${d.requoted ? '; carriers asked to quote again' : ''}`,
+  DEADLINE_EXTENDED: (d) => `Quote deadline extended by ${d.hours} h`,
+  CARRIERS_ADDED: (d) => `${d.added} more carrier${Number(d.added) > 1 ? 's' : ''} asked to quote`,
+  DELAY_NOTICE: (d) => `Delay: ${d.description}`,
+  EXCEPTION_REPORTED: (d) => `Problem reported: ${String(d.kind).toLowerCase()} — ${d.description}`,
+  FIX_PROPOSED: (d) => `Fix proposed: ${d.label}${Number(d.extraCost) ? ` (₹${Number(d.extraCost).toLocaleString('en-IN')}, paid by ${d.payer === 'SHIPPER' ? 'you' : 'carrier'})` : ''}`,
+  FIX_APPROVED: (d) => `Fix approved: ${d.label}`,
+  FIX_REJECTED: (d) => `Fix rejected: ${d.label}`,
+  EXCEPTION_RESOLVED: (d) => `Back on the road${d.truck ? ` with truck ${d.truck}` : ''}`,
 };
 const AGENTS: Record<string, string> = {
   'tender-agent': 'Tender agent', 'bid-evaluation-agent': 'Bid evaluation agent', 'documents-agent': 'Documents agent',
-  'tracking-agent': 'Tracking agent', 'pod-agent': 'POD agent', 'billing-agent': 'Billing agent', coordinator: 'Coordinator', carrier: 'Carrier',
+  'tracking-agent': 'Tracking agent', 'pod-agent': 'POD agent', 'billing-agent': 'Billing agent', 'exception-agent': 'Exception agent', coordinator: 'Coordinator', carrier: 'Carrier',
 };
 
 tripsRouter.get(
@@ -125,16 +136,17 @@ tripsRouter.get(
       at: l.createdAt,
       actor: AGENTS[l.actor] ?? users.get(l.actor) ?? (l.actor.startsWith('carrier:') ? 'Carrier' : 'System'),
       action: l.action,
-      text: (ACTION_TEXT[l.action] ?? (() => l.action))((l.data ?? {}) as Record<string, unknown>) + (l.reason && ['QUOTES_REJECTED', 'INVOICE_QUERIED'].includes(l.action) ? ` — “${l.reason}”` : ''),
+      text: (ACTION_TEXT[l.action] ?? (() => l.action))((l.data ?? {}) as Record<string, unknown>) + (l.reason && ['QUOTES_REJECTED', 'INVOICE_QUERIED', 'TRIP_CANCELLED', 'FIX_REJECTED'].includes(l.action) ? ` — “${l.reason}”` : ''),
     }));
     const policy = await getPolicy(shipperId);
-    res.json({ trip: tripDetail(trip, activity, { podRule: policy.podRule, paymentApprovalAbove: Number(policy.paymentApprovalAbove) }) });
+    const extra = { cancel: cancelPreview(trip, req.user!.role), edit: editRules(trip), carriersNotAsked: await carriersNotAsked(trip) };
+    res.json({ trip: { ...tripDetail(trip, activity, { podRule: policy.podRule, paymentApprovalAbove: Number(policy.paymentApprovalAbove) }), ...extra } });
   }),
 );
 
 // ---------- POD, claims and billing (shipper decisions) ----------
 
-const actorOf = (req: { user?: { id: string; name: string } }) => ({ id: req.user!.id, name: req.user!.name });
+const actorOf = (req: { user?: { id: string; name: string; role: string } }) => ({ id: req.user!.id, name: req.user!.name, role: req.user!.role });
 
 tripsRouter.post(
   '/:id/pod/accept',
@@ -233,6 +245,88 @@ tripsRouter.post(
     const hours = req.body?.windowHours == null ? policy.quoteWindowHours : v.int('windowHours', 'the quote window', 1, 48);
     v.done();
     await retender(req.params.id, req.user!.companyId, { id: req.user!.id, name: req.user!.name }, reason!, hours!);
+    res.json({ ok: true });
+  }),
+);
+
+// ---------- exceptions: cancel, edit, widen the request, fixes on the road ----------
+
+tripsRouter.post(
+  '/:id/cancel',
+  asyncHandler(async (req, res) => {
+    const v = new Validator(req.body);
+    const reason = v.oneOf('reason', 'a reason', CANCEL_REASONS);
+    const note = v.text('note', 'a note', { max: 200 });
+    if (reason === 'OTHER' && !note) v.fail('note', 'Say what the reason is.');
+    v.done();
+    await cancelTrip(req.params.id, req.user!.companyId, actorOf(req), reason!, note);
+    res.json({ ok: true });
+  }),
+);
+
+tripsRouter.patch(
+  '/:id',
+  asyncHandler(async (req, res) => {
+    const v = new Validator(req.body);
+    const edit: Parameters<typeof editBooking>[3] = {};
+    const today = new Date(Date.now() + 5.5 * 3600_000).toISOString().slice(0, 10);
+    if (v.has('pickupDate')) {
+      const d = v.text('pickupDate', 'the pickup date', { required: true });
+      if (d && (!/^\d{4}-\d{2}-\d{2}$/.test(d) || Number.isNaN(Date.parse(d)))) v.fail('pickupDate', 'Choose a valid date.');
+      else if (d && d < today) v.fail('pickupDate', 'Pickup date cannot be in the past.');
+      else if (d && Date.parse(d) - Date.parse(today) > 60 * 86400_000) v.fail('pickupDate', 'Book at most 60 days ahead.');
+      else if (d) edit.pickupDate = d;
+    }
+    if (v.has('weightTonnes')) {
+      const w = Number(String(req.body.weightTonnes).replace(',', '.'));
+      if (!Number.isFinite(w) || w <= 0 || w > 60) v.fail('weightTonnes', 'Weight must be between 0.1 and 60 tonnes.');
+      else edit.weightTonnes = w;
+    }
+    if (v.has('material')) edit.material = v.text('material', 'what is being moved', { required: true, max: 80 }) ?? undefined;
+    if (v.has('receiverContact')) edit.receiverContact = v.text('receiverContact', 'the receiver contact', { max: 80 });
+    if (v.has('reference')) edit.reference = v.text('reference', 'your reference', { max: 40 });
+    if (v.has('notes')) edit.notes = v.text('notes', 'notes', { max: 200 });
+    v.done();
+    const r = await editBooking(req.params.id, req.user!.companyId, actorOf(req), edit);
+    res.json({ ok: true, ...r });
+  }),
+);
+
+tripsRouter.post(
+  '/:id/extend',
+  asyncHandler(async (req, res) => {
+    const v = new Validator(req.body);
+    const hours = v.int('hours', 'the extra hours', 1, 24);
+    v.done();
+    const until = await extendDeadline(req.params.id, req.user!.companyId, actorOf(req), hours!);
+    res.json({ ok: true, quoteDeadline: until });
+  }),
+);
+
+tripsRouter.post(
+  '/:id/carriers',
+  asyncHandler(async (req, res) => {
+    const ids = Array.isArray(req.body?.carrierIds) ? req.body.carrierIds.map(String) : [];
+    await askMoreCarriers(req.params.id, req.user!.companyId, actorOf(req), ids);
+    res.json({ ok: true });
+  }),
+);
+
+tripsRouter.post(
+  '/:id/exception/approve',
+  asyncHandler(async (req, res) => {
+    await decideFix(req.params.id, req.user!.companyId, actorOf(req), true, null);
+    res.json({ ok: true });
+  }),
+);
+
+tripsRouter.post(
+  '/:id/exception/reject',
+  asyncHandler(async (req, res) => {
+    const v = new Validator(req.body);
+    const reason = v.text('reason', 'why', { max: 200 });
+    v.done();
+    await decideFix(req.params.id, req.user!.companyId, actorOf(req), false, reason);
     res.json({ ok: true });
   }),
 );
