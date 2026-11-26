@@ -50,7 +50,7 @@ export function ReadyPanel({ trip }: Props) {
         <div><dt className="text-xs text-ink-muted">LR</dt><dd className="font-semibold">{lr(trip)?.number ?? '—'}</dd></div>
         <div><dt className="text-xs text-ink-muted">E-way bill</dt><dd className="font-semibold">{ewb(trip)?.number ?? '—'}</dd>{ewb(trip)?.validUntil && <dd className="text-xs text-ink-muted">Valid to {dateTimeIST(ewb(trip)!.validUntil!)}</dd>}</div>
       </dl>
-      <p className="mt-3 text-sm text-ink-muted">The driver taps “Reached pickup” and “Loaded” on WhatsApp; this page updates by itself.</p>
+      <p className="mt-3 text-sm text-ink-muted">Reached pickup and Loaded come in from the carrier; this page updates by itself.</p>
     </Card>
   );
 }

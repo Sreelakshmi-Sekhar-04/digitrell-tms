@@ -9,14 +9,19 @@ export interface NavItem {
 export const SHIPPER_NAV: NavItem[] = [
   { href: '/', label: 'Home', primaryOnPhone: true },
   { href: '/trips', label: 'Trips', primaryOnPhone: true },
-  { href: '/bookings/new', label: 'New booking' },
   { href: '/approvals', label: 'Approvals', primaryOnPhone: true },
-  { href: '/masters', label: 'Carriers and lanes' },
+  // Carriers, rate cards, lanes, addresses and users. New bookings start from Trips (and Home).
+  { href: '/masters', label: 'Master data' },
   { href: '/reports', label: 'Reports' },
   { href: '/policies', label: 'Policies' },
 ];
 
+/** Pages without a menu item of their own, highlighted under the item they belong to. */
+const SECTION_OF: Record<string, string> = { '/bookings': '/trips' };
+
 export function isActive(pathname: string, href: string) {
   if (href === '/') return pathname === '/';
-  return pathname === href || pathname.startsWith(href + '/');
+  const under = (p: string, base: string) => p === base || p.startsWith(base + '/');
+  if (under(pathname, href)) return true;
+  return Object.entries(SECTION_OF).some(([base, section]) => section === href && under(pathname, base));
 }

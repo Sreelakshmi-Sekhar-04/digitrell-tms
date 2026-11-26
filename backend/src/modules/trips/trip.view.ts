@@ -83,7 +83,7 @@ export function tripSummary(t: TripFull, podRule = 'DIGITAL') {
     pickupDate: date(t.pickupDate),
     carrier: t.carrier?.name ?? null,
     amount: toNumber(t.awardedAmount),
-    budget: toNumber(t.lane?.budget),
+    budget: toNumber(t.budget),
     nextStep: nextStep(t, podRule),
     createdAt: t.createdAt,
   };

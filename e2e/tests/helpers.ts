@@ -8,9 +8,14 @@ export const USERS = {
   inactive: { email: 'inactive@sunrisefoods.test', password: 'Shipper@123' },
   carrier: { email: 'vijay@kaveri.test', password: 'Carrier@123', name: 'Vijay Kumar', company: 'Kaveri Roadlines' },
   otherShipper: { email: 'meera@coastalpaints.test', password: 'Shipper@123', name: 'Meera Pillai', company: 'Coastal Paints' },
+  // Demo company (backend/prisma/demo), loaded into the test database after the seed.
+  demoHead: { email: 'lakshmi.menon@vasudhafoods.test', password: 'Demo@123', name: 'Lakshmi Menon', company: 'Vasudha Agro Foods Pvt Ltd' },
+  demoAccounts: { email: 'suresh.babu@vasudhafoods.test', password: 'Demo@123', name: 'Suresh Babu', company: 'Vasudha Agro Foods Pvt Ltd' },
+  demoExec: { email: 'arjun.reddy@vasudhafoods.test', password: 'Demo@123', name: 'Arjun Reddy', company: 'Vasudha Agro Foods Pvt Ltd' },
 };
 
-export const NAV = ['Home', 'Trips', 'New booking', 'Approvals', 'Carriers and lanes', 'Reports', 'Policies'];
+// New booking is started from Trips (and Home), not the menu; master data lives under one item.
+export const NAV = ['Home', 'Trips', 'Approvals', 'Master data', 'Reports', 'Policies'];
 
 /**
  * `test` with a guard that fails any UI test which logs a browser console error or an
@@ -62,6 +67,7 @@ export async function asUser(request: import('@playwright/test').APIRequestConte
     post: (path: string, data?: unknown) => request.post(`${API_URL}${path}`, { headers, data }),
     patch: (path: string, data: unknown) => request.patch(`${API_URL}${path}`, { headers, data }),
     put: (path: string, data: unknown) => request.put(`${API_URL}${path}`, { headers, data }),
+    delete: (path: string) => request.delete(`${API_URL}${path}`, { headers }),
   };
 }
 

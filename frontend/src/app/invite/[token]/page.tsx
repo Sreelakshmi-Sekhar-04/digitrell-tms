@@ -74,7 +74,7 @@ export default function AcceptInvitePage({ params }: { params: { token: string }
           ) : !invite.email ? (
             <>
               <h1 className="text-[22px] font-bold">Hello {invite.name}</h1>
-              <p className="mt-2 text-sm leading-relaxed text-ink-muted">You can already use DigitRell on WhatsApp. To use this web app too, ask your logistics head to add your email, then open a new invite link.</p>
+              <p className="mt-2 text-sm leading-relaxed text-ink-muted">To sign in, ask your logistics head to add your email, then open a new invite link.</p>
             </>
           ) : (
             <form onSubmit={submit} noValidate className="flex flex-col gap-4">

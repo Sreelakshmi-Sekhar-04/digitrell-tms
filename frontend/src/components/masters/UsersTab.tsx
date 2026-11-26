@@ -4,7 +4,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { formErrors, useApi } from '@/lib/useApi';
-import { CHANNEL_LABELS, LANGUAGE_LABELS, ROLE_OPTIONS, ROLES_WITH_LIMIT, prettyPhone, rupees } from '@/lib/masters';
+import { LANGUAGE_LABELS, ROLE_OPTIONS, ROLES_WITH_LIMIT, prettyPhone, rupees } from '@/lib/masters';
 import { Button } from '@/components/ui/Button';
 import { Chip } from '@/components/ui/Chip';
 import { EmptyState, Skeleton } from '@/components/ui/Card';
@@ -15,11 +15,11 @@ import { useToast } from '@/components/ui/Toast';
 import { DataTable, td } from './Table';
 import type { TeamUser } from './types';
 
-type Form = { name: string; phone: string; email: string; role: string; approvalLimit: string; language: string; channel: string };
-const EMPTY: Form = { name: '', phone: '', email: '', role: '', approvalLimit: '', language: 'en', channel: 'whatsapp' };
+type Form = { name: string; phone: string; email: string; role: string; approvalLimit: string; language: string };
+const EMPTY: Form = { name: '', phone: '', email: '', role: '', approvalLimit: '', language: 'en' };
 const fromUser = (u: TeamUser): Form => ({
   name: u.name, phone: u.phone ? prettyPhone(u.phone) : '', email: u.email ?? '', role: u.role,
-  approvalLimit: u.approvalLimit ? toRupeeInput(String(u.approvalLimit)) : '', language: u.language, channel: u.channel,
+  approvalLimit: u.approvalLimit ? toRupeeInput(String(u.approvalLimit)) : '', language: u.language,
 });
 const roleLabel = (r: string) => ROLE_OPTIONS.find((o) => o.value === r)?.label ?? r;
 
@@ -163,7 +163,7 @@ export function UsersTab({ canManage, addSignal }: { canManage: boolean; addSign
       >
         {invite ? (
           <div className="flex flex-col gap-4 text-sm leading-relaxed">
-            <p className="rounded-xl bg-tone-success-bg px-4 py-3 text-[#14532D]"><strong>{invite.name} can now join.</strong> Send them this link on WhatsApp or email. It works once and expires in 7 days.</p>
+            <p className="rounded-xl bg-tone-success-bg px-4 py-3 text-[#14532D]"><strong>{invite.name} can now join.</strong> Send them this link by email. It works once and expires in 7 days.</p>
             <TextField label="Invite link" readOnly value={invite.url} onFocus={(e) => e.currentTarget.select()} />
             <Button
               variant="secondary"
@@ -179,16 +179,15 @@ export function UsersTab({ canManage, addSignal }: { canManage: boolean; addSign
             >
               Copy link
             </Button>
-            <p className="text-[13px] text-ink-muted">Automatic WhatsApp invites arrive with the messaging module.</p>
           </div>
         ) : (
           <>
             {formError && <p role="alert" className="rounded-xl border border-[#E9B8B8] bg-tone-danger-bg px-4 py-3 text-sm font-semibold text-[#7A1616]">{formError}</p>}
             <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
               <TextField label="Name" required value={form.name} onChange={(e) => set('name', e.target.value)} error={errors.name} />
-              <TextField label="Mobile" required inputMode="tel" value={form.phone} onChange={(e) => set('phone', e.target.value)} error={errors.phone} help="Used to recognise them on WhatsApp." placeholder="98765 43210" />
+              <TextField label="Mobile" required inputMode="tel" value={form.phone} onChange={(e) => set('phone', e.target.value)} error={errors.phone} help="For calls about their trips." placeholder="98765 43210" />
             </div>
-            <TextField label="Email" optional type="email" value={form.email} onChange={(e) => set('email', e.target.value)} error={errors.email} help="Needed to sign in to this web app." placeholder="name@company.com" />
+            <TextField label="Email" required type="email" value={form.email} onChange={(e) => set('email', e.target.value)} error={errors.email} help="They sign in with this and get updates here." placeholder="name@company.com" />
             <RadioCards
               label="Role"
               required
@@ -214,9 +213,6 @@ export function UsersTab({ canManage, addSignal }: { canManage: boolean; addSign
             <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
               <SelectField label="Message language" value={form.language} onChange={(e) => set('language', e.target.value)}>
                 {Object.entries(LANGUAGE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-              </SelectField>
-              <SelectField label="Gets messages on" value={form.channel} onChange={(e) => set('channel', e.target.value)}>
-                {Object.entries(CHANNEL_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
               </SelectField>
             </div>
             {editing === 'new' && (

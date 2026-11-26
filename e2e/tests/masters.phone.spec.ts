@@ -3,7 +3,7 @@ import { USERS, expect, loginUi, test } from './helpers';
 test.describe('Masters on a phone (390 × 844)', () => {
   test('drawer fills the screen and the table scrolls inside its card', async ({ page }) => {
     await loginUi(page, USERS.shipperHead, '/masters?tab=addresses');
-    await expect(page.getByRole('heading', { name: 'Carriers and lanes', level: 1 })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Master data', level: 1 })).toBeVisible();
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     expect(overflow).toBeLessThanOrEqual(0);
 

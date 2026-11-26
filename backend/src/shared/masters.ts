@@ -16,4 +16,3 @@ export type ShipperRole = (typeof SHIPPER_ROLES)[number];
 export const ROLES_WITH_LIMIT: readonly ShipperRole[] = ['LOGISTICS_HEAD', 'APPROVER', 'ACCOUNTS_PAYABLE'];
 
 export const LANGUAGES = ['en', 'hi', 'ta', 'te', 'kn', 'ml', 'mr'] as const;
-export const CHANNELS = ['whatsapp', 'whatsapp_email', 'email'] as const;

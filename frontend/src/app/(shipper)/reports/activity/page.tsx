@@ -20,7 +20,6 @@ interface Entry {
   record: string | null;
   tripId: string | null;
   reason: string | null;
-  channel: string;
 }
 interface Res {
   entries: Entry[];
@@ -85,7 +84,7 @@ export default function ActivityPage() {
           <EmptyState title="Nothing in this view">Try a longer period or clear the filters.</EmptyState>
         ) : (
           <>
-            <DataTable label="Activity" headers={['Time', 'Who', 'What', 'Record', 'Reason', 'Channel']}>
+            <DataTable label="Activity" headers={['Time', 'Who', 'What', 'Record', 'Reason']}>
               {res.data.entries.map((e) => (
                 <tr key={e.id}>
                   <td className={`${td} whitespace-nowrap`}>{dateTimeIST(e.at)}</td>
@@ -93,7 +92,6 @@ export default function ActivityPage() {
                   <td className={td}>{e.text}</td>
                   <td className={`${td} whitespace-nowrap`}>{e.record && e.tripId ? <Link href={`/trips/${e.tripId}`} className="font-semibold hover:underline">{e.record}</Link> : '—'}</td>
                   <td className={`${td} text-ink-muted`}>{e.reason ?? ''}</td>
-                  <td className={`${td} text-ink-muted`}>{e.channel}</td>
                 </tr>
               ))}
             </DataTable>

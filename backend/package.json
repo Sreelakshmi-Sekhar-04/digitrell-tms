@@ -10,6 +10,9 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "seed": "ts-node prisma/seed.ts",
+    "demo:load": "ts-node prisma/demo/index.ts load",
+    "demo:reset": "ts-node prisma/demo/index.ts reset",
+    "demo:remove": "ts-node prisma/demo/index.ts remove",
     "typecheck": "tsc --noEmit"
   },
   "prisma": {

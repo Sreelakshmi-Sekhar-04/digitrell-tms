@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { api, ApiError } from '@/lib/api';
 import { useApi } from '@/lib/useApi';
-import { CHANNEL_LABELS, LANGUAGE_LABELS } from '@/lib/masters';
+import { LANGUAGE_LABELS } from '@/lib/masters';
 import { Button } from '@/components/ui/Button';
 import { Card, EmptyState, PageHeader, Skeleton } from '@/components/ui/Card';
 import { SelectField } from '@/components/ui/Field';
@@ -11,7 +11,6 @@ import { useToast } from '@/components/ui/Toast';
 
 interface Messages {
   language: string;
-  channel: string;
   quietHours: string;
   prefs: Record<string, boolean>;
 }
@@ -23,7 +22,7 @@ const TYPES = [
   { id: 'invoices', label: 'Invoices and payment reminders' },
 ];
 
-/** "Profile › My messages" from the design: language, channel, quiet hours and which updates you get. */
+/** "Profile › My messages" from the design: language, quiet hours and which email updates you get. */
 export default function MyMessagesPage() {
   const toast = useToast();
   const res = useApi<{ messages: Messages }>('/profile/messages');
@@ -53,16 +52,13 @@ export default function MyMessagesPage() {
 
   return (
     <div className="flex max-w-[900px] flex-col gap-5">
-      <PageHeader title="My messages" subtitle="How and when DigitRell messages you. Approvals always come through: they're how work moves." />
+      <PageHeader title="My messages" subtitle="Which updates DigitRell emails you, and when. Approvals always come through: they're how work moves." />
       <div className="grid grid-cols-1 items-start gap-5 md:grid-cols-2">
         <Card className="flex flex-col gap-4 p-5">
-          <SelectField label="Message language" value={form.language} onChange={(e) => setForm({ ...form, language: e.target.value })} error={errors.language} help="Button labels and document cover notes use this language too.">
+          <SelectField label="Message language" value={form.language} onChange={(e) => setForm({ ...form, language: e.target.value })} error={errors.language} help="Emails and document cover notes use this language.">
             {Object.entries(LANGUAGE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </SelectField>
-          <SelectField label="Send to" value={form.channel} onChange={(e) => setForm({ ...form, channel: e.target.value })} error={errors.channel}>
-            {Object.entries(CHANNEL_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-          </SelectField>
-          <SelectField label="Quiet hours" value={form.quietHours} onChange={(e) => setForm({ ...form, quietHours: e.target.value })} error={errors.quietHours} help="Messages wait until morning; urgent problems still come through.">
+          <SelectField label="Quiet hours" value={form.quietHours} onChange={(e) => setForm({ ...form, quietHours: e.target.value })} error={errors.quietHours} help="Updates wait until morning; urgent problems still come through.">
             <option value="">None</option>
             <option value="22:00-07:00">22:00 – 07:00</option>
             <option value="21:00-08:00">21:00 – 08:00</option>
