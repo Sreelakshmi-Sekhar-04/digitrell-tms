@@ -23,7 +23,7 @@ export async function refs(client: Client) {
 export async function book(client: Client, r: Awaited<ReturnType<typeof refs>>, over: Record<string, unknown> = {}) {
   const res = await client.post('/bookings', {
     pickupAddressId: r.ambattur, dropAddressId: r.hosur, pickupDate: tomorrow(), truckType: '32ft MXL',
-    material: 'Biscuits (packed cartons)', weightTonnes: 14, ...over,
+    material: 'Biscuits (packed cartons)', weightTonnes: 14, budget: 46000, ...over,
   });
   expect(res.status(), await res.text()).toBe(201);
   return (await res.json()).trip as { id: string; number: string };
@@ -119,6 +119,7 @@ export async function ownLane(client: Client, carriers = 1) {
   // A city of its own per call: lanes are unique per pickup city, drop city and truck type.
   const city = `Karur ${tag}`;
   const to = (await (await client.post('/addresses', { name: `Karur DC ${tag}`, city, line1: 'Thanthonimalai', kind: 'DROP' })).json()).address;
-  const lane = (await (await client.post('/lanes', { origin: 'Madurai', destination: city, truckType: '17ft', budget: 20000, awardRule: 'ASK', carrierIds: made.slice(0, carriers).map((c) => c.id) })).json()).lane;
-  return { lane, carriers: made, spare: made[carriers], booking: { pickupAddressId: from.id, dropAddressId: to.id, truckType: '17ft', material: 'Rice bags', weightTonnes: 7 } };
+  const lane = (await (await client.post('/lanes', { origin: 'Madurai', destination: city, truckType: '17ft', awardRule: 'ASK', carrierIds: made.slice(0, carriers).map((c) => c.id) })).json()).lane;
+  // The budget is set per booking (₹20,000 for bookings made with `booking`).
+  return { lane, carriers: made, spare: made[carriers], booking: { pickupAddressId: from.id, dropAddressId: to.id, truckType: '17ft', material: 'Rice bags', weightTonnes: 7, budget: 20000 } };
 }

@@ -42,15 +42,43 @@ async function address(companyId: string, a: { name: string; city: string; line1
   return prisma.address.upsert({ where: { companyId_name: { companyId, name: a.name } }, update: a, create: { companyId, ...a } });
 }
 
-async function lane(shipperId: string, origin: string, destination: string, truckType: string, budget: number, awardRule: string, carrierIds: string[]) {
+// The budget is entered on each booking, not on the lane.
+async function lane(shipperId: string, origin: string, destination: string, truckType: string, awardRule: string, carrierIds: string[]) {
   const l = await prisma.lane.upsert({
     where: { shipperId_origin_destination_truckType: { shipperId, origin, destination, truckType } },
-    update: { budget: new Prisma.Decimal(budget), awardRule },
-    create: { shipperId, origin, destination, truckType, budget: new Prisma.Decimal(budget), awardRule },
+    update: { awardRule },
+    create: { shipperId, origin, destination, truckType, awardRule },
   });
   await prisma.laneCarrier.deleteMany({ where: { laneId: l.id } });
   await prisma.laneCarrier.createMany({ data: carrierIds.map((carrierId) => ({ laneId: l.id, carrierId })) });
   return l;
+}
+
+/** A carrier in a shipper's carrier master, with the shipper's own contact details for it. */
+async function listCarrier(shipperId: string, carrierId: string, details: Prisma.ShipperCarrierUncheckedCreateInput extends infer T ? Omit<T & object, 'shipperId' | 'carrierId'> : never) {
+  await prisma.shipperCarrier.upsert({
+    where: { shipperId_carrierId: { shipperId, carrierId } },
+    update: details,
+    create: { shipperId, carrierId, ...details },
+  });
+}
+
+type Rate = [origin: string, destination: string, truckType: string, rate: number, detentionPerDay: number | null, transitDays: number | null];
+
+/** A carrier's rate card for a shipper (replaces its lines, so re-running the seed is safe). */
+async function rateCard(shipperId: string, carrierId: string, validTo: string | null, rates: Rate[]) {
+  const card = await prisma.rateCard.upsert({
+    where: { shipperId_carrierId: { shipperId, carrierId } },
+    update: { validTo: validTo ? new Date(`${validTo}T00:00:00.000Z`) : null },
+    create: { shipperId, carrierId, validTo: validTo ? new Date(`${validTo}T00:00:00.000Z`) : null },
+  });
+  await prisma.rateCardLine.deleteMany({ where: { rateCardId: card.id } });
+  await prisma.rateCardLine.createMany({
+    data: rates.map(([origin, destination, truckType, rate, det, days]) => ({
+      rateCardId: card.id, origin, destination, truckType, rate: new Prisma.Decimal(rate),
+      detentionPerDay: det != null ? new Prisma.Decimal(det) : null, transitDays: days,
+    })),
+  });
 }
 
 async function main() {
@@ -74,9 +102,28 @@ async function main() {
   await address(sunrise.id, { name: 'Medchal DC', city: 'Hyderabad', line1: 'Survey 45, Medchal Industrial Area', kind: 'DROP', contactName: 'Ravi', contactPhone: '+919400000030' });
   await address(coastal.id, { name: 'Kochi Depot', city: 'Kochi', line1: 'Kalamassery Industrial Area', kind: 'BOTH' });
 
-  await lane(sunrise.id, 'Chennai', 'Bengaluru', '32ft MXL', 46000, 'ASK', [kaveri.id, northstar.id, deccan.id, sai.id]);
-  await lane(sunrise.id, 'Pune', 'Hyderabad', '20ft SXL', 40000, 'AUTO_LOWEST', [kaveri.id, northstar.id]);
-  await lane(coastal.id, 'Kochi', 'Coimbatore', '19ft', 22000, 'ASK', [deccan.id]);
+  // Carrier master: each shipper's own record of the carriers it works with.
+  await listCarrier(sunrise.id, kaveri.id, { contactName: 'Vijay Kumar', contactPhone: '+919800000101', email: 'ops@kaveri.test', city: 'Chennai', address: '12, Transport Nagar, Madhavaram', gstin: '33AABCK1234F1Z5', pan: 'AABCK1234F' });
+  await listCarrier(sunrise.id, northstar.id, { contactName: 'Imran Shaikh', contactPhone: '+919800000112', email: 'bookings@northstar.test', city: 'Bengaluru', gstin: '29AACCN5678K1Z2' });
+  await listCarrier(sunrise.id, deccan.id, { contactName: 'Ramesh Goud', contactPhone: '+919800000113', city: 'Hyderabad', notes: 'Slow with PODs; follow up after delivery.' });
+  await listCarrier(sunrise.id, sai.id, { contactName: 'Ganesh Pawar', city: 'Pune' });
+  await listCarrier(coastal.id, deccan.id, { contactName: 'Ramesh Goud', contactPhone: '+919800000113', city: 'Hyderabad' });
+
+  await lane(sunrise.id, 'Chennai', 'Bengaluru', '32ft MXL', 'ASK', [kaveri.id, northstar.id, deccan.id, sai.id]);
+  await lane(sunrise.id, 'Pune', 'Hyderabad', '20ft SXL', 'AUTO_LOWEST', [kaveri.id, northstar.id]);
+  await lane(coastal.id, 'Kochi', 'Coimbatore', '19ft', 'ASK', [deccan.id]);
+
+  // Agreed rates (₹ per trip, detention ₹ per day, transit days). Sai Ganesh has no rate card yet.
+  await rateCard(sunrise.id, kaveri.id, null, [
+    ['Chennai', 'Bengaluru', '32ft MXL', 44500, 1500, 1],
+    ['Pune', 'Hyderabad', '20ft SXL', 38500, 1200, 2],
+  ]);
+  await rateCard(sunrise.id, northstar.id, null, [
+    ['Chennai', 'Bengaluru', '32ft MXL', 45200, 1500, 1],
+    ['Pune', 'Hyderabad', '20ft SXL', 39000, null, 2],
+  ]);
+  await rateCard(sunrise.id, deccan.id, null, [['Chennai', 'Bengaluru', '32ft MXL', 43800, 1000, 2]]);
+  await rateCard(coastal.id, deccan.id, null, [['Kochi', 'Coimbatore', '19ft', 21000, 800, 1]]);
 
   // Track records (owned by the carrier/tracking modules later). Sai Ganesh, Velan etc. invited later have none.
   const perf = [

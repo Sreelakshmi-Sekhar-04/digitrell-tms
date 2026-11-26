@@ -21,7 +21,7 @@ test.describe('Masters API: access', () => {
 
     const ambattur = (await (await anita.get('/addresses')).json()).addresses.find((a: { name: string }) => a.name === 'Ambattur DC');
     expect((await meera.patch(`/addresses/${ambattur.id}`, { city: 'Hacked' })).status()).toBe(404);
-    expect((await meera.patch(`/lanes/${anitaLanes[0].id}`, { budget: 1 })).status()).toBe(404);
+    expect((await meera.patch(`/lanes/${anitaLanes[0].id}`, { awardRule: 'ASK' })).status()).toBe(404);
     const anitaUsers = (await (await anita.get('/users')).json()).users;
     expect((await meera.patch(`/users/${anitaUsers[0].id}`, { isActive: false })).status()).toBe(404);
   });
@@ -78,10 +78,12 @@ test.describe('Lanes and carriers API', () => {
     const anita = await asUser(request, USERS.shipperHead);
     const carriers = (await (await anita.get('/carriers')).json()).carriers;
     const kaveri = carriers.find((c: { name: string }) => c.name === 'Kaveri Roadlines');
+    // A budget sent by an older client is ignored: it is set on each booking now.
     const res = await anita.post('/lanes', { origin: 'chennai', destination: 'madurai', truckType: '14ft', budget: '18,500', awardRule: 'ASK', carrierIds: [kaveri.id] });
     expect(res.status()).toBe(201);
     const { lane } = await res.json();
-    expect(lane).toMatchObject({ origin: 'Chennai', destination: 'Madurai', truckType: '14ft', budget: 18500, awardRule: 'ASK' });
+    expect(lane).toMatchObject({ origin: 'Chennai', destination: 'Madurai', truckType: '14ft', awardRule: 'ASK' });
+    expect(lane).not.toHaveProperty('budget');
     expect(lane.carriers.map((c: { name: string }) => c.name)).toEqual(['Kaveri Roadlines']);
   });
 
@@ -91,24 +93,34 @@ test.describe('Lanes and carriers API', () => {
     expect(res.status()).toBe(409);
   });
 
-  test('lane rules: same city, unknown truck type, bad budget, unknown carrier', async ({ request }) => {
+  test('lane rules: same city, unknown truck type, unknown carrier', async ({ request }) => {
     const anita = await asUser(request, USERS.shipperHead);
-    const res = await anita.post('/lanes', { origin: 'Pune', destination: 'pune', truckType: '99ft', budget: -5, awardRule: 'ASK', carrierIds: ['nope'] });
+    const res = await anita.post('/lanes', { origin: 'Pune', destination: 'pune', truckType: '99ft', awardRule: 'ASK', carrierIds: ['nope'] });
     expect(res.status()).toBe(400);
     const { fields } = (await res.json()).error;
     expect(fields.destination).toContain('must differ');
     expect(fields.truckType).toBeTruthy();
-    expect(fields.budget).toBeTruthy();
-    expect(fields.carrierIds).toBeTruthy();
+    expect(fields.carrierIds).toContain('not in your carrier list');
+    expect(fields.budget).toBeUndefined();
   });
 
-  test('automatic award needs a budget and at least one carrier', async ({ request }) => {
+  test('automatic award needs at least one carrier (the budget comes with each booking)', async ({ request }) => {
     const anita = await asUser(request, USERS.shipperHead);
     const res = await anita.post('/lanes', { origin: 'Salem', destination: 'Erode', truckType: '17ft', awardRule: 'AUTO_LOWEST', carrierIds: [] });
     expect(res.status()).toBe(400);
     const { fields } = (await res.json()).error;
-    expect(fields.budget).toContain('budget');
+    expect(fields.budget).toBeUndefined();
     expect(fields.carrierIds).toContain('at least one carrier');
+  });
+
+  test("a carrier outside the shipper's own carrier list can't be approved on a lane", async ({ request }) => {
+    const meera = await asUser(request, USERS.otherShipper);
+    const anita = await asUser(request, USERS.shipperHead);
+    const kaveri = (await (await anita.get('/carriers')).json()).carriers.find((c: { name: string }) => c.name === 'Kaveri Roadlines');
+    expect((await (await meera.get('/carriers')).json()).carriers.map((c: { name: string }) => c.name)).not.toContain('Kaveri Roadlines');
+    const res = await meera.post('/lanes', { origin: 'Kochi', destination: 'Madurai', truckType: '19ft', awardRule: 'ASK', carrierIds: [kaveri.id] });
+    expect(res.status()).toBe(400);
+    expect((await res.json()).error.fields.carrierIds).toContain('not in your carrier list');
   });
 
   test('edit replaces approved carriers; deactivate keeps the lane', async ({ request }) => {
@@ -117,7 +129,7 @@ test.describe('Lanes and carriers API', () => {
     const byName = (n: string) => carriers.find((c: { name: string }) => c.name === n).id;
     const deccan = { id: byName('Deccan Freight Carriers') };
     // Its own lane, so the seeded lanes stay as they are for the booking tests.
-    const created = await anita.post('/lanes', { origin: 'Nashik', destination: 'Surat', truckType: '22ft', budget: 30000, awardRule: 'AUTO_LOWEST', carrierIds: [byName('Kaveri Roadlines'), byName('NorthStar Logistics')] });
+    const created = await anita.post('/lanes', { origin: 'Nashik', destination: 'Surat', truckType: '22ft', awardRule: 'AUTO_LOWEST', carrierIds: [byName('Kaveri Roadlines'), byName('NorthStar Logistics')] });
     const { lane } = await created.json();
     const res = await anita.patch(`/lanes/${lane.id}`, { carrierIds: [deccan.id], isActive: false });
     expect(res.status()).toBe(200);

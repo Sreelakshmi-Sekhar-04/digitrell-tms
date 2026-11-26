@@ -14,7 +14,8 @@ export const USERS = {
   demoExec: { email: 'arjun.reddy@vasudhafoods.test', password: 'Demo@123', name: 'Arjun Reddy', company: 'Vasudha Agro Foods Pvt Ltd' },
 };
 
-export const NAV = ['Home', 'Trips', 'New booking', 'Approvals', 'Carriers and lanes', 'Reports', 'Policies'];
+// New booking is started from Trips (and Home), not the menu; master data lives under one item.
+export const NAV = ['Home', 'Trips', 'Approvals', 'Master data', 'Reports', 'Policies'];
 
 /**
  * `test` with a guard that fails any UI test which logs a browser console error or an
@@ -66,6 +67,7 @@ export async function asUser(request: import('@playwright/test').APIRequestConte
     post: (path: string, data?: unknown) => request.post(`${API_URL}${path}`, { headers, data }),
     patch: (path: string, data: unknown) => request.patch(`${API_URL}${path}`, { headers, data }),
     put: (path: string, data: unknown) => request.put(`${API_URL}${path}`, { headers, data }),
+    delete: (path: string) => request.delete(`${API_URL}${path}`, { headers }),
   };
 }
 

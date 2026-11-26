@@ -3,26 +3,27 @@ import { USERS, expect, loginUi, test, uniq } from './helpers';
 
 async function openMasters(page: Page, user = USERS.shipperHead, tab?: string) {
   await loginUi(page, user, tab ? `/masters?tab=${tab}` : '/masters');
-  await expect(page.getByRole('heading', { name: 'Carriers and lanes', level: 1 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Master data', level: 1 })).toBeVisible();
 }
 const drawer = (page: Page) => page.getByRole('dialog');
 /** A drawer field by its visible label, ignoring the required "*" or "(optional)" suffix. */
 const field = (page: Page, label: string) =>
   drawer(page).getByLabel(new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}( \\*| \\(optional\\))?$`));
 
-test.describe('Lanes and carriers (logistics head)', () => {
-  test('lists seeded lanes with carriers, budget, rule and status', async ({ page }) => {
-    await openMasters(page);
+test.describe('Lanes (logistics head)', () => {
+  test('lists seeded lanes with carriers, rule and status; no budget column', async ({ page }) => {
+    await openMasters(page, USERS.shipperHead, 'lanes');
     const row = page.getByRole('row', { name: /Chennai → Bengaluru/ });
     await expect(row).toContainText('32ft MXL');
     await expect(row).toContainText('Kaveri Roadlines, NorthStar Logistics, Deccan Freight Carriers, Sai Ganesh Transport');
-    await expect(row).toContainText('₹46,000');
     await expect(row).toContainText('Ask me');
     await expect(row).toContainText('Active');
+    await expect(page.getByRole('columnheader', { name: /budget/i })).toHaveCount(0);
+    await expect(row).not.toContainText('₹');
   });
 
   test('empty lane form shows every missing field and stays open', async ({ page }) => {
-    await openMasters(page);
+    await openMasters(page, USERS.shipperHead, 'lanes');
     await page.getByRole('button', { name: '+ Add lane' }).click();
     await drawer(page).getByRole('button', { name: 'Save lane' }).click();
     await expect(drawer(page).getByText('Enter the pickup city.')).toBeVisible();
@@ -31,23 +32,21 @@ test.describe('Lanes and carriers (logistics head)', () => {
     await expect(drawer(page)).toBeVisible();
   });
 
-  test('add a lane with automatic award, a new carrier and a budget', async ({ page }) => {
-    await openMasters(page);
+  test('add a lane with automatic award and a new carrier (no budget on the lane)', async ({ page }) => {
+    await openMasters(page, USERS.shipperHead, 'lanes');
     await page.getByRole('button', { name: '+ Add lane' }).click();
+    await expect(field(page, 'Budget per trip (₹)')).toHaveCount(0);
     await field(page, 'Pickup city').fill('Coimbatore');
     await field(page, 'Drop city').fill('Kochi');
     await drawer(page).getByText('19ft', { exact: true }).click();
     await drawer(page).getByText('Lowest within budget, automatic').click();
     await drawer(page).getByRole('button', { name: 'Save lane' }).click();
-    // Business rule: automatic award needs a budget and a carrier. Typed values stay.
-    await expect(drawer(page).getByText('Set a budget: automatic award only picks quotes within it.')).toBeVisible();
+    // Business rule: automatic award needs a carrier (the budget comes with each booking). Typed values stay.
     await expect(drawer(page).getByText('Approve at least one carrier before turning on automatic award.')).toBeVisible();
     await expect(field(page, 'Pickup city')).toHaveValue('Coimbatore');
 
-    await field(page, 'Budget per trip (₹)').fill('21500');
-    await expect(field(page, 'Budget per trip (₹)')).toHaveValue('21,500');
     const carrierName = `Velan Transports ${uniq()}`;
-    await drawer(page).getByRole('button', { name: '+ Add a carrier not on the list' }).click();
+    await drawer(page).getByRole('button', { name: '+ Add a new carrier' }).click();
     await field(page, 'Carrier company name').fill(carrierName);
     await field(page, "Owner's mobile").fill('12345');
     await drawer(page).getByRole('button', { name: 'Add carrier' }).click();
@@ -60,13 +59,12 @@ test.describe('Lanes and carriers (logistics head)', () => {
     await expect(page.getByRole('status').filter({ hasText: 'Lane added.' })).toBeVisible();
     await expect(drawer(page)).toBeHidden();
     const row = page.getByRole('row', { name: /Coimbatore → Kochi/ });
-    await expect(row).toContainText('₹21,500');
     await expect(row).toContainText('Lowest within budget, automatic');
     await expect(row).toContainText(carrierName);
   });
 
   test('duplicate lane is refused on the drop-city field', async ({ page }) => {
-    await openMasters(page);
+    await openMasters(page, USERS.shipperHead, 'lanes');
     await page.getByRole('button', { name: '+ Add lane' }).click();
     await field(page, 'Pickup city').fill('chennai');
     await field(page, 'Drop city').fill('bengaluru');
@@ -76,27 +74,22 @@ test.describe('Lanes and carriers (logistics head)', () => {
   });
 
   test('edit a lane and see the change in the table', async ({ page }) => {
-    await openMasters(page);
+    await openMasters(page, USERS.shipperHead, 'lanes');
     await page.getByRole('button', { name: 'Edit Chennai to Bengaluru' }).click();
-    await expect(field(page, 'Budget per trip (₹)')).toHaveValue('46,000');
-    await field(page, 'Budget per trip (₹)').fill('47000');
     await drawer(page).getByRole('checkbox', { name: /Sai Ganesh Transport/ }).uncheck();
     await drawer(page).getByRole('button', { name: 'Save changes' }).click();
     const row = page.getByRole('row', { name: /Chennai → Bengaluru/ });
-    await expect(row).toContainText('₹47,000');
     await expect(row).not.toContainText('Sai Ganesh');
 
-    // Put the seeded lane back so later booking tests see the original 4 carriers and budget.
+    // Put the seeded lane back so later booking tests see the original 4 carriers.
     await page.getByRole('button', { name: 'Edit Chennai to Bengaluru' }).click();
-    await field(page, 'Budget per trip (₹)').fill('46000');
     await drawer(page).getByRole('checkbox', { name: /Sai Ganesh Transport/ }).check();
     await drawer(page).getByRole('button', { name: 'Save changes' }).click();
-    await expect(row).toContainText('₹46,000');
     await expect(row).toContainText('Sai Ganesh');
   });
 
   test('closing with unsaved changes asks once; Keep editing keeps the input', async ({ page }) => {
-    await openMasters(page);
+    await openMasters(page, USERS.shipperHead, 'lanes');
     await page.getByRole('button', { name: '+ Add lane' }).click();
     await field(page, 'Pickup city').fill('Madurai');
     await page.keyboard.press('Escape');
@@ -207,10 +200,19 @@ test.describe('Users and invites', () => {
 });
 
 test.describe('Booking executive view', () => {
-  test('lanes and users are read-only; addresses can be added', async ({ page }) => {
+  test('carriers, rate cards, lanes and users are read-only; addresses can be added', async ({ page }) => {
     await openMasters(page, USERS.shipperExec);
-    await expect(page.getByText('Lanes and users are managed by your logistics head.')).toBeVisible();
+    await expect(page.getByText('Carriers, rate cards, lanes and users are managed by your logistics head.')).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Carriers' })).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('row', { name: /Kaveri Roadlines/ })).toBeVisible();
     await expect(page.getByRole('button', { name: /^\+ Add/ })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /^Edit / })).toHaveCount(0);
+    await page.getByRole('tab', { name: 'Rate cards' }).click();
+    await page.getByRole('button', { name: 'View rate card for Kaveri Roadlines' }).click();
+    await expect(drawer(page).getByRole('button', { name: 'Save rate card' })).toHaveCount(0);
+    await expect(field(page, 'Freight per trip (₹)').first()).toBeDisabled();
+    await drawer(page).getByRole('button', { name: 'Cancel' }).click();
+    await page.getByRole('tab', { name: 'Lanes' }).click();
     await expect(page.getByRole('button', { name: /^Edit / })).toHaveCount(0);
     await page.getByRole('tab', { name: 'Users and roles' }).click();
     await expect(page.getByRole('row', { name: /Anita Rao/ })).toBeVisible();

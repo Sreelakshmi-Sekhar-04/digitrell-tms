@@ -6,6 +6,7 @@ import { authRouter } from './modules/auth/auth.routes';
 import { addressesRouter } from './modules/masters/addresses.routes';
 import { carriersRouter } from './modules/masters/carriers.routes';
 import { lanesRouter } from './modules/masters/lanes.routes';
+import { rateCardsRouter } from './modules/masters/rateCards.routes';
 import { usersRouter } from './modules/users/users.routes';
 import { invitesRouter } from './modules/users/invites.routes';
 import { policiesRouter } from './modules/policies/policies.routes';
@@ -41,6 +42,7 @@ export function createApp() {
   app.use('/api/addresses', shipper, addressesRouter);
   app.use('/api/carriers', shipper, carriersRouter);
   app.use('/api/lanes', shipper, lanesRouter);
+  app.use('/api/rate-cards', shipper, rateCardsRouter);
   app.use('/api/users', shipper, usersRouter);
   app.use('/api/policies', shipper, policiesRouter);
   app.use('/api/bookings', shipper, bookingsRouter);

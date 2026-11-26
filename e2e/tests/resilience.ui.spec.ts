@@ -62,7 +62,7 @@ test.describe('Keyboard only', () => {
     await expect(page.getByTestId('user-name')).toBeVisible();
 
     await page.goto('/masters');
-    await page.getByRole('tab', { name: 'Lanes and carriers' }).focus();
+    await page.getByRole('tab', { name: 'Lanes' }).focus();
     await page.keyboard.press('ArrowRight');
     await expect(page.getByRole('tab', { name: 'Addresses' })).toBeFocused();
     await expect(page.getByRole('tab', { name: 'Addresses' })).toHaveAttribute('aria-selected', 'true');

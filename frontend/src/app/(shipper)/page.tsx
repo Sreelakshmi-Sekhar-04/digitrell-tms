@@ -35,7 +35,7 @@ interface Dashboard {
 
 const SETUP_TEXT: Record<string, { text: string; href: string; cta: string }> = {
   addresses: { text: 'Pickup and drop points, with a contact for each.', href: '/masters?tab=addresses', cta: 'Add addresses' },
-  lanes: { text: 'City pairs you ship on, with truck type and budget.', href: '/masters?tab=lanes', cta: 'Add lanes' },
+  lanes: { text: 'City pairs you ship on, with truck type and the carriers you trust on each.', href: '/masters?tab=lanes', cta: 'Add lanes' },
   carriers: { text: 'Quote requests go only to carriers you approve per lane.', href: '/masters?tab=lanes', cta: 'Approve carriers' },
   limits: { text: 'Who approves awards and payments, and up to what amount.', href: '/policies', cta: 'Check limits' },
   booking: { text: 'Book your first truck. The trip shows up here.', href: '/bookings/new', cta: 'Book now' },
@@ -88,7 +88,7 @@ export default function HomePage() {
         ? `${d.approvalsCount} decision${d.approvalsCount === 1 ? ' is' : 's are'} waiting for you.`
         : 'Nothing needs you right now. Everything is moving.';
 
-  const budgetNote = d?.month.budget ? `${Math.round((d.month.spend / d.month.budget) * 100)}% of ${rupees(d.month.budget)} budget` : 'Set budgets per lane to compare';
+  const budgetNote = d?.month.budget ? `${Math.round((d.month.spend / d.month.budget) * 100)}% of ${rupees(d.month.budget)} budget` : 'Add a budget when booking to compare';
 
   return (
     <div className="flex flex-col gap-5">

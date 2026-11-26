@@ -51,8 +51,8 @@ export async function metrics(shipperId: string, from: Date, to: Date) {
     prisma.claim.findMany({ where: { trip: { shipperId }, createdAt: { gte: from, lt: to }, status: { not: 'WITHDRAWN' } } }),
   ]);
   const spend = awarded.reduce((s, t) => s + (toNumber(t.awardedAmount) ?? 0), 0);
-  const withBudget = awarded.filter((t) => t.lane?.budget != null);
-  const budget = withBudget.reduce((s, t) => s + toNumber(t.lane!.budget)!, 0);
+  const withBudget = awarded.filter((t) => t.budget != null);
+  const budget = withBudget.reduce((s, t) => s + toNumber(t.budget)!, 0);
   const measured = delivered.filter((t) => t.promisedEta);
 
   const lanes = new Map<string, { lane: string; trips: number; spend: number; budget: number }>();
@@ -61,7 +61,7 @@ export async function metrics(shipperId: string, from: Date, to: Date) {
     const row = lanes.get(key) ?? { lane: key, trips: 0, spend: 0, budget: 0 };
     row.trips += 1;
     row.spend += toNumber(t.awardedAmount) ?? 0;
-    row.budget += toNumber(t.lane?.budget) ?? 0;
+    row.budget += toNumber(t.budget) ?? 0;
     lanes.set(key, row);
   }
 
@@ -70,7 +70,7 @@ export async function metrics(shipperId: string, from: Date, to: Date) {
     if (!t.carrier) continue;
     const row = carriers.get(t.carrier.id) ?? { carrier: t.carrier.name, trips: 0, delivered: [], vsBudget: [] };
     row.trips += 1;
-    if (t.lane?.budget) row.vsBudget.push(((toNumber(t.awardedAmount)! - toNumber(t.lane.budget)!) / toNumber(t.lane.budget)!) * 100);
+    if (t.budget) row.vsBudget.push(((toNumber(t.awardedAmount)! - toNumber(t.budget)!) / toNumber(t.budget)!) * 100);
     carriers.set(t.carrier.id, row);
   }
   for (const t of delivered) {
@@ -176,7 +176,7 @@ insightsRouter.get(
         const inv = t.invoices.find((i) => i.status !== 'REPLACED');
         return [
           t.number, d(t.createdAt), t.pickupAddress?.city ?? '', t.dropAddress?.city ?? '', t.truckType, t.weightKg != null ? toNumber(t.weightKg)! / 1000 : null,
-          t.status, t.carrier?.name ?? '', toNumber(t.awardedAmount), toNumber(t.lane?.budget), d(t.deliveredAt),
+          t.status, t.carrier?.name ?? '', toNumber(t.awardedAmount), toNumber(t.budget), d(t.deliveredAt),
           t.deliveredAt && t.promisedEta ? (t.deliveredAt <= t.promisedEta ? 'Yes' : 'No') : '',
           inv?.number ?? '', inv ? toNumber(inv.total) : null, d(inv?.paidAt ?? null),
         ];

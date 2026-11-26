@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 import { asyncHandler, conflict, notFound } from '../../lib/errors';
-import { Validator, toNumber } from '../../lib/validate';
+import { Validator } from '../../lib/validate';
 import { audit } from '../../lib/audit';
 import { requireRole } from '../../middleware/auth';
 import { AWARD_RULES, TRUCK_TYPES } from '../../shared/masters';
@@ -14,27 +14,36 @@ type LaneRow = Prisma.LaneGetPayload<{ include: typeof laneInclude }>;
 
 const view = (l: LaneRow) => ({
   id: l.id, origin: l.origin, destination: l.destination, truckType: l.truckType,
-  budget: toNumber(l.budget), awardRule: l.awardRule, isActive: l.isActive,
+  awardRule: l.awardRule, isActive: l.isActive,
   carriers: l.carriers.map((lc) => lc.carrier),
 });
 
 const cityCase = (s: string) => s.replace(/\b\w/g, (c) => c.toUpperCase());
 
-async function readLane(body: Record<string, unknown>, current?: LaneRow) {
+/**
+ * Validates a lane. The budget is no longer part of a lane: it is entered on each booking
+ * (a `budget` sent here is ignored, so older clients keep working).
+ */
+async function readLane(body: Record<string, unknown>, shipperId: string, current?: LaneRow) {
   const v = new Validator(body);
   const partial = !!current;
-  const out: { origin?: string; destination?: string; truckType?: string; budget?: number | null; awardRule?: string; isActive?: boolean; carrierIds?: string[] } = {};
+  const out: { origin?: string; destination?: string; truckType?: string; awardRule?: string; isActive?: boolean; carrierIds?: string[] } = {};
   if (!partial || v.has('origin')) out.origin = v.text('origin', 'the pickup city', { required: true, max: 60 }) ?? undefined;
   if (!partial || v.has('destination')) out.destination = v.text('destination', 'the drop city', { required: true, max: 60 }) ?? undefined;
   if (!partial || v.has('truckType')) out.truckType = v.oneOf('truckType', 'truck type', TRUCK_TYPES) ?? undefined;
-  if (!partial || v.has('budget')) out.budget = v.money('budget', 'the budget per trip');
   if (!partial || v.has('awardRule')) out.awardRule = v.oneOf('awardRule', 'how awards are made', AWARD_RULES) ?? undefined;
   if (v.has('isActive')) out.isActive = Boolean(body.isActive);
   if (!partial || v.has('carrierIds')) {
     const ids = Array.isArray(body.carrierIds) ? [...new Set(body.carrierIds.map(String))] : [];
     if (ids.length) {
-      const found = await prisma.company.count({ where: { id: { in: ids }, type: 'CARRIER' } });
-      if (found !== ids.length) v.fail('carrierIds', 'One of the chosen carriers no longer exists. Refresh and choose again.');
+      // Only carriers in this shipper's carrier master, and in use, can be approved on a lane.
+      const listed = await prisma.shipperCarrier.findMany({ where: { shipperId, carrierId: { in: ids } }, include: { carrier: { select: { name: true } } } });
+      const keptOn = new Set(current?.carriers.map((c) => c.carrierId));
+      if (listed.length !== ids.length) v.fail('carrierIds', 'One of the chosen carriers is not in your carrier list. Refresh and choose again.');
+      else {
+        const off = listed.find((l) => !l.isActive && !keptOn.has(l.carrierId));
+        if (off) v.fail('carrierIds', `${off.carrier.name} is marked not in use in your carrier list. Turn it back on there first.`);
+      }
     }
     out.carrierIds = ids;
   }
@@ -45,11 +54,9 @@ async function readLane(body: Record<string, unknown>, current?: LaneRow) {
   const destination = out.destination ?? current?.destination;
   if (origin && destination && origin.toLowerCase() === destination.toLowerCase()) v.fail('destination', 'Drop city must differ from pickup city.');
 
-  // Automatic award needs a budget and at least one approved carrier, or it could never fire safely.
+  // Automatic award needs at least one approved carrier (and a budget on each booking, checked there).
   const rule = out.awardRule ?? current?.awardRule;
-  const budget = out.budget !== undefined ? out.budget : toNumber(current?.budget);
   const carrierCount = out.carrierIds ? out.carrierIds.length : current?.carriers.length ?? 0;
-  if (rule === 'AUTO_LOWEST' && !budget) v.fail('budget', 'Set a budget: automatic award only picks quotes within it.');
   if (rule === 'AUTO_LOWEST' && carrierCount === 0) v.fail('carrierIds', 'Approve at least one carrier before turning on automatic award.');
   v.done();
   return out;
@@ -75,12 +82,11 @@ lanesRouter.post(
   '/',
   requireRole('LOGISTICS_HEAD'),
   asyncHandler(async (req, res) => {
-    const d = await readLane(req.body);
+    const d = await readLane(req.body, req.user!.companyId);
     await assertUnique(req.user!.companyId, d);
     const lane = await prisma.lane.create({
       data: {
-        shipperId: req.user!.companyId, origin: d.origin!, destination: d.destination!, truckType: d.truckType!,
-        budget: d.budget != null ? new Prisma.Decimal(d.budget) : null, awardRule: d.awardRule!,
+        shipperId: req.user!.companyId, origin: d.origin!, destination: d.destination!, truckType: d.truckType!, awardRule: d.awardRule!,
         carriers: { create: d.carrierIds!.map((carrierId) => ({ carrierId })) },
       },
       include: laneInclude,
@@ -96,7 +102,7 @@ lanesRouter.patch(
   asyncHandler(async (req, res) => {
     const current = await prisma.lane.findFirst({ where: { id: req.params.id, shipperId: req.user!.companyId }, include: laneInclude });
     if (!current) throw notFound('That lane no longer exists.');
-    const d = await readLane(req.body, current);
+    const d = await readLane(req.body, req.user!.companyId, current);
     await assertUnique(req.user!.companyId, { origin: d.origin ?? current.origin, destination: d.destination ?? current.destination, truckType: d.truckType ?? current.truckType }, current.id);
     const lane = await prisma.$transaction(async (tx) => {
       if (d.carrierIds) {
@@ -107,7 +113,6 @@ lanesRouter.patch(
         where: { id: current.id },
         data: {
           origin: d.origin, destination: d.destination, truckType: d.truckType, awardRule: d.awardRule, isActive: d.isActive,
-          ...(d.budget !== undefined ? { budget: d.budget != null ? new Prisma.Decimal(d.budget) : null } : {}),
         },
         include: laneInclude,
       });
