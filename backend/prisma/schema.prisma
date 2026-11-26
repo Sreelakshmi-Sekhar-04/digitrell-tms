@@ -55,7 +55,35 @@ model Company {
   wonTrips  Trip[]      @relation("CarrierTrips")
   quotes    Quote[]
   performance CarrierPerformance?
+  // Carrier master: carriers a shipper works with (as shipper), and shippers listing a carrier (as carrier).
+  carriersListed ShipperCarrier[] @relation("ShipperCarriers")
+  listedBy       ShipperCarrier[] @relation("CarrierShippers")
+  rateCardsHeld  RateCard[]       @relation("ShipperRateCards")
+  rateCardsGiven RateCard[]       @relation("CarrierRateCards")
   createdAt DateTime    @default(now())
+}
+
+// A shipper's record of one carrier it works with (carrier master). The carrier company itself is
+// shared across shippers; contact details and notes here belong to this shipper only.
+model ShipperCarrier {
+  shipperId    String
+  shipper      Company  @relation("ShipperCarriers", fields: [shipperId], references: [id])
+  carrierId    String
+  carrier      Company  @relation("CarrierShippers", fields: [carrierId], references: [id])
+  contactName  String?
+  contactPhone String?
+  email        String?
+  city         String?
+  address      String?
+  gstin        String?
+  pan          String?
+  notes        String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@id([shipperId, carrierId])
+  @@index([carrierId])
 }
 
 // A carrier's track record. Owned by the carrier/tracking modules; seeded until they exist.
@@ -156,9 +184,10 @@ model Lane {
   origin      String   // city
   destination String   // city
   truckType   String
-  // Freight budget per trip (₹). Quotes above it are flagged; auto-award never exceeds it.
+  // Retired: the budget is now entered per booking (Trip.budget). Kept so older values are not lost;
+  // the app no longer reads or writes it.
   budget      Decimal? @db.Decimal(12, 2)
-  // ASK = every award needs approval; AUTO_LOWEST = lowest quote within budget is awarded (BRD §7).
+  // ASK = every award needs approval; AUTO_LOWEST = lowest quote within the booking's budget is awarded (BRD §7).
   awardRule   String   @default("ASK")
   isActive    Boolean  @default(true)
   carriers    LaneCarrier[]
@@ -189,14 +218,38 @@ model Driver {
   licenceExpiry DateTime?
 }
 
+// A carrier's agreed rates for one shipper: one card per shipper and carrier, one line per
+// city pair and truck type. A reference for bookings and quotes; never enforced on its own.
 model RateCard {
-  id        String  @id @default(cuid())
+  id        String         @id @default(cuid())
+  shipperId String
+  shipper   Company        @relation("ShipperRateCards", fields: [shipperId], references: [id])
   carrierId String
-  shipperId String?
-  laneId    String
-  truckType String
-  rate      Decimal @db.Decimal(12, 2)
-  bandPct   Decimal @db.Decimal(5, 2)
+  carrier   Company        @relation("CarrierRateCards", fields: [carrierId], references: [id])
+  validFrom DateTime?      @db.Date
+  validTo   DateTime?      @db.Date
+  notes     String?
+  lines     RateCardLine[]
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@unique([shipperId, carrierId])
+}
+
+model RateCardLine {
+  id              String   @id @default(cuid())
+  rateCardId      String
+  rateCard        RateCard @relation(fields: [rateCardId], references: [id], onDelete: Cascade)
+  origin          String // city
+  destination     String // city
+  truckType       String
+  // Freight per trip (₹).
+  rate            Decimal  @db.Decimal(12, 2)
+  // Charged per day the truck waits beyond the free time (₹), if agreed.
+  detentionPerDay Decimal? @db.Decimal(12, 2)
+  transitDays     Int?
+
+  @@unique([rateCardId, origin, destination, truckType])
 }
 
 model LrSeries {
@@ -229,6 +282,8 @@ model Trip {
   receiverContact String?
   reference  String?
   notes      String?
+  // Freight budget for this trip (₹), entered at booking. Quotes above it are flagged; auto-award never exceeds it.
+  budget     Decimal?   @db.Decimal(12, 2)
   status     TripStatus @default(REQUEST_RECEIVED)
   quoteDeadline DateTime?
   // Set when every carrier replied or the deadline passed; awards are made after this or earlier by choice.

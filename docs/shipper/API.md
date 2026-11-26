@@ -32,8 +32,9 @@ Money is in rupees (numbers). Dates are ISO 8601 (UTC); the web app shows India 
 | Method | Path | Who may write |
 |---|---|---|
 | GET, POST / PATCH `/:id` | `/addresses` | any shipper user |
-| GET, POST | `/carriers` | logistics head (POST adds an *invited* carrier) |
-| GET, POST / PATCH `/:id` | `/lanes` | logistics head |
+| GET, GET `/:id`, POST / PATCH `/:id` | `/carriers` | logistics head. The shipper's carrier master: contact person and mobile, email, city, address, GSTIN, PAN, notes, in use. POST adds a carrier not on DigitRell as *invited*, or lists one already on DigitRell as is (`alreadyOnDigitRell`). Name and owner's mobile can be changed only while the carrier is invited and listed by this shipper alone. A carrier on an active lane can't be set *not in use* |
+| GET (`?carrierId=`), GET / PUT / DELETE `/:carrierId` | `/rate-cards` | logistics head. One card per carrier: `{ validFrom, validTo, notes, lines: [{ origin, destination, truckType, rate, detentionPerDay, transitDays }] }`. PUT creates (201) or replaces (200) the card and all its lines; line errors come back as `lines.<n>.<field>`. A reference only: nothing is priced or awarded from it |
+| GET, POST / PATCH `/:id` | `/lanes` | logistics head. Lane details, award rule and approved carriers (from the carrier master, in use). No budget: it is entered on each booking (a `budget` sent here is ignored) |
 | GET, POST / PATCH `/:id`, POST `/:id/invite` | `/users` | logistics head (email is required) |
 | GET, PUT | `/policies` | logistics head |
 
@@ -41,8 +42,9 @@ Money is in rupees (numbers). Dates are ISO 8601 (UTC); the web app shows India 
 
 | Method | Path | Notes |
 |---|---|---|
-| POST | `/bookings/preview` | Validates; returns lane, carriers to ask, close time. Creates nothing |
-| POST | `/bookings` | Creates the trip and the quote requests |
+| GET | `/bookings/lane-info` | `pickupAddressId`, `dropAddressId`, `truckType` → `{ lane, carriers: [{ id, name, rate, transitDays }], lastBudget }` (agreed rates from current rate cards, lowest first), or `{ lane: null }` |
+| POST | `/bookings/preview` | Validates; returns lane, `budget`, carriers to ask (with their agreed `rate`), close time. Creates nothing |
+| POST | `/bookings` | Creates the trip and the quote requests. `budget` (₹ per trip) is optional, but required on a lane whose award rule is *lowest within budget, automatic* |
 | GET | `/bookings/recent` | Last 3 different bookings (for *Repeat*) |
 | GET | `/trips` | `tab` (all, action, transit, delivered, closed), `q`, `laneId`, `days`, `page` → `{ trips, total, counts }` |
 | GET | `/trips/:id` | Everything about one trip: quotes with scores, recommendation, documents, claims, invoice and checks, exception, cancel/edit rules, activity |

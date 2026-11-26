@@ -3,13 +3,13 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { api } from '@/lib/api';
 import { formErrors, useApi } from '@/lib/useApi';
-import { AWARD_RULE_LABELS, TRUCK_TYPES, rupees } from '@/lib/masters';
+import { AWARD_RULE_LABELS, TRUCK_TYPES } from '@/lib/masters';
 import { Button } from '@/components/ui/Button';
 import { Chip } from '@/components/ui/Chip';
 import { EmptyState, Skeleton } from '@/components/ui/Card';
 import { Drawer } from '@/components/ui/Drawer';
 import { TextField } from '@/components/ui/Field';
-import { ChoiceChips, RadioCards, fromRupeeInput, toRupeeInput } from '@/components/ui/Choice';
+import { ChoiceChips, RadioCards } from '@/components/ui/Choice';
 import { useToast } from '@/components/ui/Toast';
 import { DataTable, td } from './Table';
 import type { Address, Carrier, Lane } from './types';
@@ -18,14 +18,13 @@ interface Form {
   origin: string;
   destination: string;
   truckType: string;
-  budget: string;
   awardRule: string;
   carrierIds: string[];
   isActive: boolean;
 }
-const EMPTY: Form = { origin: '', destination: '', truckType: '', budget: '', awardRule: 'ASK', carrierIds: [], isActive: true };
+const EMPTY: Form = { origin: '', destination: '', truckType: '', awardRule: 'ASK', carrierIds: [], isActive: true };
 const fromLane = (l: Lane): Form => ({
-  origin: l.origin, destination: l.destination, truckType: l.truckType, budget: l.budget ? toRupeeInput(String(l.budget)) : '',
+  origin: l.origin, destination: l.destination, truckType: l.truckType,
   awardRule: l.awardRule, carrierIds: l.carriers.map((c) => c.id), isActive: l.isActive,
 });
 
@@ -74,7 +73,7 @@ export function LanesTab({ canManage, addSignal }: { canManage: boolean; addSign
     e.preventDefault();
     setBusy(true);
     setFormError('');
-    const body = { ...form, budget: fromRupeeInput(form.budget) };
+    const body = form;
     try {
       const isNew = editing === 'new';
       const { lane } = await api<{ lane: Lane }>(isNew ? '/lanes' : `/lanes/${(editing as Lane).id}`, { method: isNew ? 'POST' : 'PATCH', json: body });
@@ -98,7 +97,7 @@ export function LanesTab({ canManage, addSignal }: { canManage: boolean; addSign
       await carriers.reload();
       set('carrierIds', [...form.carrierIds, carrier.id]);
       setNewCarrier({ open: false, name: '', phone: '', errors: {}, busy: false });
-      toast({ tone: 'success', title: `${carrier.name} added and approved for this lane.`, text: 'They join DigitRell when they first reply.' });
+      toast({ tone: 'success', title: `${carrier.name} added and approved for this lane.`, text: 'It is in your carrier list too; add its rate card there.' });
     } catch (err) {
       setNewCarrier((n) => ({ ...n, busy: false, errors: formErrors(err).fields }));
     }
@@ -115,13 +114,12 @@ export function LanesTab({ canManage, addSignal }: { canManage: boolean; addSign
           A lane is a pickup city, drop city and truck type, with the carriers you trust on it. Quote requests go only to those carriers.
         </EmptyState>
       ) : (
-        <DataTable label="Lanes" headers={['Lane', 'Truck type', 'Approved carriers', 'Budget per trip', 'Award rule', 'Status', '']}>
+        <DataTable label="Lanes" headers={['Lane', 'Truck type', 'Approved carriers', 'Award rule', 'Status', '']}>
           {rows.map((l) => (
             <tr key={l.id} className={l.isActive ? '' : 'text-ink-muted'}>
               <td className={`${td} font-semibold`}>{l.origin} → {l.destination}</td>
               <td className={td}>{l.truckType}</td>
               <td className={td}>{l.carriers.length ? l.carriers.map((c) => c.name).join(', ') : <span className="text-ink-muted">None yet</span>}</td>
-              <td className={`${td} tabular`}>{rupees(l.budget)}</td>
               <td className={td}>{AWARD_RULE_LABELS[l.awardRule] ?? l.awardRule}</td>
               <td className={td}>{laneStatus(l)}</td>
               <td className={`${td} text-right`}>{canManage && <Button size="sm" variant="ghost" onClick={() => open(l)} aria-label={`Edit ${l.origin} to ${l.destination}`}>Edit</Button>}</td>
@@ -146,22 +144,11 @@ export function LanesTab({ canManage, addSignal }: { canManage: boolean; addSign
           <TextField label="Drop city" required list="lane-cities" value={form.destination} onChange={(e) => set('destination', e.target.value)} error={errors.destination} placeholder="e.g. Bengaluru" />
         </div>
         <ChoiceChips label="Truck type" required options={TRUCK_TYPES.map((t) => ({ value: t, label: t }))} value={form.truckType} onChange={(v) => set('truckType', v)} error={errors.truckType} />
-        <TextField
-          label="Budget per trip (₹)"
-          optional={form.awardRule !== 'AUTO_LOWEST'}
-          required={form.awardRule === 'AUTO_LOWEST'}
-          inputMode="numeric"
-          value={form.budget}
-          onChange={(e) => set('budget', toRupeeInput(e.target.value))}
-          error={errors.budget}
-          help="Quotes above this are flagged when you compare them."
-          placeholder="e.g. 46,000"
-        />
         <RadioCards
           label="How awards are made"
           options={[
             { value: 'ASK', label: AWARD_RULE_LABELS.ASK, help: 'You approve every award with one tap.' },
-            { value: 'AUTO_LOWEST', label: AWARD_RULE_LABELS.AUTO_LOWEST, help: 'The lowest quote within budget is awarded without asking. Needs a budget.' },
+            { value: 'AUTO_LOWEST', label: AWARD_RULE_LABELS.AUTO_LOWEST, help: 'The lowest quote within the booking’s budget is awarded without asking. Each booking on this lane then needs a budget.' },
           ]}
           value={form.awardRule}
           onChange={(v) => set('awardRule', v)}
@@ -170,12 +157,14 @@ export function LanesTab({ canManage, addSignal }: { canManage: boolean; addSign
         <fieldset>
           <legend className="mb-1.5 text-[13px] font-semibold text-ink-soft">Approved carriers</legend>
           <div className="flex flex-col gap-1.5">
-            {(carriers.data?.carriers ?? []).map((c) => {
+            {/* Carriers in use from your carrier list, plus any already on this lane. */}
+            {(carriers.data?.carriers ?? []).filter((c) => c.isActive || form.carrierIds.includes(c.id)).map((c) => {
               const on = form.carrierIds.includes(c.id);
               return (
                 <label key={c.id} className={`flex min-h-[44px] cursor-pointer items-center gap-3 rounded-btn border px-3 text-sm ${on ? 'border-brand bg-[#F3F8F8]' : 'border-line'}`}>
                   <input type="checkbox" checked={on} onChange={() => set('carrierIds', on ? form.carrierIds.filter((x) => x !== c.id) : [...form.carrierIds, c.id])} className="h-[18px] w-[18px] accent-brand" />
                   <span className="flex-1 font-medium">{c.name}</span>
+                  {!c.isActive && <Chip tone="neutral">Not in use</Chip>}
                   {c.status === 'INVITED' && <Chip tone="neutral">Invited</Chip>}
                 </label>
               );
@@ -192,7 +181,7 @@ export function LanesTab({ canManage, addSignal }: { canManage: boolean; addSign
               </div>
             </div>
           ) : (
-            <Button size="sm" variant="ghost" className="mt-2" onClick={() => setNewCarrier((n) => ({ ...n, open: true }))}>+ Add a carrier not on the list</Button>
+            <Button size="sm" variant="ghost" className="mt-2" onClick={() => setNewCarrier((n) => ({ ...n, open: true }))}>+ Add a new carrier</Button>
           )}
         </fieldset>
         {editing !== 'new' && (

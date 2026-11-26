@@ -116,7 +116,7 @@ function ComparePanel({ trip, onChanged }: { trip: TripDetail; onChanged: () => 
         <div>
           <h2 className="text-lg font-semibold">Choose a carrier</h2>
           <p className="mt-1 text-sm text-ink-muted">
-            {quoted.length} of {trip.quotes.length} carriers quoted.{trip.budget != null && ` Budget for this lane: ${rupees(trip.budget)}.`}
+            {quoted.length} of {trip.quotes.length} carriers quoted.{trip.budget != null && ` Budget for this trip: ${rupees(trip.budget)}.`}
             {waiting.length > 0 && !trip.quotesClosedAt && trip.quoteDeadline && ` ${waiting.map((w) => w.carrier).join(', ')} can still reply until ${timeIST(trip.quoteDeadline)}.`}
           </p>
         </div>

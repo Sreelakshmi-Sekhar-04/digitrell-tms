@@ -20,11 +20,12 @@ export type UserKey = keyof typeof USERS;
 
 /** Carriers with their track record (trips, on-time %, days to POD, acceptance %). */
 export const CARRIERS = {
-  thirumala: { name: 'Thirumala Roadways', phone: '+919000020001', perf: [48, 95, 1.1, 92], code: 'TRW', state: 'TN' },
-  godavari: { name: 'Godavari Freight Lines', phone: '+919000020002', perf: [36, 91, 1.6, 89], code: 'GFL', state: 'TS' },
-  nilgiri: { name: 'Nilgiri Logistics', phone: '+919000020003', perf: [27, 93, 1.4, 90], code: 'NLG', state: 'KA' },
-  shivam: { name: 'Shivam Transport Co', phone: '+919000020004', perf: [31, 84, 3.2, 80], code: 'STC', state: 'MH' },
-  konkan: { name: 'Konkan Cargo Movers', phone: '+919000020005', perf: [22, 89, 2.0, 86], code: 'KCM', state: 'MH' },
+  // contact and city: the shipper's carrier master; rateVsBudget: its agreed rates against the lane's usual budget.
+  thirumala: { name: 'Thirumala Roadways', phone: '+919000020001', perf: [48, 95, 1.1, 92], code: 'TRW', state: 'TN', contact: 'Venkatesan R', city: 'Chennai', rateVsBudget: -0.02 },
+  godavari: { name: 'Godavari Freight Lines', phone: '+919000020002', perf: [36, 91, 1.6, 89], code: 'GFL', state: 'TS', contact: 'Prasad Reddy', city: 'Hyderabad', rateVsBudget: -0.04 },
+  nilgiri: { name: 'Nilgiri Logistics', phone: '+919000020003', perf: [27, 93, 1.4, 90], code: 'NLG', state: 'KA', contact: 'Ashok Gowda', city: 'Bengaluru', rateVsBudget: 0 },
+  shivam: { name: 'Shivam Transport Co', phone: '+919000020004', perf: [31, 84, 3.2, 80], code: 'STC', state: 'MH', contact: 'Rahul Jadhav', city: 'Pune', rateVsBudget: -0.06 },
+  konkan: { name: 'Konkan Cargo Movers', phone: '+919000020005', perf: [22, 89, 2.0, 86], code: 'KCM', state: 'MH', contact: 'Sameer Kulkarni', city: 'Mumbai', rateVsBudget: -0.03 },
 } as const;
 export type CarrierKey = keyof typeof CARRIERS;
 
@@ -37,7 +38,7 @@ export const ADDRESSES = [
   { name: 'Coimbatore Depot', city: 'Coimbatore', line1: 'SF 88, SIDCO Kurichi', kind: 'DROP', contactName: 'Karthikeyan', contactPhone: '+919000030006', hours: '08:00–18:00' },
 ] as const;
 
-/** Lanes: addresses, truck type, budget, award rule, approved carriers, transit time and a midway town. */
+/** Lanes: addresses, truck type, the usual budget per booking, award rule, approved carriers, transit time and a midway town. */
 export const LANES = {
   'CHE-BLR': { from: 'Sriperumbudur Plant', to: 'Whitefield DC', origin: 'Chennai', destination: 'Bengaluru', truckType: '32ft MXL', budget: 45000, awardRule: 'ASK', carriers: ['thirumala', 'godavari', 'nilgiri', 'shivam'], transitH: 9, midway: 'Krishnagiri' },
   'MUM-PUN': { from: 'Bhiwandi Warehouse', to: 'Hinjewadi DC', origin: 'Mumbai', destination: 'Pune', truckType: '20ft SXL', budget: 16000, awardRule: 'AUTO_LOWEST', carriers: ['konkan', 'shivam'], transitH: 5, midway: 'Lonavala' },

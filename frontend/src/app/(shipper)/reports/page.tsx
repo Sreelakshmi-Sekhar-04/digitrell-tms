@@ -114,7 +114,7 @@ export default function ReportsPage() {
       {k && r && (
         <>
           <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 xl:grid-cols-4">
-            <Kpi label="Freight awarded" value={rupees(k.spend)} note={k.budget ? `${Math.round((k.spend / k.budget) * 100)}% of ${rupees(k.budget)} budget` : 'No lane budgets set'} warn={!!k.budget && k.spend > k.budget} />
+            <Kpi label="Freight awarded" value={rupees(k.spend)} note={k.budget ? `${Math.round((k.spend / k.budget) * 100)}% of ${rupees(k.budget)} budget` : 'No budgets set on bookings'} warn={!!k.budget && k.spend > k.budget} />
             <Kpi label="On-time delivery" value={k.onTimePct != null ? `${k.onTimePct}%` : '—'} note={k.onTimePct != null ? `of ${k.delivered} delivered, against the ETA at loading` : 'No deliveries yet'} />
             <Kpi label="Average POD time" value={k.avgPodDays != null ? `${k.avgPodDays} days` : '—'} note="Delivery to accepted POD" />
             <Kpi label="Trips" value={String(k.trips)} note={`${k.awarded} awarded · ${k.claims} claim${k.claims === 1 ? '' : 's'}${k.claimValue ? ` (${rupees(k.claimValue)})` : ''}`} />
@@ -122,7 +122,7 @@ export default function ReportsPage() {
           <div className="grid grid-cols-1 items-start gap-5">
             <Card className="overflow-hidden">
               <h2 className="px-5 pb-1 pt-4 text-[17px] font-semibold">Freight awarded by lane</h2>
-              <p className="px-5 pb-3 text-[13px] text-ink-muted">Awarded amounts in the period, against each lane&apos;s budget.</p>
+              <p className="px-5 pb-3 text-[13px] text-ink-muted">Awarded amounts in the period, against the budgets set when booking.</p>
               {r.byLane.length ? <SpendByLane rows={r.byLane} /> : <EmptyState title="No awards in this period" />}
             </Card>
             <Card className="overflow-hidden">

@@ -48,7 +48,7 @@ test.describe('Home dashboard API', () => {
 test.describe('Reports API', () => {
   test('on-time, POD days, spend vs budget, by lane and carrier scorecard follow the trip records', async ({ request }) => {
     const anita = await asUser(request, USERS.shipperHead);
-    const own = await ownLane(anita, 1); // budget ₹20,000
+    const own = await ownLane(anita, 1); // bookings with own.booking have a ₹20,000 budget
     await deliveredOn(request, anita, own, 18000, false);
     await deliveredOn(request, anita, own, 19000, true);
     const rep = await (await anita.get('/insights/reports?period=month')).json();

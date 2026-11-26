@@ -56,6 +56,8 @@ async function remove() {
       prisma.tripException.deleteMany({ where: byTrip }),
       prisma.trip.deleteMany({ where: { id: { in: trips } } }),
       prisma.lane.deleteMany({ where: { shipperId: shipper.id } }),
+      prisma.rateCard.deleteMany({ where: { shipperId: shipper.id } }),
+      prisma.shipperCarrier.deleteMany({ where: { shipperId: shipper.id } }),
       prisma.address.deleteMany({ where: { companyId: shipper.id } }),
       prisma.shipperPolicy.deleteMany({ where: { companyId: shipper.id } }),
       prisma.user.deleteMany({ where: { companyId: shipper.id } }),
@@ -65,9 +67,9 @@ async function remove() {
   }
   // Demo carriers go too, unless someone else now works with them.
   for (const name of CARRIER_NAMES) {
-    const c = await prisma.company.findFirst({ where: { name, type: 'CARRIER' }, include: { users: true, carrierOn: true, quotes: true, wonTrips: true } });
+    const c = await prisma.company.findFirst({ where: { name, type: 'CARRIER' }, include: { users: true, carrierOn: true, quotes: true, wonTrips: true, listedBy: true, rateCardsGiven: true } });
     if (!c) continue;
-    if (c.users.length || c.carrierOn.length || c.quotes.length || c.wonTrips.length) {
+    if (c.users.length || c.carrierOn.length || c.quotes.length || c.wonTrips.length || c.listedBy.length || c.rateCardsGiven.length) {
       console.log(`Kept carrier ${name}: other data uses it.`);
       continue;
     }
@@ -109,10 +111,24 @@ async function setup() {
   const addresses: Record<string, string> = {};
   for (const a of D.ADDRESSES) addresses[a.name] = (await prisma.address.create({ data: { companyId: shipper.id, ...a, createdAt: since } })).id;
 
+  // Carrier master and rate cards: every demo carrier, with agreed rates on the lanes it serves
+  // (the lane's usual budget, a little under or over per carrier).
+  for (const [key, c] of Object.entries(D.CARRIERS) as [D.CarrierKey, (typeof D.CARRIERS)[D.CarrierKey]][]) {
+    await prisma.shipperCarrier.create({ data: { shipperId: shipper.id, carrierId: carriers[key], contactName: c.contact, contactPhone: c.phone, city: c.city, createdAt: since } });
+    const lines = Object.values(D.LANES)
+      .filter((l) => (l.carriers as readonly string[]).includes(key))
+      .map((l) => ({
+        origin: l.origin, destination: l.destination, truckType: l.truckType,
+        rate: new Prisma.Decimal(Math.round((l.budget * (1 + c.rateVsBudget)) / 100) * 100),
+        detentionPerDay: new Prisma.Decimal(1200), transitDays: Math.max(1, Math.ceil(l.transitH / 24)),
+      }));
+    if (lines.length) await prisma.rateCard.create({ data: { shipperId: shipper.id, carrierId: carriers[key], createdAt: since, lines: { create: lines } } });
+  }
+
   for (const l of Object.values(D.LANES)) {
     await prisma.lane.create({
       data: {
-        shipperId: shipper.id, origin: l.origin, destination: l.destination, truckType: l.truckType, budget: new Prisma.Decimal(l.budget),
+        shipperId: shipper.id, origin: l.origin, destination: l.destination, truckType: l.truckType,
         awardRule: l.awardRule, createdAt: since, carriers: { create: l.carriers.map((k) => ({ carrierId: carriers[k], createdAt: since })) },
       },
     });
@@ -220,7 +236,7 @@ async function runTrip(s: D.TripSpec, i: number, ctx: Ctx, now: number) {
   await at(T0, id, async () => {
     const res = await api(tok(s.by), 'POST', '/bookings', {
       pickupAddressId: ctx.addresses[lane.from], dropAddressId: ctx.addresses[lane.to], pickupDate: istDate(T0 + 20 * H),
-      truckType: lane.truckType, material: s.material, weightTonnes: s.tonnes, reference: s.reference,
+      truckType: lane.truckType, material: s.material, weightTonnes: s.tonnes, reference: s.reference, budget: lane.budget,
     });
     tripId = res.trip.id;
     number = res.trip.number;

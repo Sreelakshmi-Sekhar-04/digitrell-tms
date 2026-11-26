@@ -38,7 +38,7 @@ export function quoteInputs(trip: TripFull): QuoteInput[] {
 }
 
 export function scored(trip: TripFull) {
-  const list = scoreQuotes(quoteInputs(trip), toNumber(trip.lane?.budget));
+  const list = scoreQuotes(quoteInputs(trip), toNumber(trip.budget));
   return { list, reason: recommendationReason(list) };
 }
 
@@ -72,8 +72,8 @@ export async function syncTrip(tripId: string): Promise<void> {
   const { list } = scored(trip);
   if (!list.length) return; // no quotes: the shipper chooses what next (re-tender)
 
-  if (trip.lane?.awardRule === 'AUTO_LOWEST' && trip.lane.budget != null) {
-    const budget = toNumber(trip.lane.budget)!;
+  if (trip.lane?.awardRule === 'AUTO_LOWEST' && trip.budget != null) {
+    const budget = toNumber(trip.budget)!;
     const lowest = [...list].sort((a, b) => a.amount - b.amount)[0];
     const priorAwards = await prisma.quote.count({ where: { carrierId: lowest.carrierId, status: 'AWARDED', trip: { shipperId: trip.shipperId } } });
     // BRD §6: no agent awards a first trip to a new carrier on its own; never above budget.

@@ -100,9 +100,8 @@ test.describe('App shell and navigation', () => {
     const nav = page.getByRole('navigation', { name: 'Main', exact: true });
     const expected: Record<string, { url: RegExp; heading: string | RegExp }> = {
       Trips: { url: /\/trips$/, heading: 'Trips' },
-      'New booking': { url: /\/bookings\/new$/, heading: 'New booking' },
       Approvals: { url: /\/approvals$/, heading: 'Approvals' },
-      'Carriers and lanes': { url: /\/masters$/, heading: 'Carriers and lanes' },
+      'Master data': { url: /\/masters$/, heading: 'Master data' },
       Reports: { url: /\/reports$/, heading: 'Reports' },
       Policies: { url: /\/policies$/, heading: 'Policies and approvals' },
       Home: { url: /\/$/, heading: /Good (morning|afternoon|evening), Anita/ },

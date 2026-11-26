@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { USERS, expect, loginUi, test } from './helpers';
+import { NAV, USERS, expect, loginUi, test } from './helpers';
 
 const BOT_WORDS = /whatsapp|\bbots?\b|\bsms\b|voice note/i;
 const BOT_REQUEST = /whatsapp|\/bot\b|bot-gateway|webhook/i;
@@ -48,7 +48,7 @@ test.describe('WhatsApp bot removed (screens)', () => {
   test('the desk sidebar no longer has the WhatsApp panel; navigation is unchanged', async ({ page }) => {
     await loginUi(page, USERS.shipperHead);
     const nav = page.getByRole('navigation', { name: 'Main', exact: true });
-    await expect(nav.getByRole('link')).toHaveText(['Home', 'Trips', 'New booking', 'Approvals', 'Carriers and lanes', 'Reports', 'Policies']);
+    await expect(nav.getByRole('link')).toHaveText(NAV);
     await expect(nav).not.toContainText(/whatsapp/i);
     await expect(page.getByRole('link', { name: 'My messages' })).toBeVisible();
   });

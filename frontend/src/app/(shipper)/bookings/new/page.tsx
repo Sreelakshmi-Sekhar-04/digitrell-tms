@@ -11,7 +11,7 @@ import { timeIST } from '@/lib/trips';
 import { Button } from '@/components/ui/Button';
 import { Card, EmptyState, PageHeader, Skeleton } from '@/components/ui/Card';
 import { SelectField, TextField } from '@/components/ui/Field';
-import { ChoiceChips } from '@/components/ui/Choice';
+import { ChoiceChips, fromRupeeInput, toRupeeInput } from '@/components/ui/Choice';
 import { useToast } from '@/components/ui/Toast';
 import type { Address } from '@/components/masters/types';
 
@@ -22,6 +22,7 @@ interface Form {
   truckType: string;
   material: string;
   weightTonnes: string;
+  budget: string;
   receiverContact: string;
   reference: string;
   notes: string;
@@ -35,25 +36,40 @@ interface Recent {
   truckType: string;
   material: string;
   weightTonnes: number | null;
+  budget: number | null;
   lastBooked: string;
 }
+interface LaneCarrier {
+  id: string;
+  name: string;
+  status: string;
+  /** Freight per trip on the carrier's current rate card, if it has one for this lane. */
+  rate: number | null;
+  transitDays: number | null;
+}
 interface Preview {
-  lane: { origin: string; destination: string; budget: number | null; awardRule: string };
-  carriers: { id: string; name: string; status: string }[];
+  lane: { origin: string; destination: string; awardRule: string };
+  budget: number | null;
+  carriers: LaneCarrier[];
   quoteWindowHours: number;
   quotesClose: string;
+}
+interface LaneInfo {
+  lane: { id: string; awardRule: string } | null;
+  carriers?: LaneCarrier[];
+  lastBudget?: number | null;
 }
 
 const DRAFT_KEY = 'dtms.bookingDraft';
 const istDate = (offsetDays: number) => new Date(Date.now() + 5.5 * 3600_000 + offsetDays * 86400_000).toISOString().slice(0, 10);
-const EMPTY: Form = { pickupAddressId: '', dropAddressId: '', pickupDate: istDate(1), truckType: '', material: '', weightTonnes: '', receiverContact: '', reference: '', notes: '' };
+const EMPTY: Form = { pickupAddressId: '', dropAddressId: '', pickupDate: istDate(1), truckType: '', material: '', weightTonnes: '', budget: '', receiverContact: '', reference: '', notes: '' };
 const prettyDate = (d: string) => new Date(`${d}T00:00:00Z`).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
 
 function loadDraft(): Form | null {
   try {
     const raw = window.localStorage.getItem(DRAFT_KEY);
     if (!raw) return null;
-    const d = JSON.parse(raw) as Form;
+    const d = { ...EMPTY, ...(JSON.parse(raw) as Partial<Form>) }; // drafts saved before a field existed
     return d.pickupDate < istDate(0) ? { ...d, pickupDate: istDate(1) } : d;
   } catch {
     return null;
@@ -73,21 +89,43 @@ export default function NewBookingPage() {
   const [busy, setBusy] = useState(false);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [windowHours, setWindowHours] = useState<number | null>(null);
+  const [laneInfo, setLaneInfo] = useState<LaneInfo | null>(null);
 
+  // Saving waits until the draft has been read: otherwise the empty first render would overwrite
+  // it (React runs mount effects twice in development, so the second read would find it empty).
+  const [draftRead, setDraftRead] = useState(false);
   useEffect(() => {
     const d = loadDraft();
     if (d) {
       setForm(d);
       if (d.receiverContact || d.reference || d.notes) setShowMore(true);
     }
+    setDraftRead(true);
   }, []);
   useEffect(() => {
+    if (!draftRead) return;
     try {
       window.localStorage.setItem(DRAFT_KEY, JSON.stringify(form));
     } catch {
       /* draft is a convenience only */
     }
-  }, [form]);
+  }, [form, draftRead]);
+
+  // Once pickup, drop and truck type are chosen: the lane's carriers and their agreed rates, as a reference for the budget.
+  useEffect(() => {
+    const { pickupAddressId: p, dropAddressId: d, truckType: t } = form;
+    if (!p || !d || !t) {
+      setLaneInfo(null);
+      return;
+    }
+    let live = true;
+    api<LaneInfo>(`/bookings/lane-info?${new URLSearchParams({ pickupAddressId: p, dropAddressId: d, truckType: t })}`)
+      .then((info) => live && setLaneInfo(info))
+      .catch(() => live && setLaneInfo(null)); // a reference only; the review step reports real problems
+    return () => {
+      live = false;
+    };
+  }, [form.pickupAddressId, form.dropAddressId, form.truckType]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const pickups = useMemo(() => (addresses.data?.addresses ?? []).filter((a) => a.kind !== 'DROP'), [addresses.data]);
   const drops = useMemo(() => (addresses.data?.addresses ?? []).filter((a) => a.kind !== 'PICKUP'), [addresses.data]);
@@ -99,7 +137,7 @@ export default function NewBookingPage() {
     setFormError(null);
   };
 
-  const body = () => ({ ...form, weightTonnes: form.weightTonnes.trim(), quoteWindowHours: windowHours ?? undefined });
+  const body = () => ({ ...form, weightTonnes: form.weightTonnes.trim(), budget: fromRupeeInput(form.budget), quoteWindowHours: windowHours ?? undefined });
 
   const showErrors = (err: unknown) => {
     if (err instanceof ApiError) {
@@ -151,7 +189,7 @@ export default function NewBookingPage() {
   };
 
   const repeat = (r: Recent) => {
-    setForm((f) => ({ ...f, pickupAddressId: r.pickupAddressId, dropAddressId: r.dropAddressId, truckType: r.truckType, material: r.material, weightTonnes: r.weightTonnes != null ? String(r.weightTonnes) : '' }));
+    setForm((f) => ({ ...f, pickupAddressId: r.pickupAddressId, dropAddressId: r.dropAddressId, truckType: r.truckType, material: r.material, weightTonnes: r.weightTonnes != null ? String(r.weightTonnes) : '', budget: r.budget != null ? toRupeeInput(String(r.budget)) : '' }));
     setErrors({});
     setFormError(null);
     setPreview(null);
@@ -186,10 +224,11 @@ export default function NewBookingPage() {
 
   const pickup = byId(form.pickupAddressId);
   const drop = byId(form.dropAddressId);
+  const autoAward = laneInfo?.lane?.awardRule === 'AUTO_LOWEST';
 
   return (
     <div className="flex flex-col gap-5">
-      <PageHeader title="New booking" subtitle={preview ? 'Check the details. Nothing is sent until you confirm.' : 'Six fields. Pick a recent booking to fill them in one click.'} />
+      <PageHeader title="New booking" subtitle={preview ? 'Check the details. Nothing is sent until you confirm.' : 'Six fields and your budget. Pick a recent booking to fill them in one click.'} />
       <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
         {preview && pickup && drop ? (
           <Card className="p-6">
@@ -203,8 +242,15 @@ export default function NewBookingPage() {
               <dt className="text-ink-muted">Load</dt>
               <dd className="font-semibold">{form.material} · {form.weightTonnes} t · {form.truckType}</dd>
               <dt className="text-ink-muted">Quotes from</dt>
-              <dd>{preview.carriers.length} approved carriers: {preview.carriers.map((c) => c.name).join(', ')}</dd>
-              {preview.lane.budget != null && (<><dt className="text-ink-muted">Budget</dt><dd>{rupees(preview.lane.budget)} per trip{preview.lane.awardRule === 'AUTO_LOWEST' ? ' · lowest quote within budget is awarded automatically' : ''}</dd></>)}
+              <dd>
+                {preview.carriers.length} approved carriers: {preview.carriers.map((c) => (c.rate != null ? `${c.name} (rate card ${rupees(c.rate)})` : c.name)).join(', ')}
+              </dd>
+              <dt className="text-ink-muted">Budget</dt>
+              <dd>
+                {preview.budget != null
+                  ? <><span className="font-semibold">{rupees(preview.budget)}</span> per trip{preview.lane.awardRule === 'AUTO_LOWEST' ? ' · lowest quote within budget is awarded automatically' : ' · quotes above it are flagged'}</>
+                  : <span className="text-ink-muted">Not set. Quotes won&apos;t be compared to a budget.</span>}
+              </dd>
               <dt className="text-ink-muted">Quotes close</dt>
               <dd className="flex flex-wrap items-center gap-2">
                 <span>at {timeIST(preview.quotesClose)}</span>
@@ -232,7 +278,7 @@ export default function NewBookingPage() {
                 <div role="alert" className="rounded-xl border border-[#E9B8B8] bg-tone-danger-bg px-4 py-3 text-sm text-[#7A1616]">
                   <strong>{formError.message}</strong>
                   {formError.noLane && user?.role === 'LOGISTICS_HEAD' && (
-                    <> <Link href="/masters?tab=lanes" className="font-semibold underline">Open Carriers and lanes</Link></>
+                    <> <Link href="/masters?tab=lanes" className="font-semibold underline">Open Master data → Lanes</Link></>
                   )}
                   {formError.noLane && user?.role !== 'LOGISTICS_HEAD' && <> Ask your logistics head to set it up.</>}
                 </div>
@@ -250,9 +296,21 @@ export default function NewBookingPage() {
                 <TextField label="Weight (tonnes)" required inputMode="decimal" placeholder="e.g. 14" value={form.weightTonnes} onChange={(e) => set('weightTonnes', e.target.value.replace(/[^\d.,]/g, ''))} error={errors.weightTonnes} />
               </div>
               <ChoiceChips label="Truck type" required options={TRUCK_TYPES.map((t) => ({ value: t, label: t }))} value={form.truckType} onChange={(v) => set('truckType', v)} error={errors.truckType} />
-              <div className="max-w-[420px]">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <TextField label="Material" required value={form.material} onChange={(e) => set('material', e.target.value)} error={errors.material} placeholder="e.g. Biscuits (packed cartons)" />
+                <TextField
+                  label="Budget per trip (₹)"
+                  required={autoAward}
+                  optional={!autoAward}
+                  inputMode="numeric"
+                  value={form.budget}
+                  onChange={(e) => set('budget', toRupeeInput(e.target.value))}
+                  error={errors.budget}
+                  placeholder="e.g. 46,000"
+                  help={autoAward ? 'This lane awards the lowest quote within your budget automatically.' : 'Quotes above this are flagged when you compare them.'}
+                />
               </div>
+              {laneInfo?.lane && <RateReference info={laneInfo} onUse={(n) => set('budget', toRupeeInput(String(n)))} />}
               <Button variant="ghost" size="sm" className="self-start" aria-expanded={showMore} onClick={() => setShowMore((s) => !s)}>
                 {showMore ? '− Fewer details' : '+ Receiver contact, reference, notes'}
               </Button>
@@ -288,5 +346,39 @@ export default function NewBookingPage() {
         </aside>
       </div>
     </div>
+  );
+}
+
+/**
+ * Agreed rates of the lane's carriers, as a reference for the budget. Nothing is filled in or
+ * enforced unless the user picks a figure.
+ */
+function RateReference({ info, onUse }: { info: LaneInfo; onUse: (n: number) => void }) {
+  const carriers = info.carriers ?? [];
+  const rated = carriers.filter((c) => c.rate != null);
+  const lowest = rated.length ? Math.min(...rated.map((c) => c.rate!)) : null;
+  return (
+    <section aria-label="Rate card reference" className="rounded-xl bg-brand-soft px-4 py-3.5 text-sm">
+      <h3 className="mb-1.5 text-[13px] font-semibold text-ink-soft">Rate cards on this lane</h3>
+      {rated.length ? (
+        <ul className="flex flex-col gap-0.5">
+          {rated.map((c) => (
+            <li key={c.id} className="flex justify-between gap-3">
+              <span>{c.name}{c.transitDays ? <span className="text-ink-muted"> · {c.transitDays} day{c.transitDays > 1 ? 's' : ''}</span> : null}</span>
+              <span className="tabular font-semibold">{rupees(c.rate)}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-ink-muted">None of the {carriers.length} approved carriers has a rate card for this lane yet.</p>
+      )}
+      {rated.length > 0 && rated.length < carriers.length && (
+        <p className="mt-1 text-xs text-ink-muted">No rate card: {carriers.filter((c) => c.rate == null).map((c) => c.name).join(', ')}</p>
+      )}
+      <div className="mt-2.5 flex flex-wrap gap-2">
+        {lowest != null && <Button size="sm" variant="secondary" onClick={() => onUse(lowest)}>Use lowest rate ({rupees(lowest)})</Button>}
+        {info.lastBudget != null && <Button size="sm" variant="ghost" onClick={() => onUse(info.lastBudget!)}>Use last budget ({rupees(info.lastBudget)})</Button>}
+      </div>
+    </section>
   );
 }

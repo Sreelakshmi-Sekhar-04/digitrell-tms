@@ -7,11 +7,12 @@ test.describe('Booking API', () => {
   test('preview shows the carriers and close time; booking sends quote requests to all of them', async ({ request }) => {
     const anita = await asUser(request, USERS.shipperHead);
     const r = await refs(anita);
-    const body = { pickupAddressId: r.ambattur, dropAddressId: r.hosur, pickupDate: tomorrow(), truckType: '32ft MXL', material: 'Biscuits', weightTonnes: '14' };
+    const body = { pickupAddressId: r.ambattur, dropAddressId: r.hosur, pickupDate: tomorrow(), truckType: '32ft MXL', material: 'Biscuits', weightTonnes: '14', budget: '46,000' };
     const preview = await (await anita.post('/bookings/preview', body)).json();
     expect(preview.carriers.map((c: { name: string }) => c.name).sort()).toEqual(['Deccan Freight Carriers', 'Kaveri Roadlines', 'NorthStar Logistics', 'Sai Ganesh Transport']);
     expect(preview.quoteWindowHours).toBe(2);
-    expect(preview.lane).toMatchObject({ origin: 'Chennai', destination: 'Bengaluru', budget: 46000 });
+    expect(preview.lane).toMatchObject({ origin: 'Chennai', destination: 'Bengaluru' });
+    expect(preview.budget).toBe(46000);
 
     const first = await book(anita, r);
     const second = await book(anita, r, { quoteWindowHours: 1 });
@@ -209,8 +210,8 @@ test.describe('Quotes, recommendation and award API', () => {
     const carrierB = (await (await anita.post('/carriers', { name: `Beta Movers ${tag}`, phone: phone() })).json()).carrier;
     const from = (await (await anita.post('/addresses', { name: `Nagpur Yard ${tag}`, city: 'Nagpur', line1: 'MIDC Hingna', kind: 'PICKUP' })).json()).address;
     const to = (await (await anita.post('/addresses', { name: `Raipur DC ${tag}`, city: 'Raipur', line1: 'Urla Industrial Area', kind: 'DROP' })).json()).address;
-    await anita.post('/lanes', { origin: 'Nagpur', destination: 'Raipur', truckType: '20ft SXL', budget: 40000, awardRule: 'AUTO_LOWEST', carrierIds: [carrierA.id, carrierB.id] });
-    const lane = { pickupAddressId: from.id, dropAddressId: to.id, truckType: '20ft SXL', material: 'Snacks', weightTonnes: 8 };
+    await anita.post('/lanes', { origin: 'Nagpur', destination: 'Raipur', truckType: '20ft SXL', awardRule: 'AUTO_LOWEST', carrierIds: [carrierA.id, carrierB.id] });
+    const lane = { pickupAddressId: from.id, dropAddressId: to.id, truckType: '20ft SXL', material: 'Snacks', weightTonnes: 8, budget: 40000 };
 
     const first = await book(anita, r, lane);
     await carrierQuotes(request, first.number, carrierA.id, 38200);

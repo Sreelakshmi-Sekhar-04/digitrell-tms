@@ -20,6 +20,7 @@ test.describe('New booking', () => {
     await field(page, 'Weight (tonnes)').fill('14');
     await page.getByText('32ft MXL', { exact: true }).click();
     await field(page, 'Material').fill('Biscuits (packed cartons)');
+    await field(page, 'Budget per trip (₹)').fill('46000');
     await page.getByRole('button', { name: '+ Receiver contact, reference, notes' }).click();
     await field(page, 'Your reference').fill('PO-77810');
     await page.getByRole('button', { name: 'Review and confirm' }).click();
@@ -50,7 +51,7 @@ test.describe('New booking', () => {
     await page.getByRole('button', { name: 'Review and confirm' }).click();
     const alert = page.getByRole('alert').filter({ hasText: 'No approved carriers for Chennai → Hyderabad with 14ft' });
     await expect(alert).toBeVisible();
-    await expect(alert.getByRole('link', { name: 'Open Carriers and lanes' })).toHaveAttribute('href', '/masters?tab=lanes');
+    await expect(alert.getByRole('link', { name: 'Open Master data → Lanes' })).toHaveAttribute('href', '/masters?tab=lanes');
     await expect(field(page, 'Material')).toHaveValue('Snacks');
   });
 
@@ -60,7 +61,7 @@ test.describe('New booking', () => {
     await field(page, 'Weight (tonnes)').fill('9.5');
     await field(page, 'Material').fill('Draft check');
     await page.getByRole('navigation', { name: 'Main', exact: true }).getByRole('link', { name: /^Trips/ }).click();
-    await page.getByRole('navigation', { name: 'Main', exact: true }).getByRole('link', { name: /^New booking/ }).click();
+    await page.getByRole('link', { name: '+ New booking' }).click(); // from the Trips page; no longer in the menu
     await expect(field(page, 'Material')).toHaveValue('Draft check');
     await expect(field(page, 'Weight (tonnes)')).toHaveValue('9.5');
 
@@ -86,7 +87,7 @@ test.describe('Compare quotes and award', () => {
 
     await loginUi(page, USERS.shipperHead, `/trips/${trip.id}`);
     await expect(page.getByRole('heading', { name: 'Choose a carrier' })).toBeVisible();
-    await expect(page.getByText('3 of 4 carriers quoted. Budget for this lane: ₹46,000.')).toBeVisible();
+    await expect(page.getByText('3 of 4 carriers quoted. Budget for this trip: ₹46,000.')).toBeVisible();
     await expect(page.getByRole('radio', { name: 'Pick Kaveri Roadlines' })).toBeChecked();
     await expect(page.getByText('Why Kaveri Roadlines:')).toBeVisible();
     await expect(page.getByRole('row', { name: /Sai Ganesh Transport/ })).toContainText('Waiting');
