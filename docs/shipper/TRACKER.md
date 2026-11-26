@@ -9,7 +9,7 @@
 | 5 Exceptions | `feature/shipper-phase-5-exceptions` | Merged | [#5](https://github.com/Sreelakshmi-Sekhar-04/digitrell-tms/pull/5) | 123 / 123 passed, twice (incl. phases 1–4 regression) |
 | 6 Dashboard and reports | `feature/shipper-phase-6-dashboard-reports` | Merged | [#6](https://github.com/Sreelakshmi-Sekhar-04/digitrell-tms/pull/6) | 138 / 138 passed, twice (incl. phases 1–5 regression) |
 | 7 Integration and final validation | `feature/shipper-phase-7-integration` | Merged | [#7](https://github.com/Sreelakshmi-Sekhar-04/digitrell-tms/pull/7) | 148 / 148 passed, twice (full suite) |
-| WhatsApp bot removed, demo data | `feature/remove-whatsapp-bot-demo-data` | In review | PR link below | 171 / 171 passed, twice (full suite) |
+| WhatsApp bot removed, demo data | `feature/remove-whatsapp-bot-demo-data` | In review | [#8](https://github.com/Sreelakshmi-Sekhar-04/digitrell-tms/pull/8) | 171 / 171 passed, twice (full suite) |
 
 Open business questions: see `IMPLEMENTATION_PLAN.md` §7.
 
