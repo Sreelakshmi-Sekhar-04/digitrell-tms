@@ -49,7 +49,7 @@ Screenshots of the key screens are in `screenshots/` (`npm run capture` in `e2e/
 | Home (decisions, month, active trips, first-time setup) | Yes | Approve and Review inline; reject goes through Review (it needs a reason) |
 | Trips list with tabs and filters | Yes | Plus search from the header on desktop |
 | Trip detail (progress, task panel, details, documents, activity) | Yes | Phones show quote **cards**, as designed |
-| New booking + confirm | Yes | *Paste a message* is not built: reading free text is the bot's intake agent. The page says WhatsApp booking is coming |
+| New booking + confirm | Yes | *Paste a message* is not built (it belonged to the WhatsApp bot, which was dropped) |
 | Approvals inbox | Yes | Awards, payments, exception fixes |
 | Carriers and lanes (tabs) with drawers; invite user | Yes | |
 | Policies | Yes | Bid evaluation can't be set to act alone (BRD §7) |
@@ -59,7 +59,7 @@ Screenshots of the key screens are in `screenshots/` (`npm run capture` in `e2e/
 | Cancel trip dialog | Yes | Void LR is the carrier's (documents module) |
 | My messages | Yes | |
 | Desk app at phone width | Yes | 4 bottom tabs + More, cards for quotes |
-| WhatsApp bot, driver and receiver chats | Not in this module | Messaging and bot modules |
+| WhatsApp bot, driver and receiver chats | Dropped | See `docs/whatsapp-bot-removal.md` |
 
 Design tokens (colours, fonts, radii, 44 px targets) are checked by tests. Fonts are self-hosted.
 
@@ -121,13 +121,19 @@ What the suite covers across phases:
 | Needed from | For | Today |
 |---|---|---|
 | Carrier module | Quotes, truck, LR/e-way bill, claim responses, invoices | Integration endpoints |
-| Driver bot / tracking | Status, ETA, location, POD photo, problems | Integration endpoints |
-| Messaging (WhatsApp/SMS/email) | Invites, approvals, updates, honouring My messages | Preferences stored; links shown to copy |
-| Intake agent | Booking from WhatsApp text, voice, slip photo | Web form only |
+| Driver app / tracking | Status, ETA, location, POD photo, problems | Integration endpoints |
+| Email notifications | Invites, approvals, updates, honouring My messages | Preferences stored; links shown to copy |
 | ERP connector (Tally) | Posting payments | `postedToErp` flag |
 | Payments | UPI pay links | Record-only |
 
-## 9. Phase 7 changes
+## 9. After Release 1: WhatsApp bot removed, demo data added
+
+The WhatsApp bot was dropped. Its placeholders, contract, message log, channel choice, intake agent
+and every WhatsApp mention on screen are gone; email is now required for new users. A demo company
+with 31 trips can be loaded with `npm run demo:load`. See `docs/whatsapp-bot-removal.md` and
+`docs/demo-data.md`.
+
+## 10. Phase 7 changes
 
 - **Tests:**
   - end-to-end journey

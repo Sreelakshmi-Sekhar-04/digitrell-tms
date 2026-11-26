@@ -25,7 +25,7 @@ Money is in rupees (numbers). Dates are ISO 8601 (UTC); the web app shows India 
 | GET | `/auth/me` | Current user incl. `approvalLimit` |
 | POST | `/auth/logout` | Ends the session |
 | GET / POST | `/invites/:token` | **Public.** Read invite; `{ password }` sets it and signs in |
-| GET / PUT | `/profile/messages` | `{ language, channel, quietHours, prefs }` |
+| GET / PUT | `/profile/messages` | Email updates: `{ language, quietHours, prefs }` |
 
 ## Master data and policies
 
@@ -34,7 +34,7 @@ Money is in rupees (numbers). Dates are ISO 8601 (UTC); the web app shows India 
 | GET, POST / PATCH `/:id` | `/addresses` | any shipper user |
 | GET, POST | `/carriers` | logistics head (POST adds an *invited* carrier) |
 | GET, POST / PATCH `/:id` | `/lanes` | logistics head |
-| GET, POST / PATCH `/:id`, POST `/:id/invite` | `/users` | logistics head |
+| GET, POST / PATCH `/:id`, POST `/:id/invite` | `/users` | logistics head (email is required) |
 | GET, PUT | `/policies` | logistics head |
 
 ## Booking, quotes and award
@@ -85,11 +85,11 @@ key set; the two test tools are disabled.
 |---|---|---|
 | POST | `/integration/quotes` | Carrier quote agent: `{ tripNumber, carrierId, amount \| null }` |
 | POST | `/integration/trips/:number/truck` | Carrier + documents agent: truck, driver, LR, e-way bill |
-| POST | `/integration/trips/:number/events` | Driver bot: `REACHED_PICKUP`, `LOADED` (+ `eta`), `LOCATION`, `REACHED_DROP` |
+| POST | `/integration/trips/:number/events` | Driver / tracking: `REACHED_PICKUP`, `LOADED` (+ `eta`), `LOCATION`, `REACHED_DROP` |
 | POST | `/integration/trips/:number/delivered` | Receiver code: `{ goodQty, damagedQty, remarks? }` |
 | POST | `/integration/trips/:number/pod` | Driver POD photo: `{ qrMatched, remarks?, photoUrl? }` |
 | POST | `/integration/claims/:number/response` | Carrier: `{ accept, note? }` |
 | POST | `/integration/trips/:number/invoice` | Carrier billing: `{ number, freight, detention?, claimDeduction?, dueDate? }` |
-| POST | `/integration/trips/:number/exceptions` | Driver bot / exception agent: `{ kind, description, proposal? }` |
+| POST | `/integration/trips/:number/exceptions` | Driver / exception agent: `{ kind, description, proposal? }` |
 | POST | `/integration/exceptions/:id/proposal` · `/resolve` | New fix proposal; fix carried out |
 | POST | `/integration/trips/:number/expire-quotes` · `/age-award` | **Test tools, non-production only** |

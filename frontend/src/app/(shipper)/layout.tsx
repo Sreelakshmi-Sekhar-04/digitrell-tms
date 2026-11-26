@@ -31,7 +31,7 @@ export default function ShipperLayout({ children }: { children: ReactNode }) {
         <Card className="p-7 text-center">
           <h1 className="text-2xl font-bold">This workspace is for shippers</h1>
           <p className="mt-2 text-sm leading-relaxed text-ink-muted">
-            You are signed in as {user.name} of {user.companyName}, a carrier. The carrier workspace is not available here yet; your quote requests and approvals still reach you on WhatsApp.
+            You are signed in as {user.name} of {user.companyName}, a carrier. The carrier workspace is not available here yet.
           </p>
           <Button
             className="mt-5"

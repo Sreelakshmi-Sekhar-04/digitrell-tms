@@ -185,7 +185,7 @@ export function LanesTab({ canManage, addSignal }: { canManage: boolean; addSign
           {newCarrier.open ? (
             <div className="mt-3 flex flex-col gap-3 rounded-xl bg-brand-soft p-3.5">
               <TextField label="Carrier company name" required value={newCarrier.name} onChange={(e) => setNewCarrier((n) => ({ ...n, name: e.target.value }))} error={newCarrier.errors.name} />
-              <TextField label="Owner's mobile" required inputMode="tel" value={newCarrier.phone} onChange={(e) => setNewCarrier((n) => ({ ...n, phone: e.target.value }))} error={newCarrier.errors.phone} help="We'll invite them on WhatsApp." placeholder="98765 43210" />
+              <TextField label="Owner's mobile" required inputMode="tel" value={newCarrier.phone} onChange={(e) => setNewCarrier((n) => ({ ...n, phone: e.target.value }))} error={newCarrier.errors.phone} help="So the carrier can be reached about this lane." placeholder="98765 43210" />
               <div className="flex gap-2">
                 <Button size="sm" onClick={addCarrier} loading={newCarrier.busy}>Add carrier</Button>
                 <Button size="sm" variant="ghost" onClick={() => setNewCarrier({ open: false, name: '', phone: '', errors: {}, busy: false })}>Cancel</Button>

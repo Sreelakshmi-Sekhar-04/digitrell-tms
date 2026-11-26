@@ -80,7 +80,6 @@ async function query(companyId: string, q: Record<string, unknown>) {
         record: l.tripId ? tripNo.get(l.tripId) ?? null : null,
         tripId: l.tripId,
         reason: l.reason,
-        channel: person ? (d.channel === 'whatsapp' ? 'WhatsApp' : 'Web') : 'System',
       };
     }),
   };
@@ -105,8 +104,8 @@ activityRouter.get(
       page += 1;
     }
     sendCsv(res, 'activity-log.csv', [
-      ['Time (IST)', 'Who', 'Action', 'Record', 'Reason', 'Channel'],
-      ...all.map((e) => [new Date(new Date(e.at).getTime() + 5.5 * 3600_000).toISOString().slice(0, 16).replace('T', ' '), e.who, e.text, e.record ?? '', e.reason ?? '', e.channel]),
+      ['Time (IST)', 'Who', 'Action', 'Record', 'Reason'],
+      ...all.map((e) => [new Date(new Date(e.at).getTime() + 5.5 * 3600_000).toISOString().slice(0, 16).replace('T', ' '), e.who, e.text, e.record ?? '', e.reason ?? '']),
     ]);
   }),
 );

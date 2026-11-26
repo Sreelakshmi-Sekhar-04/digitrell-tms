@@ -193,7 +193,7 @@ async function setProposal(exceptionId: string, trip: TripFull, p: Proposal | nu
 }
 
 /**
- * Driver reports a problem (integration point for the driver bot / exception agent). A plain delay
+ * Driver reports a problem (integration point for the driver / exception agent). A plain delay
  * is a notice: the ETA moves, no approval needed (BRD §4.9). Anything else puts the trip on hold.
  */
 export async function reportException(tripId: string, kind: (typeof EXCEPTION_KINDS)[number], description: string, proposal: Proposal | null) {

@@ -106,7 +106,7 @@ test.describe('Activity log API', () => {
     const token = await apiLogin(request, USERS.shipperHead);
     const res = await request.get(`${API_URL}/activity/export.csv?days=7`, { headers: { Authorization: `Bearer ${token}` } });
     expect(res.headers()['content-type']).toContain('text/csv');
-    expect((await res.text()).split('\r\n')[0]).toContain('Time (IST),Who,Action,Record,Reason,Channel');
+    expect((await res.text()).replace(/^﻿/, '').split('\r\n')[0]).toBe('Time (IST),Who,Action,Record,Reason');
   });
 });
 
@@ -114,12 +114,13 @@ test.describe('My messages API', () => {
   test('defaults, validation and saving', async ({ request }) => {
     const karthik = await asUser(request, USERS.shipperExec);
     const { messages } = await (await karthik.get('/profile/messages')).json();
-    expect(messages).toMatchObject({ language: 'en', channel: 'whatsapp', quietHours: '', prefs: { truckConfirmed: true, tracking: true, delivered: true, dailySummary: false, invoices: false } });
-    const bad = await karthik.put('/profile/messages', { language: 'xx', channel: 'fax', quietHours: '01:00-02:00' });
-    expect(Object.keys((await bad.json()).error.fields).sort()).toEqual(['channel', 'language', 'quietHours']);
-    const ok = await karthik.put('/profile/messages', { language: 'ta', channel: 'whatsapp_email', quietHours: '22:00-07:00', prefs: { dailySummary: true, tracking: false } });
+    expect(messages).not.toHaveProperty('channel');
+    expect(messages).toMatchObject({ language: 'en', quietHours: '', prefs: { truckConfirmed: true, tracking: true, delivered: true, dailySummary: false, invoices: false } });
+    const bad = await karthik.put('/profile/messages', { language: 'xx', quietHours: '01:00-02:00' });
+    expect(Object.keys((await bad.json()).error.fields).sort()).toEqual(['language', 'quietHours']);
+    const ok = await karthik.put('/profile/messages', { language: 'ta', quietHours: '22:00-07:00', prefs: { dailySummary: true, tracking: false } });
     expect(ok.status()).toBe(200);
-    expect((await (await karthik.get('/profile/messages')).json()).messages).toMatchObject({ language: 'ta', channel: 'whatsapp_email', quietHours: '22:00-07:00', prefs: { dailySummary: true, tracking: false, delivered: true } });
-    await karthik.put('/profile/messages', { language: 'en', channel: 'whatsapp', quietHours: '', prefs: {} });
+    expect((await (await karthik.get('/profile/messages')).json()).messages).toMatchObject({ language: 'ta', quietHours: '22:00-07:00', prefs: { dailySummary: true, tracking: false, delivered: true } });
+    await karthik.put('/profile/messages', { language: 'en', quietHours: '', prefs: {} });
   });
 });

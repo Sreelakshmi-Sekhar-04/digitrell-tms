@@ -108,7 +108,7 @@ model ShipperPolicy {
   paymentApprovalAbove Decimal  @default(50000) @db.Decimal(12, 2)
   quoteWindowHours     Int      @default(2)
   podRule              String   @default("DIGITAL") // DIGITAL | HARD_COPY | BOTH
-  autonomy             Json     // { intake, tender, bidEvaluation, billing }: 0 suggest, 1 ask first, 2 act within limits
+  autonomy             Json     // { tender, bidEvaluation, billing }: 0 suggest, 1 ask first, 2 act within limits
   updatedById          String?
   updatedAt            DateTime @updatedAt
 }
@@ -122,8 +122,8 @@ model User {
   phone     String?  @unique
   role      String
   language  String   @default("en")
-  channel   String   @default("whatsapp")
-  // Message preferences (BRD §6 Messaging): which updates, and quiet hours "22:00-07:00" or null.
+  // Email update preferences: which updates, and quiet hours "22:00-07:00" or null.
+  // Stored for the notifications module; nothing sends messages yet.
   notifyPrefs Json?
   quietHours  String?
   passwordHash String?
@@ -361,16 +361,6 @@ model Approval {
   reason      String?
   decidedAt   DateTime?
   createdAt   DateTime       @default(now())
-}
-
-model MessageLog {
-  id        String   @id @default(cuid())
-  tripId    String?
-  personId  String?
-  direction String
-  channel   String
-  body      Json
-  createdAt DateTime @default(now())
 }
 
 model AuditLog {

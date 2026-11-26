@@ -10,7 +10,7 @@ import { TextField } from '@/components/ui/Field';
 import { RadioCards, fromRupeeInput, toRupeeInput } from '@/components/ui/Choice';
 import { useToast } from '@/components/ui/Toast';
 
-type Agent = 'intake' | 'tender' | 'bidEvaluation' | 'billing';
+type Agent = 'tender' | 'bidEvaluation' | 'billing';
 interface Policy {
   paymentApprovalAbove: number;
   quoteWindowHours: number;
@@ -21,7 +21,6 @@ interface Policy {
 type Form = { paymentApprovalAbove: string; quoteWindowHours: string; podRule: string; autonomy: Record<Agent, number> };
 
 const AGENTS: { id: Agent; name: string; desc: string }[] = [
-  { id: 'intake', name: 'Intake', desc: 'Reads bookings from WhatsApp, email and voice notes' },
   { id: 'tender', name: 'Tender', desc: 'Sends quote requests to approved carriers' },
   { id: 'bidEvaluation', name: 'Bid evaluation', desc: 'Recommends and records the award' },
   { id: 'billing', name: 'Billing', desc: 'Prepares payments of carrier invoices' },

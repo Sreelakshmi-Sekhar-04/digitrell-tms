@@ -38,7 +38,7 @@ const SETUP_TEXT: Record<string, { text: string; href: string; cta: string }> = 
   lanes: { text: 'City pairs you ship on, with truck type and budget.', href: '/masters?tab=lanes', cta: 'Add lanes' },
   carriers: { text: 'Quote requests go only to carriers you approve per lane.', href: '/masters?tab=lanes', cta: 'Approve carriers' },
   limits: { text: 'Who approves awards and payments, and up to what amount.', href: '/policies', cta: 'Check limits' },
-  booking: { text: 'Here or on WhatsApp. The trip shows up here.', href: '/bookings/new', cta: 'Book now' },
+  booking: { text: 'Book your first truck. The trip shows up here.', href: '/bookings/new', cta: 'Book now' },
 };
 
 function greeting() {
@@ -133,7 +133,7 @@ export default function HomePage() {
               {d.approvalsCount > 0 && <Link href="/approvals" className="text-[13px] font-semibold text-brand-dark hover:underline">See all {d.approvalsCount}</Link>}
             </div>
             {d.approvals.length === 0 ? (
-              <EmptyState title="Nothing waiting for you">New approvals arrive here and on WhatsApp.</EmptyState>
+              <EmptyState title="Nothing waiting for you">New approvals arrive here.</EmptyState>
             ) : (
               <ul className="flex flex-col gap-2.5">
                 {d.approvals.map((a) => {

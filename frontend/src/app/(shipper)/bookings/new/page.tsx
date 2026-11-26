@@ -285,10 +285,6 @@ export default function NewBookingPage() {
               ))}
             </div>
           </Card>
-          <Card className="p-5 text-sm leading-relaxed text-ink-soft">
-            <h2 className="mb-1.5 text-base font-semibold">Coming soon: book on WhatsApp</h2>
-            With the DigitRell WhatsApp bot you&apos;ll send pickup, drop, date and load as a message, voice note or slip photo, and the trip will appear here.
-          </Card>
         </aside>
       </div>
     </div>

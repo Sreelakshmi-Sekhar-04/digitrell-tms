@@ -6,14 +6,14 @@ import { Validator, toNumber } from '../../lib/validate';
 import { audit } from '../../lib/audit';
 import { newSessionToken } from '../../lib/password';
 import { requireRole } from '../../middleware/auth';
-import { CHANNELS, LANGUAGES, ROLES_WITH_LIMIT, SHIPPER_ROLES, type ShipperRole } from '../../shared/masters';
+import { LANGUAGES, ROLES_WITH_LIMIT, SHIPPER_ROLES, type ShipperRole } from '../../shared/masters';
 
 export const usersRouter = Router();
 const INVITE_DAYS = 7;
 
 const view = (u: User) => ({
   id: u.id, name: u.name, email: u.email, phone: u.phone, role: u.role,
-  approvalLimit: toNumber(u.approvalLimit), language: u.language, channel: u.channel, isActive: u.isActive,
+  approvalLimit: toNumber(u.approvalLimit), language: u.language, isActive: u.isActive,
   status: !u.isActive ? 'INACTIVE' : u.passwordHash ? 'ACTIVE' : 'INVITED',
 });
 
@@ -59,17 +59,17 @@ usersRouter.post(
     const v = new Validator(req.body);
     const name = v.text('name', 'their name', { required: true, max: 80 });
     const phone = v.phone('phone', 'their mobile', { required: true });
-    const email = v.email('email', 'their email');
+    // Email is how people sign in and get updates, so it is required.
+    const email = v.email('email', 'their email', { required: true });
     const role = v.oneOf('role', 'a role', SHIPPER_ROLES);
     const approvalLimit = v.money('approvalLimit', 'the approval limit');
     const language = v.oneOf('language', 'a language', LANGUAGES, { required: false }) ?? 'en';
-    const channel = v.oneOf('channel', 'how they get messages', CHANNELS, { required: false }) ?? 'whatsapp';
     checkRoleAndLimit(v, role, approvalLimit, toNumber(actor.approvalLimit));
     v.done();
     await assertUniqueContact(email, phone);
     const user = await prisma.user.create({
       data: {
-        companyId: req.user!.companyId, name: name!, phone, email, role: role!, language, channel,
+        companyId: req.user!.companyId, name: name!, phone, email, role: role!, language,
         approvalLimit: approvalLimit != null ? new Prisma.Decimal(approvalLimit) : null, ...newInvite(),
       },
     });
@@ -90,9 +90,8 @@ usersRouter.patch(
     const data: Prisma.UserUpdateInput = {};
     if (v.has('name')) data.name = v.text('name', 'their name', { required: true, max: 80 })!;
     if (v.has('phone')) data.phone = v.phone('phone', 'their mobile', { required: true });
-    if (v.has('email')) data.email = v.email('email', 'their email');
+    if (v.has('email')) data.email = v.email('email', 'their email', { required: true });
     if (v.has('language')) data.language = v.oneOf('language', 'a language', LANGUAGES)!;
-    if (v.has('channel')) data.channel = v.oneOf('channel', 'how they get messages', CHANNELS)!;
     const role = v.has('role') ? v.oneOf('role', 'a role', SHIPPER_ROLES) : (target.role as ShipperRole);
     const limit = v.has('approvalLimit') ? v.money('approvalLimit', 'the approval limit') : toNumber(target.approvalLimit);
     if (v.has('role') || v.has('approvalLimit')) {

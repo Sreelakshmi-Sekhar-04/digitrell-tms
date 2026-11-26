@@ -177,7 +177,7 @@ test.describe('Users and invites API', () => {
     const anita = await asUser(request, USERS.shipperHead);
     const dupEmail = await anita.post('/users', { name: 'X', phone: '9555512345', email: USERS.shipperExec.email, role: 'BOOKING_EXECUTIVE' });
     expect(dupEmail.status()).toBe(409);
-    const dupPhone = await anita.post('/users', { name: 'X', phone: '98000 00002', role: 'BOOKING_EXECUTIVE' });
+    const dupPhone = await anita.post('/users', { name: 'X', phone: '98000 00002', email: `x.${Date.now()}@sunrisefoods.test`, role: 'BOOKING_EXECUTIVE' });
     expect(dupPhone.status()).toBe(409);
   });
 
@@ -211,11 +211,11 @@ test.describe('Policies API', () => {
   test('defaults, save, and Release 1 limits on autonomy', async ({ request }) => {
     const anita = await asUser(request, USERS.shipperHead);
     const { policy } = await (await anita.get('/policies')).json();
-    expect(policy).toMatchObject({ paymentApprovalAbove: 50000, quoteWindowHours: 2, podRule: 'DIGITAL', autonomy: { intake: 2, tender: 2, bidEvaluation: 1, billing: 1 } });
+    expect(policy).toMatchObject({ paymentApprovalAbove: 50000, quoteWindowHours: 2, podRule: 'DIGITAL', autonomy: { tender: 2, bidEvaluation: 1, billing: 1 } });
 
-    const saved = await anita.put('/policies', { paymentApprovalAbove: '75,000', quoteWindowHours: 3, podRule: 'BOTH', autonomy: { billing: 2, intake: 0 } });
+    const saved = await anita.put('/policies', { paymentApprovalAbove: '75,000', quoteWindowHours: 3, podRule: 'BOTH', autonomy: { billing: 2, tender: 0 } });
     expect(saved.status()).toBe(200);
-    expect((await saved.json()).policy).toMatchObject({ paymentApprovalAbove: 75000, quoteWindowHours: 3, podRule: 'BOTH', autonomy: { intake: 0, tender: 2, bidEvaluation: 1, billing: 2 } });
+    expect((await saved.json()).policy).toMatchObject({ paymentApprovalAbove: 75000, quoteWindowHours: 3, podRule: 'BOTH', autonomy: { tender: 0, bidEvaluation: 1, billing: 2 } });
 
     const autoAward = await anita.put('/policies', { paymentApprovalAbove: 75000, quoteWindowHours: 3, podRule: 'BOTH', autonomy: { bidEvaluation: 2 } });
     expect(autoAward.status()).toBe(400);
@@ -225,6 +225,6 @@ test.describe('Policies API', () => {
     expect(Object.keys((await bad.json()).error.fields).sort()).toEqual(['paymentApprovalAbove', 'podRule', 'quoteWindowHours']);
 
     // put it back for the UI tests
-    await anita.put('/policies', { paymentApprovalAbove: 50000, quoteWindowHours: 2, podRule: 'DIGITAL', autonomy: { intake: 2, tender: 2, bidEvaluation: 1, billing: 1 } });
+    await anita.put('/policies', { paymentApprovalAbove: 50000, quoteWindowHours: 2, podRule: 'DIGITAL', autonomy: { tender: 2, bidEvaluation: 1, billing: 1 } });
   });
 });

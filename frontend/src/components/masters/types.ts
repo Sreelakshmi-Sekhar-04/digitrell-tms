@@ -36,7 +36,6 @@ export interface TeamUser {
   role: string;
   approvalLimit: number | null;
   language: string;
-  channel: string;
   isActive: boolean;
   status: 'ACTIVE' | 'INVITED' | 'INACTIVE';
 }

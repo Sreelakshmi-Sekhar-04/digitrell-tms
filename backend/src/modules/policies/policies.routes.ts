@@ -13,7 +13,8 @@ const view = (p: ShipperPolicy) => ({
   paymentApprovalAbove: toNumber(p.paymentApprovalAbove),
   quoteWindowHours: p.quoteWindowHours,
   podRule: p.podRule,
-  autonomy: { ...DEFAULT_AUTONOMY, ...(p.autonomy as Partial<Autonomy>) },
+  // Only the current agents: older rows may still hold keys of removed agents.
+  autonomy: Object.fromEntries(AUTONOMY_AGENTS.map((a) => [a, (p.autonomy as Partial<Autonomy>)[a] ?? DEFAULT_AUTONOMY[a]])) as Autonomy,
   maxAutonomy: MAX_AUTONOMY,
   updatedAt: p.updatedAt,
 });

@@ -115,10 +115,6 @@ export function AppShell({ children }: { children: ReactNode }) {
               </Link>
             );
           })}
-          <div className="mt-auto rounded-xl bg-brand-soft p-3.5 text-xs leading-relaxed text-ink-soft">
-            <div className="mb-1 font-bold">Most work happens on WhatsApp</div>
-            Approvals, quotes and updates also reach you as WhatsApp messages with buttons. This desk app shows the same items.
-          </div>
         </nav>
 
         <main className="min-w-0 flex-1 px-4 pb-28 pt-6 md:px-7 md:pb-12">{children}</main>

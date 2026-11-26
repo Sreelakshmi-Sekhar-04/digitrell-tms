@@ -20,9 +20,6 @@ export const ROLES_WITH_LIMIT = ['LOGISTICS_HEAD', 'APPROVER', 'ACCOUNTS_PAYABLE
 export const LANGUAGE_LABELS: Record<string, string> = {
   en: 'English', hi: 'Hindi', ta: 'Tamil', te: 'Telugu', kn: 'Kannada', ml: 'Malayalam', mr: 'Marathi',
 };
-export const CHANNEL_LABELS: Record<string, string> = {
-  whatsapp: 'WhatsApp, then SMS', whatsapp_email: 'WhatsApp and email', email: 'Email only',
-};
 
 /** ₹ with Indian digit grouping, no paise unless present. */
 export function rupees(n: number | null | undefined) {

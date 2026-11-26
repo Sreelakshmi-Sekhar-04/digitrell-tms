@@ -92,7 +92,7 @@ function ComparePanel({ trip, onChanged }: { trip: TripDetail; onChanged: () => 
   const choice = quoted.find((q) => q.id === picked) ?? quoted[0];
   const waiting = trip.quotes.filter((q) => q.status === 'REQUESTED');
   const limit = user?.approvalLimit ?? null;
-  const blocked = limit == null ? "Your role can't approve awards. Your logistics head or an approver will get this on WhatsApp." : choice?.amount != null && choice.amount > limit ? `${rupees(choice.amount)} is above your approval limit of ${rupees(limit)}. Ask your logistics head to approve it.` : '';
+  const blocked = limit == null ? "Your role can't approve awards. Your logistics head or an approver will see it in Approvals." : choice?.amount != null && choice.amount > limit ? `${rupees(choice.amount)} is above your approval limit of ${rupees(limit)}. Ask your logistics head to approve it.` : '';
 
   const award = async () => {
     if (!choice) return;
@@ -270,7 +270,7 @@ function TaskPanel({ trip, onChanged }: { trip: TripDetail; onChanged: () => voi
       <Card className="p-5">
         <h2 className="text-lg font-semibold">Waiting for quotes</h2>
         <p className="mb-3.5 mt-1.5 text-sm text-ink-muted">
-          Sent to {trip.quotes.length} approved carriers. Closes at {trip.quoteDeadline ? timeIST(trip.quoteDeadline) : '—'}, or earlier if all reply. You&apos;ll get a WhatsApp message when it&apos;s time to choose.
+          Sent to {trip.quotes.length} approved carriers. Closes at {trip.quoteDeadline ? timeIST(trip.quoteDeadline) : '—'}, or earlier if all reply. The quotes appear here when it&apos;s time to choose.
         </p>
         <div className="flex flex-wrap gap-2">
           {trip.quotes.map((q) => <Chip key={q.id} tone={QUOTE_CHIP[q.status].tone}>{q.carrier} · {QUOTE_CHIP[q.status].label.toLowerCase()}</Chip>)}

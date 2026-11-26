@@ -68,7 +68,7 @@ export const integration = {
 export async function setPolicy(client: Client, p: { podRule?: string; billing?: number; paymentApprovalAbove?: number } = {}) {
   const res = await client.put('/policies', {
     paymentApprovalAbove: p.paymentApprovalAbove ?? 50000, quoteWindowHours: 2, podRule: p.podRule ?? 'DIGITAL',
-    autonomy: { intake: 2, tender: 2, bidEvaluation: 1, billing: p.billing ?? 1 },
+    autonomy: { tender: 2, bidEvaluation: 1, billing: p.billing ?? 1 },
   });
   expect(res.status(), await res.text()).toBe(200);
 }

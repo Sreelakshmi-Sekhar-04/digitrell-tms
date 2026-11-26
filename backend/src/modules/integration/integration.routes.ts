@@ -95,7 +95,7 @@ integrationRouter.post(
   }),
 );
 
-/** Driver bot: Reached pickup / Loaded / location / Reached drop. */
+/** Driver / tracking: Reached pickup / Loaded / location / Reached drop. */
 integrationRouter.post(
   '/trips/:number/events',
   asyncHandler(async (req, res) => {
@@ -183,7 +183,7 @@ function readProposal(v: Validator, raw: unknown): Proposal | null {
   return fix && label && payer ? { fix, label, newEta: newEta && !Number.isNaN(Date.parse(newEta)) ? new Date(newEta).toISOString() : null, extraCost: extraCost ?? 0, payer } : null;
 }
 
-/** Driver bot / exception agent: a problem on the road, optionally with the proposed fix. */
+/** Driver / exception agent: a problem on the road, optionally with the proposed fix. */
 integrationRouter.post(
   '/trips/:number/exceptions',
   asyncHandler(async (req, res) => {

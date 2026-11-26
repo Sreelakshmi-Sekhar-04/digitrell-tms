@@ -30,7 +30,7 @@ scope except for the minimal integration points listed under *Dependencies*.
 | Claim detail, Invoice detail | Money records | Claim evidence and status; invoice lines checked against award; pay |
 | Cancel booking dialog | Irreversible action | Reason required, consequences listed |
 | Activity log | Audit | Filterable, read-only |
-| My messages | Preferences | Language, channel, quiet hours, message types |
+| My messages | Preferences | Language, quiet hours, email update types |
 
 ## 3. Database changes (by phase)
 
@@ -56,9 +56,9 @@ Errors: `{ "error": { "code", "message", "fields"? } }` with proper HTTP status.
 |---|---|---|
 | Carrier quotes | Carrier module (quote agent) | Minimal `POST /api/integration/quotes` endpoint (no UI) + seed data. Playwright uses it to play the carrier |
 | Truck, LR, e-way bill | Carrier / documents module | Integration endpoint to mark a trip "truck confirmed" with truck/driver/LR; LR series stays carrier-owned |
-| Tracking status, POD | Driver bot / tracking module | Integration endpoints for status events and POD upload |
+| Tracking status, POD | Driver app / tracking module | Integration endpoints for status events and POD upload |
 | Carrier invoice | Carrier billing | Integration endpoint to raise an invoice against a trip |
-| WhatsApp booking and approvals | Bot layer (lead) | Out of this module. Approvals are stored once, so the bot can reuse them later |
+| WhatsApp booking and approvals | — | Dropped (`docs/whatsapp-bot-removal.md`) |
 | Payment (UPI) | Payment provider | Record payment with reference; real UPI link later |
 | Tally | ERP connector | Out of scope; payment record keeps a `postedToErp` flag |
 

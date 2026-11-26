@@ -82,14 +82,14 @@ export default function ApprovalsPage() {
   return (
     <div className="flex flex-col gap-5">
       <PageHeader title="Approvals" subtitle="Each item shows the agent's recommendation and the reason. Nothing that costs money happens until you approve." />
-      {limit == null && <p className="rounded-xl bg-tone-progress-bg px-4 py-3 text-sm text-[#0B3F60]">Your role can see approvals but not decide them. Your logistics head and approvers get them on WhatsApp too.</p>}
+      {limit == null && <p className="rounded-xl bg-tone-progress-bg px-4 py-3 text-sm text-[#0B3F60]">Your role can see approvals but not decide them. Your logistics head and approvers decide them here.</p>}
       <Card className="overflow-hidden">
         {res.loading && !res.data ? (
           <div className="p-5"><Skeleton /></div>
         ) : res.error ? (
           <EmptyState title="Couldn't load approvals" action={<Button variant="secondary" onClick={res.reload}>Try again</Button>}>{res.error}</EmptyState>
         ) : items.length === 0 ? (
-          <EmptyState title="You're all caught up">New approvals appear here and on WhatsApp.</EmptyState>
+          <EmptyState title="You're all caught up">New approvals appear here.</EmptyState>
         ) : (
           <DataTable label="Approvals" headers={['Type', 'Trip', 'Recommendation and reason', 'Amount', 'Waiting', 'Decision']}>
             {items.map((a) => {
