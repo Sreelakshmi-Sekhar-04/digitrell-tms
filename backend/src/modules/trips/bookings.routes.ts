@@ -18,7 +18,7 @@ const todayIST = () => new Date(Date.now() + 5.5 * 3600_000).toISOString().slice
  * Validates a booking and finds its lane (pickup city → drop city, truck type). Booking needs an
  * active lane with approved carriers: quote requests only go to those (BRD §4.2).
  */
-async function readBooking(body: Record<string, unknown>, companyId: string) {
+export async function readBooking(body: Record<string, unknown>, companyId: string) {
   const v = new Validator(body);
   const pickupAddressId = v.text('pickupAddressId', 'the pickup address', { required: true });
   const dropAddressId = v.text('dropAddressId', 'the drop address', { required: true });
@@ -123,23 +123,32 @@ bookingsRouter.post(
   }),
 );
 
+/** A validated booking (from readBooking). */
+export type ReadBooking = Awaited<ReturnType<typeof readBooking>>;
+
+/** Creates the trip with its quote requests and writes both audit entries. Shared by the form route and bulk upload. */
+export async function createBooking(b: ReadBooking, user: { id: string; companyId: string }) {
+  const trip = await prisma.trip.create({
+    data: {
+      shipperId: user.companyId, laneId: b.lane.id, pickupAddressId: b.pickup.id, dropAddressId: b.drop.id,
+      pickupDate: new Date(`${b.pickupDate}T00:00:00.000Z`), truckType: b.truckType, material: b.material,
+      weightKg: new Prisma.Decimal(Math.round(b.weight * 1000)), receiverContact: b.receiverContact, reference: b.reference, notes: b.notes,
+      budget: b.budget != null ? new Prisma.Decimal(b.budget) : null,
+      status: 'QUOTES_REQUESTED', quoteDeadline: new Date(Date.now() + b.quoteWindowHours * 3600_000), createdById: user.id,
+      quotes: { create: b.lane.carriers.map((c) => ({ carrierId: c.carrierId })) },
+    },
+  });
+  await audit(user.id, 'BOOKED', { lane: `${b.pickup.city} → ${b.drop.city}`, channel: 'web', budget: b.budget }, { tripId: trip.id });
+  await audit('tender-agent', 'QUOTES_REQUESTED', { carriers: b.lane.carriers.map((c) => c.carrier.name), windowHours: b.quoteWindowHours }, { tripId: trip.id });
+  return trip;
+}
+
 /** Creates the booking and sends the quote request to every approved carrier on the lane. */
 bookingsRouter.post(
   '/',
   asyncHandler(async (req, res) => {
     const b = await readBooking(req.body, req.user!.companyId);
-    const trip = await prisma.trip.create({
-      data: {
-        shipperId: req.user!.companyId, laneId: b.lane.id, pickupAddressId: b.pickup.id, dropAddressId: b.drop.id,
-        pickupDate: new Date(`${b.pickupDate}T00:00:00.000Z`), truckType: b.truckType, material: b.material,
-        weightKg: new Prisma.Decimal(Math.round(b.weight * 1000)), receiverContact: b.receiverContact, reference: b.reference, notes: b.notes,
-        budget: b.budget != null ? new Prisma.Decimal(b.budget) : null,
-        status: 'QUOTES_REQUESTED', quoteDeadline: new Date(Date.now() + b.quoteWindowHours * 3600_000), createdById: req.user!.id,
-        quotes: { create: b.lane.carriers.map((c) => ({ carrierId: c.carrierId })) },
-      },
-    });
-    await audit(req.user!.id, 'BOOKED', { lane: `${b.pickup.city} → ${b.drop.city}`, channel: 'web', budget: b.budget }, { tripId: trip.id });
-    await audit('tender-agent', 'QUOTES_REQUESTED', { carriers: b.lane.carriers.map((c) => c.carrier.name), windowHours: b.quoteWindowHours }, { tripId: trip.id });
+    const trip = await createBooking(b, req.user!);
     res.status(201).json({ trip: { id: trip.id, number: trip.number, quoteDeadline: trip.quoteDeadline, carriersAsked: b.lane.carriers.length } });
   }),
 );

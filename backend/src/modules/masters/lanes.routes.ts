@@ -10,7 +10,7 @@ import { AWARD_RULES, TRUCK_TYPES } from '../../shared/masters';
 export const lanesRouter = Router();
 
 const laneInclude = { carriers: { include: { carrier: { select: { id: true, name: true, status: true } } }, orderBy: { createdAt: 'asc' as const } } };
-type LaneRow = Prisma.LaneGetPayload<{ include: typeof laneInclude }>;
+export type LaneRow =Prisma.LaneGetPayload<{ include: typeof laneInclude }>;
 
 const view = (l: LaneRow) => ({
   id: l.id, origin: l.origin, destination: l.destination, truckType: l.truckType,
@@ -24,7 +24,10 @@ const cityCase = (s: string) => s.replace(/\b\w/g, (c) => c.toUpperCase());
  * Validates a lane. The budget is no longer part of a lane: it is entered on each booking
  * (a `budget` sent here is ignored, so older clients keep working).
  */
-async function readLane(body: Record<string, unknown>, shipperId: string, current?: LaneRow) {
+export type ListedCarrier = Prisma.ShipperCarrierGetPayload<{ include: { carrier: { select: { name: true } } } }>;
+
+/** `preloaded`: the shipper's carrier list, already loaded (bulk upload checks many rows with one query). */
+export async function readLane(body: Record<string, unknown>, shipperId: string, current?: LaneRow, preloaded?: ListedCarrier[]) {
   const v = new Validator(body);
   const partial = !!current;
   const out: { origin?: string; destination?: string; truckType?: string; awardRule?: string; isActive?: boolean; carrierIds?: string[] } = {};
@@ -37,7 +40,9 @@ async function readLane(body: Record<string, unknown>, shipperId: string, curren
     const ids = Array.isArray(body.carrierIds) ? [...new Set(body.carrierIds.map(String))] : [];
     if (ids.length) {
       // Only carriers in this shipper's carrier master, and in use, can be approved on a lane.
-      const listed = await prisma.shipperCarrier.findMany({ where: { shipperId, carrierId: { in: ids } }, include: { carrier: { select: { name: true } } } });
+      const listed = preloaded
+        ? preloaded.filter((l) => ids.includes(l.carrierId))
+        : await prisma.shipperCarrier.findMany({ where: { shipperId, carrierId: { in: ids } }, include: { carrier: { select: { name: true } } } });
       const keptOn = new Set(current?.carriers.map((c) => c.carrierId));
       if (listed.length !== ids.length) v.fail('carrierIds', 'One of the chosen carriers is not in your carrier list. Refresh and choose again.');
       else {

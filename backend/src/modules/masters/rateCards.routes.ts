@@ -57,7 +57,7 @@ interface LineIn {
 }
 
 /** Validates the card; errors on a line are keyed `lines.<index>.<field>` so the form can place them. */
-function readCard(body: Record<string, unknown>) {
+export function readCard(body: Record<string, unknown>) {
   const v = new Validator(body);
   const validFrom = v.text('validFrom', 'the start date');
   const validTo = v.text('validTo', 'the end date');
@@ -100,7 +100,7 @@ function readCard(body: Record<string, unknown>) {
   };
 }
 
-async function assertListed(shipperId: string, carrierId: string) {
+export async function assertListed(shipperId: string, carrierId: string) {
   const link = await prisma.shipperCarrier.findUnique({ where: { shipperId_carrierId: { shipperId, carrierId } }, include: { carrier: true } });
   if (!link) throw notFound('That carrier is not in your carrier list. Add it under Carriers first.');
   return link;

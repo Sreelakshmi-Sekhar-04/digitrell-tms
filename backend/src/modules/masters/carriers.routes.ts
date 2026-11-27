@@ -55,7 +55,7 @@ function view(r: Row) {
 }
 
 /** Reads the shipper's own details for a carrier; every field optional. */
-function readDetails(v: Validator, body: Record<string, unknown>, partial: boolean) {
+export function readDetails(v: Validator, body: Record<string, unknown>, partial: boolean) {
   const out: Record<string, string | null | boolean> = {};
   const take = (key: string, value: () => string | null) => {
     if (!partial || v.has(key)) out[key] = value();
@@ -84,6 +84,47 @@ async function findRow(shipperId: string, carrierId: string) {
   const row = await prisma.shipperCarrier.findUnique({ where: { shipperId_carrierId: { shipperId, carrierId } }, include });
   if (!row) throw notFound('That carrier is not in your carrier list.');
   return row;
+}
+
+/**
+ * Adds a carrier to the shipper's list (the single-record form and bulk upload share this). A carrier
+ * already on DigitRell (same name or owner's mobile) is listed as is, not duplicated. Name and phone
+ * must already be validated.
+ */
+export async function addToCarrierList(
+  user: { id: string; companyId: string },
+  name: string,
+  phone: string,
+  details: Record<string, string | null | boolean>,
+) {
+  const shipperId = user.companyId;
+  const existing = await prisma.company.findFirst({
+    where: { type: 'CARRIER', OR: [{ name: { equals: name, mode: 'insensitive' } }, { phone }] },
+    include: { listedBy: { where: { shipperId } } },
+  });
+  if (existing?.listedBy.length) {
+    const byName = existing.name.toLowerCase() === name.toLowerCase();
+    throw conflict(`${existing.name} is already in your carrier list.`, byName ? { name: 'This carrier is already in your list. Edit it there.' } : { phone: `This number belongs to ${existing.name}, already in your list.` });
+  }
+  if (existing && existing.name.toLowerCase() !== name.toLowerCase() && existing.phone === phone) {
+    // Same mobile, different name: don't guess which is right.
+    throw conflict(`This number belongs to ${existing.name}.`, { phone: `This number belongs to ${existing.name}. Use that name to add them.` });
+  }
+
+  let carrierId: string;
+  try {
+    carrierId = await prisma.$transaction(async (tx) => {
+      const c = existing ?? (await tx.company.create({ data: { name, phone, type: 'CARRIER', status: 'INVITED' } }));
+      await tx.shipperCarrier.create({ data: { shipperId, carrierId: c.id, ...details } });
+      return c.id;
+    });
+  } catch (err) {
+    // Listed by a concurrent request between the check above and the insert.
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') throw conflict(`${name} is already in your carrier list.`, { name: 'This carrier is already in your list. Edit it there.' });
+    throw err;
+  }
+  await audit(user.id, existing ? 'CARRIER_LISTED' : 'CARRIER_INVITED', { id: carrierId, name: existing?.name ?? name, byShipper: shipperId });
+  return { carrierId, alreadyOnDigitRell: !!existing };
 }
 
 carriersRouter.get(
@@ -116,26 +157,8 @@ carriersRouter.post(
     const details = readDetails(v, req.body, false);
     v.done();
 
-    const existing = await prisma.company.findFirst({
-      where: { type: 'CARRIER', OR: [{ name: { equals: name!, mode: 'insensitive' } }, { phone: phone! }] },
-      include: { listedBy: { where: { shipperId } } },
-    });
-    if (existing?.listedBy.length) {
-      const byName = existing.name.toLowerCase() === name!.toLowerCase();
-      throw conflict(`${existing.name} is already in your carrier list.`, byName ? { name: 'This carrier is already in your list. Edit it there.' } : { phone: `This number belongs to ${existing.name}, already in your list.` });
-    }
-    if (existing && existing.name.toLowerCase() !== name!.toLowerCase() && existing.phone === phone) {
-      // Same mobile, different name: don't guess which is right.
-      throw conflict(`This number belongs to ${existing.name}.`, { phone: `This number belongs to ${existing.name}. Use that name to add them.` });
-    }
-
-    const carrierId = await prisma.$transaction(async (tx) => {
-      const c = existing ?? (await tx.company.create({ data: { name: name!, phone, type: 'CARRIER', status: 'INVITED' } }));
-      await tx.shipperCarrier.create({ data: { shipperId, carrierId: c.id, ...details } });
-      return c.id;
-    });
-    await audit(req.user!.id, existing ? 'CARRIER_LISTED' : 'CARRIER_INVITED', { id: carrierId, name: existing?.name ?? name, byShipper: shipperId });
-    res.status(201).json({ carrier: view(await findRow(shipperId, carrierId)), alreadyOnDigitRell: !!existing });
+    const { carrierId, alreadyOnDigitRell } = await addToCarrierList(req.user!, name!, phone!, details);
+    res.status(201).json({ carrier: view(await findRow(shipperId, carrierId)), alreadyOnDigitRell });
   }),
 );
 

@@ -63,3 +63,30 @@ export async function download(path: string, filename: string) {
   a.remove();
   URL.revokeObjectURL(url);
 }
+
+/** Sends a file's raw bytes (bulk upload check/import) with the session token; same errors as `api`. */
+export async function upload<T>(path: string, file: File): Promise<T> {
+  return api<T>(path, { method: 'POST', body: file, headers: { 'Content-Type': 'application/octet-stream' } });
+}
+
+/** POSTs JSON and saves the file that comes back (e.g. a problems report). */
+export async function downloadPost(path: string, json: unknown, filename: string) {
+  const token = tokenStore.get();
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}${path}`, { method: 'POST', headers, body: JSON.stringify(json) });
+  } catch {
+    throw new ApiError(0, { code: 'NETWORK', message: "Can't reach DigitRell. Check your connection and try again." });
+  }
+  if (!res.ok) throw new ApiError(res.status, { code: 'HTTP_' + res.status, message: 'The file could not be prepared. Please try again.' });
+  const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}

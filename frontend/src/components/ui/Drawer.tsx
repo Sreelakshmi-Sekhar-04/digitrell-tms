@@ -12,6 +12,8 @@ interface DrawerProps {
   onClose: () => void;
   onSubmit?: (e: FormEvent) => void;
   footer?: ReactNode;
+  /** Wider panel for tables (bulk upload). */
+  wide?: boolean;
   children: ReactNode;
 }
 
@@ -19,7 +21,7 @@ interface DrawerProps {
  * Right-hand drawer used for every add/edit form (approved design: "Add truck and invite user").
  * Full width on phones. Esc or Cancel closes it; unsaved changes ask once before closing.
  */
-export function Drawer({ open, title, subtitle, dirty, onClose, onSubmit, footer, children }: DrawerProps) {
+export function Drawer({ open, title, subtitle, dirty, onClose, onSubmit, footer, wide, children }: DrawerProps) {
   const [confirming, setConfirming] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -51,7 +53,7 @@ export function Drawer({ open, title, subtitle, dirty, onClose, onSubmit, footer
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
       <div className="absolute inset-0 bg-[rgba(23,33,43,.35)]" onClick={requestClose} aria-hidden="true" />
-      <div ref={panelRef} role="dialog" aria-modal="true" aria-labelledby="drawer-title" className="relative flex h-full w-full max-w-[520px] flex-col bg-white shadow-float sm:rounded-l-2xl">
+      <div ref={panelRef} role="dialog" aria-modal="true" aria-labelledby="drawer-title" className={`relative flex h-full w-full ${wide ? 'max-w-[960px]' : 'max-w-[520px]'} flex-col bg-white shadow-float sm:rounded-l-2xl`}>
         <form onSubmit={onSubmit} noValidate className="flex h-full flex-col">
           <div className="flex items-start justify-between gap-3 border-b border-line px-6 py-5">
             <div>

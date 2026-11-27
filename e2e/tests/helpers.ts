@@ -68,6 +68,8 @@ export async function asUser(request: import('@playwright/test').APIRequestConte
     patch: (path: string, data: unknown) => request.patch(`${API_URL}${path}`, { headers, data }),
     put: (path: string, data: unknown) => request.put(`${API_URL}${path}`, { headers, data }),
     delete: (path: string) => request.delete(`${API_URL}${path}`, { headers }),
+    /** Raw file upload (bulk check/import): the bytes as application/octet-stream. */
+    upload: (path: string, file: Buffer) => request.post(`${API_URL}${path}`, { headers: { ...headers, 'Content-Type': 'application/octet-stream' }, data: file }),
   };
 }
 
