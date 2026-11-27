@@ -3,18 +3,26 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState, type ReactNode } from 'react';
-import { ROLE_LABELS, useAuth } from '@/lib/auth';
-import { SHIPPER_NAV, isActive } from '@/lib/nav';
+import { ROLE_LABELS, homeFor, useAuth } from '@/lib/auth';
+import { CARRIER_NAV, SHIPPER_NAV, isActive } from '@/lib/nav';
 import { api } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
+import { NotificationBell } from '@/components/trips/NotificationBell';
 
 function initials(name: string) {
   return name.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]!.toUpperCase()).join('');
 }
 
-/** Header + sidebar (desktop) / bottom tabs (phone), per the approved design. */
+/**
+ * Header + sidebar (desktop) / bottom tabs (phone), per the approved design. The same shell serves
+ * both workspaces; the menu and the approvals source follow the signed-in company type.
+ */
 export function AppShell({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth();
+  const isCarrier = user?.companyType === 'CARRIER';
+  const NAV = isCarrier ? CARRIER_NAV : SHIPPER_NAV;
+  const approvalsHref = isCarrier ? '/carrier/approvals' : '/approvals';
+  const approvalsApi = isCarrier ? '/carrier/approvals' : '/approvals';
   const pathname = usePathname();
   const router = useRouter();
   const toast = useToast();
@@ -29,7 +37,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     if (!user) return;
     let alive = true;
     const load = () =>
-      api<{ count: number }>('/approvals')
+      api<{ count: number }>(approvalsApi)
         .then((r) => alive && setApprovals(r.count))
         .catch(() => undefined);
     load();
@@ -38,10 +46,10 @@ export function AppShell({ children }: { children: ReactNode }) {
       alive = false;
       window.removeEventListener('dtms:approvals-changed', load);
     };
-  }, [pathname, user]);
+  }, [pathname, user, approvalsApi]);
 
   const badge = (href: string) =>
-    href === '/approvals' && approvals > 0 ? (
+    href === approvalsHref && approvals > 0 ? (
       <>
         <span aria-hidden="true" data-testid="approvals-badge" className="ml-auto min-w-[22px] rounded-full bg-attention px-1.5 text-center text-xs font-bold leading-[22px] text-white">{approvals}</span>
         <span className="sr-only">, {approvals} waiting</span>
@@ -56,14 +64,14 @@ export function AppShell({ children }: { children: ReactNode }) {
     router.replace('/login');
   };
 
-  const phonePrimary = SHIPPER_NAV.filter((n) => n.primaryOnPhone);
-  const phoneMore = SHIPPER_NAV.filter((n) => !n.primaryOnPhone);
+  const phonePrimary = NAV.filter((n) => n.primaryOnPhone);
+  const phoneMore = NAV.filter((n) => !n.primaryOnPhone);
   const moreActive = phoneMore.some((n) => isActive(pathname, n.href));
 
   return (
     <div className="flex min-h-screen flex-col">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-white px-4 py-3 md:px-6">
-        <Link href="/" className="flex items-center gap-3 rounded-btn" aria-label="DigitRell TMS home">
+        <Link href={homeFor(user)} className="flex items-center gap-3 rounded-btn" aria-label="DigitRell TMS home">
           <span aria-hidden="true" className="flex h-9 w-9 items-center justify-center rounded-btn bg-brand font-display text-base font-bold text-white">D</span>
           <span>
             <span className="block font-display text-[17px] font-bold leading-tight">DigitRell TMS</span>
@@ -85,14 +93,18 @@ export function AppShell({ children }: { children: ReactNode }) {
           </label>
         </form>
         <div className="flex items-center gap-3">
+          {!isCarrier && <NotificationBell />}
           <span aria-hidden="true" className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-tint text-[13px] font-bold text-brand-dark">{initials(user.name)}</span>
           <span className="hidden text-[13px] leading-tight sm:block">
             <span className="block font-semibold" data-testid="user-name">{user.name}</span>
             <span className="block text-ink-muted">{ROLE_LABELS[user.role] ?? user.role}</span>
           </span>
-          <Link href="/profile/messages" className="hidden min-h-[36px] items-center rounded-lg px-3 text-[13px] font-semibold text-brand-dark hover:bg-brand-tint md:inline-flex">
-            My messages
-          </Link>
+          {/* Message preferences are a shipper page; the carrier desk has none yet. */}
+          {!isCarrier && (
+            <Link href="/profile/messages" className="hidden min-h-[36px] items-center rounded-lg px-3 text-[13px] font-semibold text-brand-dark hover:bg-brand-tint md:inline-flex">
+              My messages
+            </Link>
+          )}
           <button type="button" onClick={signOut} className="hidden min-h-[36px] rounded-lg px-3 text-[13px] font-semibold text-brand-dark hover:bg-brand-tint md:inline-flex md:items-center">
             Sign out
           </button>
@@ -101,7 +113,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       <div className="flex flex-1">
         <nav aria-label="Main" className="hidden w-60 shrink-0 flex-col gap-1 border-r border-line bg-white px-3 py-4 md:flex">
-          {SHIPPER_NAV.map((n) => {
+          {NAV.map((n) => {
             const active = isActive(pathname, n.href);
             return (
               <Link
@@ -141,7 +153,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               {n.label}
             </Link>
           ))}
-          <Link href="/profile/messages" className="flex min-h-[48px] items-center rounded-btn px-3 text-sm font-medium hover:bg-brand-tint">My messages</Link>
+          {!isCarrier && <Link href="/profile/messages" className="flex min-h-[48px] items-center rounded-btn px-3 text-sm font-medium hover:bg-brand-tint">My messages</Link>}
           <button type="button" onClick={signOut} className="flex min-h-[48px] w-full items-center rounded-btn px-3 text-left text-sm font-semibold text-brand-dark hover:bg-brand-tint">
             Sign out
           </button>

@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Scenario coverage and design report</title>
+<script src="./_runtime/react.js"></script>
+<script src="./_runtime/react-dom.js"></script>
+<script src="./_runtime/support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap">
+<style>
+body{margin:0;background:#F5F7F6}
+.rp *{box-sizing:border-box}
+.h{font-family:'Space Grotesk',Inter,sans-serif;letter-spacing:-0.01em}
+.card{background:#fff;border:1px solid #E1E7E5;border-radius:14px;padding:24px}
+.sec{font:700 12px Inter,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#0A5360;margin:0 0 6px}
+.muted{color:#52606D}
+.tbl{width:100%;border-collapse:collapse;font:14px/1.45 Inter,sans-serif}
+.tbl th{text-align:left;font-weight:600;font-size:12px;color:#52606D;text-transform:uppercase;letter-spacing:.04em;padding:10px 12px;border-bottom:1px solid #E1E7E5;background:#FAFBFB;white-space:nowrap}
+.tbl td{padding:10px 12px;border-bottom:1px solid #EEF2F1;vertical-align:top}
+.chip{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:999px;font:600 12px/1 Inter,sans-serif;white-space:nowrap}
+.chip:before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.ok{background:#E4F4E9;color:#166534}
+.bot{background:#E1F0FA;color:#0B4F78}
+.gap{background:#FDF0DF;color:#8A3B0B}
+.imp{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;padding:16px 0;border-bottom:1px solid #EEF2F1;font-size:14px;line-height:1.5}
+.imp h3{margin:0 0 4px;font:600 13px Inter,sans-serif;color:#52606D;text-transform:uppercase;letter-spacing:.04em}
+</style>
+</helmet>
+<div class="rp" style="font-family: Inter, system-ui, sans-serif; color: #17212B; background: #F5F7F6; padding: 48px 24px 64px">
+<div style="max-width: 1280px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px">
+
+  <header>
+    <p class="sec">Scenario coverage · Release 1 (shipper and carrier)</p>
+    <h1 class="h" style="margin: 0; font-size: 36px">27 scenarios mapped; all 27 now designed</h1>
+    <p class="muted" style="margin: 10px 0 0; font-size: 16px; line-height: 1.55; max-width: 820px">Source: the Agent-Driven TMS BRD (18 Nov 2026), sections 3–7. There is no existing UI to evaluate (the repo has only a starter page), so the “existing” column in the report below compares against how the BRD and typical TMS tools would do it.</p>
+  </header>
+
+  <section class="card" style="padding: 0; overflow: hidden">
+    <div style="overflow-x: auto">
+      <table class="tbl">
+        <thead><tr><th>#</th><th>Scenario</th><th>BRD</th><th>Where it's designed</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>Book by WhatsApp voice note, text or slip photo</td><td>§4.1</td><td>WhatsApp: shipper, step 1</td><td><span class="chip bot">Bot</span></td></tr>
+          <tr><td>2</td><td>Booking with missing detail: ask, never guess</td><td>§6</td><td>WhatsApp: shipper, step 2</td><td><span class="chip bot">Bot</span></td></tr>
+          <tr><td>3</td><td>Book on the web with defaults</td><td>§3.1</td><td>Prototype › New booking</td><td><span class="chip ok">Designed</span></td></tr>
+          <tr><td>4</td><td>Repeat a past booking</td><td>§3.1</td><td>Home › Repeat last booking; New booking › Repeat panel</td><td><span class="chip ok">Designed</span></td></tr>
+          <tr><td>5</td><td>Mistake in a form: inline error, input kept</td><td>—</td><td>New booking › leave weight empty › Review</td><td><span class="chip ok">Designed</span></td></tr>
+          <tr><td>6</td><td>Confirm booking summary</td><td>§4.1</td><td>New booking › Check and confirm</td><td><span class="chip ok">Designed</span></td></tr>
+          <tr><td>7</td><td>Waiting for quotes: extend, add carrier, cancel</td><td>§6 Bids</td><td>Trip TR-24133 › Waiting for quotes</td><td><span class="chip ok">Designed</span></td></tr>
+          <tr><td>8</td><td>Compare quotes and approve, change or reject award</td><td>§4.4</td><td>Trip TR-24131 (shipper); WhatsApp step 3</td><td><span class="chip ok">Designed</span></td></tr>
+          <tr><td>9</td><td>Undo an award by mistake</td><td>—</td><td>Trip TR-24131 after award › Undo</td><td><span class="chip ok">Designed</span></td></tr>
+          <tr><td>10</td><td>Carrier quote inside band (1 tap)</td><td>§4.3</td><td>Trip TR-24131 as carrier; WhatsApp: carrier step 1</td><td><span class="chip ok">Designed</span></td></tr>
+          <tr><td>11</td><td>Carrier quote outside band → owner approval</td><td>§4.3</td><td>Type 39000 in quote field; WhatsApp: carrier step 2</td><td><span class="chip ok">Designed</span></td></tr>
+          <tr><td>12</td><td>Carrier assigns own truck</td><td>§4.5</td><td>WhatsApp: carrier step 3</td><td><span class="chip bot">Bot</span></td></tr>
+          <tr><td>13</td><td>Compliance block and named override</td><td>§4.6</td><td>Approvals (carrier) › Compliance override</td><td><span class="chip ok">Designed</span></td></tr>
+          <tr><td>14</td><td>Trip in transit: ETA, driver, location</td><td>§4.8</td><td>Trip TR-24128</td><td><span class="chip ok">Designed</span></td></tr>
+          <tr><td>15</td><td>Exception: breakdown, approve fix</td><td>§4.9</td><td>Trip TR-24117; WhatsApp: carrier step 4</td><td><span class="chip ok">Designed</span></td></tr>
+          <tr><td>16</td><td>POD with damage → claim</td><td>§4.10</td><td>Trip TR-24125</td><td><span class="chip ok">Designed</span></td></tr>
+          <tr><td>17</td><td>Invoice and payment</td><td>§4.11</td><td>Trip TR-24119; WhatsApp steps 5</td><td><span class="chip ok">Designed</span></td></tr>
+          <tr><td>18</td><td>Many records: filter, tabs, pagination</td><td>—</td><td>Trips list</td><td><span class="chip ok">Designed</span></td></tr>
+          <tr><td>19</td><td>Approvals inbox, incl. all done (empty)</td><td>§4</td><td>Approvals; approve all rows to see empty state</td><td><span class="chip ok">Designed</span></td></tr>
+          <tr><td>20</td><td>First-time user, no data</td><td>—</td><td>Tweaks › Scenario › First-time user</td><td><span class="chip ok">Designed</span></td></tr>
+          <tr><td>21</td><td>Masters: lanes, addresses, trucks, drivers, rate cards, users</td><td>§3</td><td>Carriers and lanes / Fleet and rates (tabs)</td><td><span class="chip ok">Designed</span></td></tr>
+          <tr><td>22</td><td>Autonomy levels and limits</td><td>§6</td><td>Policies</td><td><span class="chip ok">Designed</span></td></tr>
+          <tr><td>23</td><td>Add / edit forms for each master (drawer)</td><td>§3</td><td>Add truck and invite user drawers (same drawer for edit)</td><td><span class="chip ok">Designed</span></td></tr>
+          <tr><td>24</td><td>Invite user, set role and approval limit</td><td>§3</td><td>Add truck and invite user drawers</td><td><span class="chip ok">Designed</span></td></tr>
+          <tr><td>25</td><td>Cancel trip with reason; void LR</td><td>§5, §6</td><td>Cancel trip and void LR</td><td><span class="chip ok">Designed</span></td></tr>
+          <tr><td>26</td><td>Audit log viewer; platform admin screens</td><td>§3.6, §4.12</td><td>Audit log and DigitRell admin</td><td><span class="chip ok">Designed</span></td></tr>
+          <tr><td>27</td><td>Phone layout of the desk app; WhatsApp delivery failures; language settings; driver and consignee bot screens; claim and invoice detail pages</td><td>§3.4, §3.5, §6</td><td>Desk app at phone width; Message failures and language settings; WhatsApp bot: driver and receiver; Claim and invoice detail</td><td><span class="chip ok">Designed</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card">
+    <p class="sec">Design improvement report</p>
+    <h2 class="h" style="margin: 0 0 8px; font-size: 24px">Eight decisions, and why</h2>
+    <div class="imp" style="border-top: 1px solid #EEF2F1"><div><h3>Common problem</h3>Dashboards full of charts; users hunt for what needs them.</div><div><h3>Change</h3>Home leads with “Needs your decision”, each with Approve inline. Four stats only.</div><div><h3>Effect</h3>The most frequent job (approve) takes 1 click from login. No workflow change.</div></div>
+    <div class="imp"><div><h3>Common problem</h3>16 trip statuses shown raw confuse users.</div><div><h3>Change</h3>Statuses kept in data; UI groups them into 7 stages and 5 colour tones.</div><div><h3>Effect</h3>Users see “where is it” at a glance. BRD statuses unchanged.</div></div>
+    <div class="imp"><div><h3>Common problem</h3>Separate “quotes” and “award” screens.</div><div><h3>Change</h3>Trip detail shows one task panel for the current stage: compare, pick a row, award.</div><div><h3>Effect</h3>No navigation between screens to finish a stage.</div></div>
+    <div class="imp"><div><h3>Common problem</h3>Recommendation without reasons isn't trusted.</div><div><h3>Change</h3>Every recommendation shows the score inputs and one sentence on why, plus the cheapest alternative.</div><div><h3>Effect</h3>Meets BRD §4 (reasons and alternatives) and speeds approval.</div></div>
+    <div class="imp"><div><h3>Common problem</h3>Long booking questionnaires.</div><div><h3>Change</h3>6 fields, defaults from last booking, extras behind “+ Receiver contact, reference, notes”.</div><div><h3>Effect</h3>Repeat booking in 4 clicks; nothing removed.</div></div>
+    <div class="imp"><div><h3>Common problem</h3>Confirm dialogs on every action.</div><div><h3>Change</h3>Dialogs only for irreversible actions; awards get a 10-minute Undo instead.</div><div><h3>Effect</h3>Fewer clicks. <strong>Needs a backend rule</strong>: award notices to losing carriers wait 10 minutes. Not in the BRD.</div></div>
+    <div class="imp"><div><h3>Common problem</h3>Web and WhatsApp drift apart.</div><div><h3>Change</h3>Approvals are one object shown in both; acting in one clears the other.</div><div><h3>Effect</h3>No double approvals. Matches the bot-first architecture.</div></div>
+    <div class="imp" style="border-bottom: 0"><div><h3>Common problem</h3>Masters hidden in a Settings maze.</div><div><h3>Change</h3>One menu item per role with tabs; first-time setup links straight to each tab.</div><div><h3>Effect</h3>Navigation stays one level deep.</div></div>
+  </section>
+
+  <section class="card">
+    <p class="sec">Implementation readiness</p>
+    <h2 class="h" style="margin: 0 0 12px; font-size: 24px">Fits the repo's Next.js 14 + Tailwind stack as is</h2>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(360px, 100%), 1fr)); gap: 24px; font-size: 14px; line-height: 1.6">
+      <ul style="margin: 0; padding-left: 18px">
+        <li><strong>Tokens:</strong> colours, radii and spacing from the design system go into <code>tailwind.config.js</code> theme.extend.</li>
+        <li><strong>Fonts:</strong> Inter and Space Grotesk via <code>next/font/google</code>.</li>
+        <li><strong>Icons:</strong> lucide-react (2 px line icons).</li>
+        <li><strong>Components (about 14):</strong> Button, Chip, Input, Select, Combobox, Table, Tabs, Card, Toast, Dialog, Drawer, Segmented, Stepper, EmptyState.</li>
+        <li><strong>Data:</strong> status → chip tone map lives next to <code>src/shared/trip-status.ts</code> so web and bot use the same wording.</li>
+      </ul>
+      <ul style="margin: 0; padding-left: 18px">
+        <li><strong>Junior can build:</strong> design tokens, Button/Chip/Input/Table/Tabs, Masters tabs, Reports page, Trips list.</li>
+        <li><strong>Lead builds:</strong> Approvals (shared with bot), trip task panels, award Undo rule, booking parse.</li>
+        <li><strong>Before build:</strong> confirm the GST line on invoices with accounts, and test the screens and colours with 3–5 real users on their own phones and office screens.</li>
+        <li><strong>Still out of scope:</strong> vendor (hired truck) screens, deferred from Release 1.</li>
+        <li><strong>Limitation:</strong> sample data is illustrative, not from real lanes or carriers.</li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":2600}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

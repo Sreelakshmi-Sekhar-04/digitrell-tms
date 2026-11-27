@@ -51,7 +51,7 @@ export default function ApprovalsPage() {
       await api(`/approvals/${a.id}/approve`, { method: 'POST' });
       if (a.kind === 'EXCEPTION') toast({ tone: 'success', title: `${a.ref}: fix approved.`, text: 'The carrier goes ahead; you get the new ETA.' });
       else if (a.kind === 'PAYMENT') toast({ tone: 'success', title: `Invoice ${a.ref} approved.`, text: 'Record the payment on the trip when it is done.' });
-      else toast({ tone: 'success', title: `${a.ref} awarded.`, text: 'Other carriers are told after 10 minutes. Truck details follow.' });
+      else toast({ tone: 'success', title: `${a.ref} awarded.`, text: 'The carrier assigns a truck next.' });
     } catch (err) {
       toast({ tone: 'error', title: err instanceof ApiError ? err.body.message : 'Could not approve.' });
     } finally {
@@ -67,7 +67,7 @@ export default function ApprovalsPage() {
       await api(`/approvals/${a.id}/reject`, { method: 'POST', json: { reason } });
       if (a.kind === 'EXCEPTION') toast({ tone: 'success', title: `${a.ref}: fix rejected.`, text: 'The carrier is asked for another option.' });
       else if (a.kind === 'PAYMENT') toast({ tone: 'success', title: `Invoice ${a.ref} queried.`, text: 'The carrier is asked for a corrected invoice.' });
-      else toast({ tone: 'success', title: `${a.ref}: quotes rejected.`, text: 'The same carriers are asked again with a new deadline.' });
+      else toast({ tone: 'success', title: `${a.ref}: not approved.`, text: 'The load is offered to the next carrier.' });
       setRejecting(null);
       setReason('');
     } catch (err) {
@@ -81,7 +81,7 @@ export default function ApprovalsPage() {
   const items = res.data?.approvals ?? [];
   return (
     <div className="flex flex-col gap-5">
-      <PageHeader title="Approvals" subtitle="Each item shows the agent's recommendation and the reason. Nothing that costs money happens until you approve." />
+      <PageHeader title="Approvals" subtitle="Carriers that accepted a load at your contract rate, invoices to pay and fixes that cost money. Nothing is awarded or paid until you approve." />
       {limit == null && <p className="rounded-xl bg-tone-progress-bg px-4 py-3 text-sm text-[#0B3F60]">Your role can see approvals but not decide them. Your logistics head and approvers decide them here.</p>}
       <Card className="overflow-hidden">
         {res.loading && !res.data ? (
@@ -89,7 +89,7 @@ export default function ApprovalsPage() {
         ) : res.error ? (
           <EmptyState title="Couldn't load approvals" action={<Button variant="secondary" onClick={res.reload}>Try again</Button>}>{res.error}</EmptyState>
         ) : items.length === 0 ? (
-          <EmptyState title="You're all caught up">New approvals appear here.</EmptyState>
+          <EmptyState title="You're all caught up">When a carrier accepts a load at its contract rate, it waits here for your approval.</EmptyState>
         ) : (
           <DataTable label="Approvals" headers={['Type', 'Trip', 'Recommendation and reason', 'Amount', 'Waiting', 'Decision']}>
             {items.map((a) => {
@@ -118,7 +118,7 @@ export default function ApprovalsPage() {
                       <td colSpan={6} className="border-b border-line-faint bg-brand-soft px-3.5 py-3">
                         <div className="flex flex-wrap items-end gap-2.5">
                           <div className="min-w-[260px] flex-1">
-                            <TextField label={a.kind === 'PAYMENT' ? `What is wrong with invoice ${a.ref}?` : a.kind === 'EXCEPTION' ? `Why reject the fix for ${a.ref}?` : `Why reject all quotes for ${a.ref}?`} required value={reason} onChange={(e) => { setReason(e.target.value); setReasonError(''); }} error={reasonError} placeholder={a.kind === 'PAYMENT' ? 'e.g. Detention not agreed' : 'e.g. All quotes above budget'} />
+                            <TextField label={a.kind === 'PAYMENT' ? `What is wrong with invoice ${a.ref}?` : a.kind === 'EXCEPTION' ? `Why reject the fix for ${a.ref}?` : `Why not approve the carrier for ${a.ref}?`} required value={reason} onChange={(e) => { setReason(e.target.value); setReasonError(''); }} error={reasonError} placeholder={a.kind === 'PAYMENT' ? 'e.g. Detention not agreed' : 'e.g. All quotes above budget'} />
                           </div>
                           <Button size="sm" variant="danger" onClick={() => reject(a)} loading={busy === a.id}>{a.kind === 'PAYMENT' ? 'Send query' : a.kind === 'EXCEPTION' ? 'Reject fix' : 'Reject and ask again'}</Button>
                           <Button size="sm" variant="ghost" onClick={() => setRejecting(null)}>Cancel</Button>

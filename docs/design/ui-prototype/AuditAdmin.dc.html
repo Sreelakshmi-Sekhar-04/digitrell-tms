@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Audit log and DigitRell admin</title>
+<script src="./_runtime/react.js"></script>
+<script src="./_runtime/react-dom.js"></script>
+<script src="./_runtime/support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap">
+<style>
+body{margin:0;background:#F5F7F6}
+.x *{box-sizing:border-box}
+.h{font-family:'Space Grotesk',Inter,sans-serif;letter-spacing:-.01em}
+.muted{color:#52606D}
+.cap{font:700 12px Inter,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#0A5360;margin:0 0 6px}
+.card{background:#fff;border:1px solid #E1E7E5;border-radius:14px}
+.btn{min-height:40px;padding:0 14px;border-radius:10px;border:1px solid transparent;font:600 14px/1 Inter,sans-serif;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;white-space:nowrap}
+.bp{background:#0E6B7A;color:#fff}.bs{background:#fff;color:#17212B;border-color:#CBD5D1}
+.inp{min-height:40px;padding:0 12px;border:1px solid #CBD5D1;border-radius:10px;font:14px Inter,sans-serif;color:#17212B;background:#fff}
+.chip{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:999px;font:600 12px/1 Inter,sans-serif;white-space:nowrap}
+.chip:before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.cs{background:#E4F4E9;color:#166534}.ca{background:#FDF0DF;color:#8A3B0B}.cn{background:#EDF1F5;color:#334155}.cp{background:#E1F0FA;color:#0B4F78}
+.tbl{width:100%;border-collapse:collapse;font:14px/1.45 Inter,sans-serif}
+.tbl th{text-align:left;font-weight:600;font-size:12px;color:#52606D;text-transform:uppercase;letter-spacing:.04em;padding:10px 12px;border-bottom:1px solid #E1E7E5;background:#FAFBFB;white-space:nowrap}
+.tbl td{padding:10px 12px;border-bottom:1px solid #EEF2F1;vertical-align:top}
+.ag{display:inline-block;padding:2px 8px;border-radius:6px;background:#EEF2F1;font:600 12px Inter,sans-serif;color:#2A3642}
+</style>
+</helmet>
+<div class="x" style="font-family: Inter, system-ui, sans-serif; color: #17212B; background: #F5F7F6; padding: 40px 24px 56px">
+<div style="max-width: 1360px; margin: 0 auto; display: flex; flex-direction: column; gap: 28px">
+
+  <section style="display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px">
+      <div>
+        <p class="cap">Shipper or carrier › Reports › Activity log</p>
+        <h1 class="h" style="margin: 0; font-size: 28px">Who did what, when and why</h1>
+        <p class="muted" style="margin: 6px 0 0; font-size: 14px">Every agent action and every human decision. Read-only; entries can't be edited or deleted.</p>
+      </div>
+      <button type="button" class="btn bs">Export CSV</button>
+    </div>
+    <div class="card" style="overflow: hidden">
+      <div style="display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 14px; border-bottom: 1px solid #E1E7E5">
+        <input class="inp" aria-label="Trip or record" placeholder="Trip, LR or invoice no." style="width: 220px">
+        <select class="inp" aria-label="Who"><option>Everyone</option><option>Agents only</option><option>People only</option></select>
+        <select class="inp" aria-label="Action type"><option>All actions</option><option>Approvals and rejections</option><option>Money</option><option>Overrides</option><option>Policy changes</option></select>
+        <select class="inp" aria-label="Period"><option>Last 7 days</option><option>Today</option><option>This month</option></select>
+      </div>
+      <div style="overflow-x: auto">
+        <table class="tbl">
+          <thead><tr><th>Time</th><th>Who</th><th>Action</th><th>Record</th><th>Reason or detail</th><th>Channel</th></tr></thead>
+          <tbody>
+            <tr><td style="white-space: nowrap">24 Nov 14:01</td><td>Anita Rao</td><td><span class="chip cs">Approved award</span></td><td>TR-24131</td><td>Kaveri Roadlines, ₹42,500. Agent's recommendation accepted.</td><td>WhatsApp</td></tr>
+            <tr><td style="white-space: nowrap">24 Nov 13:58</td><td><span class="ag">Bid evaluation agent</span></td><td><span class="chip cp">Recommended</span></td><td>TR-24131</td><td>Score 92 vs 86 and 81. Inputs: price 40%, on time 30%, POD 20%, acceptance 10%.</td><td>System</td></tr>
+            <tr><td style="white-space: nowrap">24 Nov 11:20</td><td>Vijay Kumar</td><td><span class="chip ca">Override</span></td><td>TN 09 BX 4471</td><td>Insurance expires 27 Nov, trip ends 26 Nov, renewal booked.</td><td>Web</td></tr>
+            <tr><td style="white-space: nowrap">24 Nov 09:44</td><td><span class="ag">Exception agent</span></td><td><span class="chip cn">Proposed fix</span></td><td>TR-24117</td><td>Truck swap, ETA +5 h, ₹3,500.</td><td>System</td></tr>
+            <tr><td style="white-space: nowrap">23 Nov 18:30</td><td>Anita Rao</td><td><span class="chip cn">Policy changed</span></td><td>Pune → Hyderabad</td><td>Award rule: Ask me → Lowest within budget, automatic.</td><td>Web</td></tr>
+            <tr><td style="white-space: nowrap">23 Nov 16:12</td><td><span class="ag">Billing agent</span></td><td><span class="chip cs">Posted to Tally</span></td><td>INV-0868</td><td>Payment ₹16,900, voucher 4471.</td><td>System</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section style="display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px">
+      <div>
+        <p class="cap">DigitRell platform admin · separate login</p>
+        <h1 class="h" style="margin: 0; font-size: 28px">Customer accounts</h1>
+        <p class="muted" style="margin: 6px 0 0; font-size: 14px">Admins set up accounts and help users. They can read agent logs but never see Approve buttons.</p>
+      </div>
+      <button type="button" class="btn bp">+ New account</button>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(460px, 100%), 1fr)); gap: 20px; align-items: start">
+      <div class="card" style="overflow: hidden; grid-column: span 2; min-width: 0">
+        <div style="overflow-x: auto">
+          <table class="tbl">
+            <thead><tr><th>Account</th><th>Type</th><th>Users</th><th>Setup</th><th>Last 7 days</th><th>Status</th></tr></thead>
+            <tbody>
+              <tr style="background: #F0F8F8"><td style="font-weight: 600">Kaveri Roadlines</td><td>Carrier</td><td>4</td><td>3 of 4 done</td><td>31 trips</td><td><span class="chip ca">Tally not linked</span></td></tr>
+              <tr><td style="font-weight: 600">Sunrise Foods Pvt Ltd</td><td>Shipper</td><td>3</td><td>4 of 4 done</td><td>18 trips</td><td><span class="chip cs">Live</span></td></tr>
+              <tr><td style="font-weight: 600">Deccan Freight Carriers</td><td>Carrier</td><td>2</td><td>4 of 4 done</td><td>12 trips</td><td><span class="chip cs">Live</span></td></tr>
+              <tr><td style="font-weight: 600">Coastal Paints</td><td>Shipper</td><td>1</td><td>1 of 4 done</td><td>0 trips</td><td><span class="chip cn">Onboarding</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card" style="padding: 20px">
+        <h2 class="h" style="margin: 0 0 4px; font-size: 18px">Kaveri Roadlines · setup</h2>
+        <p class="muted" style="margin: 0 0 14px; font-size: 13px">Carrier · owner Vijay Kumar · created 2 Nov</p>
+        <div style="display: flex; flex-direction: column; gap: 10px; font-size: 14px">
+          <div style="display: flex; justify-content: space-between; gap: 8px"><span>LR number series: KR-000001 onwards</span><span class="chip cs">Done</span></div>
+          <div style="display: flex; justify-content: space-between; gap: 8px"><span>Message templates (12) approved</span><span class="chip cs">Done</span></div>
+          <div style="display: flex; justify-content: space-between; gap: 8px"><span>Users and approvers</span><span class="chip cs">Done</span></div>
+          <div style="display: flex; justify-content: space-between; gap: 8px"><span>Tally connector</span><button type="button" class="btn bs" style="min-height: 32px; font-size: 13px">Send setup link</button></div>
+        </div>
+        <div style="margin-top: 16px; padding: 12px 14px; border-radius: 12px; background: #F3F8F7; font-size: 13px; line-height: 1.5"><strong>Support view:</strong> open any trip read-only with its agent log. Actions that commit money or approve are hidden for DigitRell staff.</div>
+      </div>
+    </div>
+  </section>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1450}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

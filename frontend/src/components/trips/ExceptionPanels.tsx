@@ -37,6 +37,7 @@ function EditBookingDrawer({ trip, open, onClose, onChanged }: Props & { open: b
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState('');
   const [busy, setBusy] = useState(false);
+  const dateChanged = form.pickupDate !== initial.pickupDate;
   const loadChanged = form.pickupDate !== initial.pickupDate || form.weightTonnes !== initial.weightTonnes || form.material !== initial.material;
   const set = (k: keyof typeof form, v: string) => {
     setForm((f) => ({ ...f, [k]: v }));
@@ -55,7 +56,7 @@ function EditBookingDrawer({ trip, open, onClose, onChanged }: Props & { open: b
       setFormError(r.message);
       return;
     }
-    toast({ tone: 'success', title: 'Booking updated.', text: loadChanged && trip.edit.requotes ? 'Carriers are asked to quote again for the new load.' : undefined });
+    toast({ tone: 'success', title: 'Booking updated.', text: dateChanged && trip.edit.requotes ? 'Offers restart from the lowest contract rate for the new date.' : undefined });
     onClose();
     onChanged();
   };
@@ -69,8 +70,8 @@ function EditBookingDrawer({ trip, open, onClose, onChanged }: Props & { open: b
         <TextField label="Weight (tonnes)" inputMode="decimal" disabled={!trip.edit.load} value={form.weightTonnes} onChange={(e) => set('weightTonnes', e.target.value.replace(/[^\d.,]/g, ''))} error={errors.weightTonnes} />
       </div>
       <TextField label="Material" disabled={!trip.edit.load} value={form.material} onChange={(e) => set('material', e.target.value)} error={errors.material} />
-      {loadChanged && trip.edit.requotes && (
-        <p role="status" className="rounded-xl bg-tone-action-bg px-4 py-3 text-sm text-[#6B2E08]">Changing the date, weight or material asks every carrier to quote again. Quotes received so far are cleared.</p>
+      {dateChanged && trip.edit.requotes && (
+        <p role="status" className="rounded-xl bg-tone-action-bg px-4 py-3 text-sm text-[#6B2E08]">Changing the pickup date restarts the offers from the lowest contract rate valid on the new date. Offers made so far are cleared. If no carrier has a contract rate for that date, the change is refused.</p>
       )}
       <TextField label="Receiver contact" optional value={form.receiverContact} onChange={(e) => set('receiverContact', e.target.value)} error={errors.receiverContact} />
       <TextField label="Your reference" optional value={form.reference} onChange={(e) => set('reference', e.target.value)} error={errors.reference} />
@@ -137,57 +138,30 @@ export function TripActions({ trip, onChanged }: Props) {
   );
 }
 
-// ---------- widen an open quote request ----------
+// ---------- give the offered carrier more time ----------
 
-export function WidenRequest({ trip, onChanged }: Props) {
+export function ExtendOffer({ trip, onChanged }: Props) {
   const toast = useToast();
   const [hours, setHours] = useState('2');
-  const [picked, setPicked] = useState<string[]>([]);
-  const [busy, setBusy] = useState<string | null>(null);
-  const waiting = trip.quotes.some((q) => q.status === 'REQUESTED');
-  if (!waiting && !trip.carriersNotAsked.length) return null;
+  const [busy, setBusy] = useState(false);
+  if (!trip.quotes.some((q) => q.status === 'REQUESTED')) return null;
 
   const extend = async () => {
-    setBusy('extend');
+    setBusy(true);
     const r = await post(`/trips/${trip.id}/extend`, { hours: Number(hours) });
-    setBusy(null);
-    if (r.ok) toast({ tone: 'success', title: `Carriers have ${hours} more hour${hours === '1' ? '' : 's'}.` });
+    setBusy(false);
+    if (r.ok) toast({ tone: 'success', title: `The carrier has ${hours} more hour${hours === '1' ? '' : 's'} to answer.` });
     else toast({ tone: 'error', title: r.message });
-    onChanged();
-  };
-  const ask = async () => {
-    setBusy('ask');
-    const r = await post(`/trips/${trip.id}/carriers`, { carrierIds: picked });
-    setBusy(null);
-    if (r.ok) toast({ tone: 'success', title: `Quote request sent to ${picked.length} more carrier${picked.length > 1 ? 's' : ''}.` });
-    else toast({ tone: 'error', title: r.message });
-    setPicked([]);
     onChanged();
   };
 
   return (
-    <div className="mt-4 flex flex-col gap-3 border-t border-line-faint pt-4">
-      {waiting && (
-        <div className="flex flex-wrap items-center gap-2">
-          <label htmlFor="extend-hours" className="text-sm font-semibold">Give carriers more time</label>
-          <select id="extend-hours" value={hours} onChange={(e) => setHours(e.target.value)} className="min-h-[36px] rounded-lg border border-line-strong bg-white px-2 text-[13px]">
-            {['1', '2', '4', '8', '24'].map((h) => <option key={h} value={h}>+{h} h</option>)}
-          </select>
-          <Button size="sm" variant="secondary" onClick={extend} loading={busy === 'extend'}>Extend deadline</Button>
-        </div>
-      )}
-      {trip.carriersNotAsked.length > 0 && (
-        <fieldset className="flex flex-col gap-2">
-          <legend className="mb-1 text-sm font-semibold">Also ask (approved for this lane after booking)</legend>
-          {trip.carriersNotAsked.map((c) => (
-            <label key={c.id} className="flex min-h-[40px] items-center gap-2.5 text-sm">
-              <input type="checkbox" className="h-[18px] w-[18px] accent-brand" checked={picked.includes(c.id)} onChange={() => setPicked((p) => (p.includes(c.id) ? p.filter((x) => x !== c.id) : [...p, c.id]))} />
-              {c.name}
-            </label>
-          ))}
-          <Button size="sm" variant="secondary" className="self-start" disabled={!picked.length} onClick={ask} loading={busy === 'ask'}>Send quote request</Button>
-        </fieldset>
-      )}
+    <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-line-faint pt-4">
+      <label htmlFor="extend-hours" className="text-sm font-semibold">Give the carrier more time</label>
+      <select id="extend-hours" value={hours} onChange={(e) => setHours(e.target.value)} className="min-h-[36px] rounded-lg border border-line-strong bg-white px-2 text-[13px]">
+        {['1', '2', '4', '8', '24'].map((h) => <option key={h} value={h}>+{h} h</option>)}
+      </select>
+      <Button size="sm" variant="secondary" onClick={extend} loading={busy}>Extend response time</Button>
     </div>
   );
 }

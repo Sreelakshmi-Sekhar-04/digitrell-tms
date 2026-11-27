@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test';
-import { NAV, USERS, expect, loginUi, test } from './helpers';
+import { NAV, USERS, asUser, expect, loginUi, test } from './helpers';
+import { setPolicy } from './trips.helpers';
 
 const BOT_WORDS = /whatsapp|\bbots?\b|\bsms\b|voice note/i;
 const BOT_REQUEST = /whatsapp|\/bot\b|bot-gateway|webhook/i;
@@ -48,7 +49,7 @@ test.describe('WhatsApp bot removed (screens)', () => {
   test('the desk sidebar no longer has the WhatsApp panel; navigation is unchanged', async ({ page }) => {
     await loginUi(page, USERS.shipperHead);
     const nav = page.getByRole('navigation', { name: 'Main', exact: true });
-    await expect(nav.getByRole('link')).toHaveText(NAV);
+    await expect(nav.getByRole('link')).toHaveText(NAV.map((n) => (n === 'Approvals' ? /^Approvals/ : n))); // the badge count is part of the link text
     await expect(nav).not.toContainText(/whatsapp/i);
     await expect(page.getByRole('link', { name: 'My messages' })).toBeVisible();
   });
@@ -77,11 +78,12 @@ test.describe('WhatsApp bot removed (screens)', () => {
     await expect(drawer.getByRole('textbox', { name: /^Name/ })).toHaveValue('Rekha Varma');
   });
 
-  test('Policies list three agents (no intake) and the activity log has no Channel column', async ({ page }) => {
+  test('Policies list three agents (no intake) and the activity log has no Channel column', async ({ page, request }) => {
     await loginUi(page, USERS.shipperHead, '/policies');
     for (const agent of ['Tender', 'Bid evaluation', 'Billing']) await expect(page.getByText(agent, { exact: true })).toBeVisible();
     await expect(page.getByText('Intake', { exact: true })).toHaveCount(0);
 
+    await setPolicy(await asUser(request, USERS.shipperHead)); // the log needs at least one entry in the last 7 days
     await page.goto('/reports/activity');
     await expect(page.getByRole('columnheader')).toHaveText(['Time', 'Who', 'What', 'Record', 'Reason']);
   });

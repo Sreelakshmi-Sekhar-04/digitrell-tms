@@ -1,14 +1,28 @@
 import { toNumber } from '../../lib/validate';
-import { scored, UNDO_MINUTES, type TripFull } from './tender.service';
+import { type TripFull } from './tender.service';
 import { acceptedClaims, currentInvoice, invoiceChecks, podState } from './billing.service';
 
 /** Tabs on the Trips list (design: All / Needs action / In transit / Delivered and billed / Closed). */
 export const GROUPS = {
-  action: ['QUOTES_RECEIVED', 'ON_HOLD', 'DELIVERED'],
+  action: ['ON_HOLD', 'DELIVERED'],
   transit: ['AWARDED', 'SOURCING_TRUCK', 'TRUCK_CONFIRMED', 'CLEARED', 'READY_FOR_PICKUP', 'IN_TRANSIT'],
   delivered: ['POD_RECEIVED', 'INVOICED'],
   closed: ['CLOSED', 'CANCELLED'],
 } as const;
+
+/** How each offer is shown to the shipper. */
+export const OFFER_LABEL: Record<string, string> = {
+  QUEUED: 'Waiting in line',
+  REQUESTED: 'Offered',
+  ACCEPTED: 'Accepted',
+  AWARDED: 'Accepted',
+  DECLINED: 'Passed',
+  EXPIRED: 'No answer',
+  REJECTED_BY_SHIPPER: 'Not approved (old)',
+  WITHDRAWN: 'Withdrawn',
+  QUOTED: 'Quoted',
+  LOST: 'Not chosen',
+};
 
 const fmtTime = (d: Date) => d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Kolkata' });
 
@@ -30,7 +44,8 @@ export const openException = (t: TripFull) => t.exceptions.find((x) => !['RESOLV
 
 /** The one-line "Next step" column. */
 export function nextStep(t: TripFull, podRule = 'DIGITAL'): string {
-  const quoted = t.quotes.filter((q) => q.status === 'QUOTED').length;
+  const offered = t.quotes.find((q) => q.status === 'REQUESTED');
+
   const inv = currentInvoice(t);
   switch (t.status) {
     case 'READY_FOR_PICKUP':
@@ -55,11 +70,12 @@ export function nextStep(t: TripFull, podRule = 'DIGITAL'): string {
     case 'CLOSED':
       return t.closedAt ? `Paid ${fmtDate(t.closedAt)}` : 'Closed';
     case 'QUOTES_REQUESTED':
-      return t.quotesClosedAt ? 'No quotes: ask again or change carriers' : `Quotes close ${t.quoteDeadline ? fmtTime(t.quoteDeadline) : 'soon'}`;
-    case 'QUOTES_RECEIVED':
-      return t.quotesClosedAt ? 'Choose a carrier' : `Choose a carrier (${quoted} of ${t.quotes.length} quoted)`;
+      if (t.quotesClosedAt) return 'No carrier accepted: send again or cancel';
+      return offered ? `Offered to ${offered.carrier.name} at ₹${Number(offered.amount).toLocaleString('en-IN')}; answer by ${offered.respondBy ? fmtTime(offered.respondBy) : 'soon'}` : 'Offering the load';
     case 'AWARDED':
       return 'Carrier assigning truck';
+    case 'TRUCK_CONFIRMED':
+      return 'Carrier to issue the LR';
     case 'CANCELLED':
       return 'Cancelled';
     default:
@@ -83,7 +99,6 @@ export function tripSummary(t: TripFull, podRule = 'DIGITAL') {
     pickupDate: date(t.pickupDate),
     carrier: t.carrier?.name ?? null,
     amount: toNumber(t.awardedAmount),
-    budget: toNumber(t.budget),
     nextStep: nextStep(t, podRule),
     createdAt: t.createdAt,
   };
@@ -94,8 +109,6 @@ export function tripDetail(
   activity: { at: Date; actor: string; action: string; text: string }[],
   policy: { podRule: string; paymentApprovalAbove: number },
 ) {
-  const { list, reason } = scored(t);
-  const scoreById = new Map(list.map((q, i) => [q.id, { ...q, rank: i + 1 }]));
   const inv = currentInvoice(t);
   return {
     ...tripSummary(t, policy.podRule),
@@ -129,7 +142,6 @@ export function tripDetail(
     pickup: t.pickupAddress && { id: t.pickupAddress.id, name: t.pickupAddress.name, city: t.pickupAddress.city, line1: t.pickupAddress.line1 },
     drop: t.dropAddress && { id: t.dropAddress.id, name: t.dropAddress.name, city: t.dropAddress.city, line1: t.dropAddress.line1 },
     laneId: t.laneId,
-    awardRule: t.lane?.awardRule ?? null,
     receiverContact: t.receiverContact,
     reference: t.reference,
     notes: t.notes,
@@ -137,29 +149,23 @@ export function tripDetail(
     quotesClosedAt: t.quotesClosedAt,
     noQuotes: noQuotes(t),
     awardedAt: t.awardedAt,
-    undoUntil: t.status === 'AWARDED' && t.awardedAt ? new Date(t.awardedAt.getTime() + UNDO_MINUTES * 60_000) : null,
-    recommendation: list[0] ? { quoteId: list[0].id, carrier: list[0].carrierName, amount: list[0].amount, reason } : null,
-    quotes: t.quotes.map((q) => {
-      const s = scoreById.get(q.id);
-      const perf = q.carrier.performance;
-      return {
-        id: q.id,
-        carrierId: q.carrierId,
-        carrier: q.carrier.name,
-        carrierStatus: q.carrier.status,
-        status: q.status,
-        amount: toNumber(q.amount),
-        quotedAt: q.quotedAt,
-        score: s?.score ?? null,
-        rank: s?.rank ?? null,
-        vsBudget: s?.vsBudget ?? null,
-        overBudget: s?.overBudget ?? false,
-        onTimePct: perf?.onTimePct ?? null,
-        podDays: perf ? toNumber(perf.podDays) : null,
-        acceptPct: perf?.acceptPct ?? null,
-        trips: perf?.trips ?? 0,
-      };
-    }),
+    noCarrierAccepted: noQuotes(t),
+    /** The offer list in order: every contract-rate carrier with its fixed rate and where it stands. */
+    quotes: t.quotes.map((q) => ({
+      id: q.id,
+      carrierId: q.carrierId,
+      carrier: q.carrier.name,
+      carrierStatus: q.carrier.status,
+      sequence: q.sequence,
+      status: q.status,
+      statusLabel: OFFER_LABEL[q.status] ?? q.status,
+      amount: toNumber(q.amount),
+      offeredAt: q.offeredAt,
+      respondBy: q.respondBy,
+      answeredAt: q.quotedAt,
+      declineReason: q.declineReason,
+      isWinner: q.isWinner,
+    })),
     activity,
   };
 }

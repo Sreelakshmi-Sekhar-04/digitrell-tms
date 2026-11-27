@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { api, ApiError } from '@/lib/api';
+import { api, ApiError, API_URL, tokenStore } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { prettyPhone, rupees } from '@/lib/masters';
 import { POD_RULE_LABEL, dateShort, dateTimeIST, type TripDetail } from '@/lib/trips';
@@ -40,7 +40,33 @@ function useAction(onChanged: () => void) {
 const lr = (t: TripDetail) => t.documents.find((d) => d.kind === 'LR');
 const ewb = (t: TripDetail) => t.documents.find((d) => d.kind === 'EWAY_BILL');
 
-export function ReadyPanel({ trip }: Props) {
+/** Opens the printable LR in a new tab (the API needs the session token, so a plain link will not do). */
+export async function openLr(tripId: string) {
+  const win = window.open('', '_blank');
+  try {
+    const token = tokenStore.get();
+    const res = await fetch(`${API_URL}/trips/${tripId}/lr`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+    if (!res.ok) throw new Error('LR not available');
+    const url = URL.createObjectURL(new Blob([await res.text()], { type: 'text/html' }));
+    if (win) win.location.href = url;
+    else window.open(url, '_blank');
+  } catch {
+    win?.close();
+    alert('The LR could not be opened. Please try again.');
+  }
+}
+
+/** Ready for pickup: the shipper can view and print the LR the carrier issued. */
+function LrActions({ trip }: Props) {
+  if (!lr(trip)) return null;
+  return (
+    <div className="mt-4 flex flex-wrap items-center gap-2.5">
+      <Button variant="secondary" onClick={() => openLr(trip.id)}>View / print LR</Button>
+    </div>
+  );
+}
+
+export function ReadyPanel({ trip, onChanged }: Props) {
   return (
     <Card className="p-5">
       <h2 className="text-lg font-semibold">Truck confirmed · reporting for pickup</h2>
@@ -50,6 +76,7 @@ export function ReadyPanel({ trip }: Props) {
         <div><dt className="text-xs text-ink-muted">LR</dt><dd className="font-semibold">{lr(trip)?.number ?? '—'}</dd></div>
         <div><dt className="text-xs text-ink-muted">E-way bill</dt><dd className="font-semibold">{ewb(trip)?.number ?? '—'}</dd>{ewb(trip)?.validUntil && <dd className="text-xs text-ink-muted">Valid to {dateTimeIST(ewb(trip)!.validUntil!)}</dd>}</div>
       </dl>
+      <LrActions trip={trip} onChanged={onChanged} />
       <p className="mt-3 text-sm text-ink-muted">Reached pickup and Loaded come in from the carrier; this page updates by itself.</p>
     </Card>
   );

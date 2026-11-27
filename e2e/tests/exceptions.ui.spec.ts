@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { USERS, asUser, expect, loginUi, test } from './helpers';
-import { awardedTrip, book, carrierQuotes, exceptions, expireQuotes, onTheRoad, ownLane, refs } from './trips.helpers';
+import { awardedTrip, book, carrierPasses, exceptions, expireQuotes, onTheRoad, refs } from './trips.helpers';
 
 const field = (page: Page, label: string) =>
   page.getByLabel(new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}( \\*| \\(optional\\))?$`));
@@ -14,7 +14,7 @@ test.describe('Cancel and edit from the trip page', () => {
     await page.getByRole('button', { name: 'Cancel booking' }).click();
     const dlg = page.getByRole('dialog');
     await expect(dlg.getByRole('heading', { name: `Cancel ${trip.number}, Chennai → Bengaluru?` })).toBeVisible();
-    await expect(dlg).toContainText('4 carriers are told the request is withdrawn.');
+    await expect(dlg).toContainText('Deccan Freight Carriers is told the offer is withdrawn.');
     await expect(dlg.getByRole('button', { name: 'Keep booking' })).toBeFocused();
 
     await dlg.getByRole('button', { name: 'Cancel booking' }).click();
@@ -42,24 +42,27 @@ test.describe('Cancel and edit from the trip page', () => {
     await page.getByRole('button', { name: 'Cancel booking' }).click();
     await page.keyboard.press('Escape');
     await expect(page.getByRole('dialog')).toHaveCount(0);
-    await expect(page.getByRole('heading', { name: 'Waiting for quotes' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Offered to Deccan Freight Carriers' })).toBeVisible();
   });
 
-  test('edit: changing the weight after quotes warns, then asks carriers again', async ({ page, request }) => {
+  test('edit: weight does not restart the offers; a new pickup date warns, then offers start again from the lowest rate', async ({ page, request }) => {
     const anita = await asUser(request, USERS.shipperHead);
     const r = await refs(anita);
     const trip = await book(anita, r);
-    await carrierQuotes(request, trip.number, r.kaveri, 42500);
+    await carrierPasses(request, trip.number, r.deccan); // Kaveri holds the offer now
     await loginUi(page, USERS.shipperHead, `/trips/${trip.id}`);
-    await expect(page.getByRole('heading', { name: 'Choose a carrier' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Offered to Kaveri Roadlines' })).toBeVisible();
     await page.getByRole('button', { name: 'Edit booking' }).click();
     const drawer = page.getByRole('dialog');
+    const warning = drawer.getByText('Changing the pickup date restarts the offers from the lowest contract rate', { exact: false });
     await field(page, 'Your reference').fill('PO-EDIT-1');
-    await expect(drawer.getByText('Changing the date, weight or material asks every carrier to quote again.')).toHaveCount(0);
     await field(page, 'Weight (tonnes)').fill('16');
-    await expect(drawer.getByText('Changing the date, weight or material asks every carrier to quote again.')).toBeVisible();
+    await expect(warning).toHaveCount(0);
+    const later = new Date(Date.now() + 5.5 * 3600_000 + 2 * 86400_000).toISOString().slice(0, 10);
+    await field(page, 'Pickup date').fill(later);
+    await expect(warning).toBeVisible();
     await drawer.getByRole('button', { name: 'Save changes' }).click();
-    await expect(page.getByRole('heading', { name: 'Waiting for quotes' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Offered to Deccan Freight Carriers' })).toBeVisible();
     await expect(page.getByText(`${trip.number} · Biscuits (packed cartons) · 32ft MXL · 16 t`)).toBeVisible();
     await expect(page.locator('dd').filter({ hasText: 'PO-EDIT-1' })).toBeVisible();
   });
@@ -75,33 +78,24 @@ test.describe('Cancel and edit from the trip page', () => {
   });
 });
 
-test.describe('Widen a quote request', () => {
-  test('no quotes by the deadline → extend from the trip page and keep waiting', async ({ page, request }) => {
-    const anita = await asUser(request, USERS.shipperHead);
-    const trip = await book(anita, await refs(anita));
-    await expireQuotes(request, trip.number);
-    await loginUi(page, USERS.shipperHead, `/trips/${trip.id}`);
-    await expect(page.getByRole('heading', { name: 'No quotes by the deadline' })).toBeVisible();
-    await page.getByLabel('Give carriers more time').selectOption('4');
-    await page.getByRole('button', { name: 'Extend deadline' }).click();
-    await expect(page.getByRole('status').filter({ hasText: 'Carriers have 4 more hours.' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Waiting for quotes' })).toBeVisible();
-  });
-
-  test('ask a carrier approved for the lane after booking', async ({ page, request }) => {
+test.describe('Give the offered carrier more time', () => {
+  test('extend the response time from the trip page; once everyone has passed it is Send again instead', async ({ page, request }) => {
     const anita = await asUser(request, USERS.shipperHead);
     const r = await refs(anita);
-    const own = await ownLane(anita, 1);
-    const trip = await book(anita, r, own.booking);
-    await anita.patch(`/lanes/${own.lane.id}`, { carrierIds: [own.carriers[0].id, own.spare.id] });
+    const trip = await book(anita, r);
     await loginUi(page, USERS.shipperHead, `/trips/${trip.id}`);
-    const send = page.getByRole('button', { name: 'Send quote request' });
-    await expect(send).toBeDisabled();
-    await page.getByRole('checkbox', { name: own.spare.name }).check();
-    await send.click();
-    await expect(page.getByRole('status').filter({ hasText: 'Quote request sent to 1 more carrier.' })).toBeVisible();
-    await expect(page.getByText(`${own.spare.name} · waiting`)).toBeVisible();
-    await expect(page.getByRole('checkbox', { name: own.spare.name })).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Offered to Deccan Freight Carriers' })).toBeVisible();
+    await page.getByLabel('Give the carrier more time').selectOption('4');
+    await page.getByRole('button', { name: 'Extend response time' }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'The carrier has 4 more hours to answer.' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Offered to Deccan Freight Carriers' })).toBeVisible();
+
+    await expireQuotes(request, trip.number);
+    await carrierPasses(request, trip.number, r.kaveri);
+    await carrierPasses(request, trip.number, r.northstar);
+    await page.reload();
+    await expect(page.getByRole('heading', { name: 'No carrier accepted' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Extend response time' })).toHaveCount(0);
   });
 });
 

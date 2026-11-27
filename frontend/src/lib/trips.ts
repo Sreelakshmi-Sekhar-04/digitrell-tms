@@ -11,34 +11,31 @@ export interface TripSummary {
   pickupDate: string | null;
   carrier: string | null;
   amount: number | null;
-  budget: number | null;
   nextStep: string;
   createdAt: string;
 }
 
+/** One carrier in the offer list, in offer order, with its fixed contract rate. */
 export interface QuoteRow {
   id: string;
   carrierId: string;
   carrier: string;
   carrierStatus: string;
-  status: 'REQUESTED' | 'QUOTED' | 'DECLINED' | 'AWARDED' | 'LOST' | 'WITHDRAWN';
+  sequence: number | null;
+  status: 'QUEUED' | 'REQUESTED' | 'ACCEPTED' | 'AWARDED' | 'DECLINED' | 'EXPIRED' | 'REJECTED_BY_SHIPPER' | 'WITHDRAWN' | 'QUOTED' | 'LOST';
+  statusLabel: string;
   amount: number | null;
-  quotedAt: string | null;
-  score: number | null;
-  rank: number | null;
-  vsBudget: number | null;
-  overBudget: boolean;
-  onTimePct: number | null;
-  podDays: number | null;
-  acceptPct: number | null;
-  trips: number;
+  offeredAt: string | null;
+  respondBy: string | null;
+  answeredAt: string | null;
+  declineReason: string | null;
+  isWinner: boolean;
 }
 
 export interface TripDetail extends TripSummary {
   pickup: { id: string; name: string; city: string; line1: string } | null;
   drop: { id: string; name: string; city: string; line1: string } | null;
   laneId: string | null;
-  awardRule: string | null;
   receiverContact: string | null;
   reference: string | null;
   notes: string | null;
@@ -46,8 +43,8 @@ export interface TripDetail extends TripSummary {
   quotesClosedAt: string | null;
   noQuotes: boolean;
   awardedAt: string | null;
-  undoUntil: string | null;
-  recommendation: { quoteId: string; carrier: string; amount: number; reason: string } | null;
+  noCarrierAccepted: boolean;
+  canApprove?: boolean;
   quotes: QuoteRow[];
   activity: { at: string; actor: string; action: string; text: string }[];
   truck: { number: string; driverName: string | null; driverPhone: string | null } | null;
@@ -81,7 +78,6 @@ export interface TripDetail extends TripSummary {
   paymentApprovalAbove: number;
   cancel: { allowed: boolean; roleOnly: boolean; reason: string | null; consequences: string[] };
   edit: { load: boolean; extras: boolean; requotes: boolean };
-  carriersNotAsked: { id: string; name: string; status: string }[];
   exception: {
     id: string;
     kind: string;
@@ -110,7 +106,7 @@ export const POD_RULE_LABEL: Record<string, string> = {
 };
 
 /** The 7 stages on the trip progress bar; each BRD status maps to one. */
-export const STAGES = ['Booked', 'Quotes', 'Awarded', 'Truck and documents', 'In transit', 'Delivered and POD', 'Billed and paid'];
+export const STAGES = ['Booked', 'Offer', 'Awarded', 'Truck and documents', 'In transit', 'Delivered and POD', 'Billed and paid'];
 const STAGE_OF: Record<string, number> = {
   REQUEST_RECEIVED: 0, BOOKED: 0, QUOTES_REQUESTED: 1, QUOTES_RECEIVED: 1, AWARDED: 2, SOURCING_TRUCK: 2,
   TRUCK_CONFIRMED: 3, CLEARED: 3, READY_FOR_PICKUP: 3, IN_TRANSIT: 4, ON_HOLD: 4, DELIVERED: 5, POD_RECEIVED: 5, INVOICED: 6, CLOSED: 7,

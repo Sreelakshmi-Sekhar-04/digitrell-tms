@@ -38,15 +38,15 @@ test.describe('Execution and billing API', () => {
     expect(t.pod).toMatchObject({ photo: true, accepted: true, readyToBill: true, readyToPay: true });
     expect(t.nextStep).toBe('Waiting for the carrier invoice');
 
-    expect((await integration.invoice(request, trip.number, { number: 'INV-0902', freight: 42500 })).status()).toBe(200);
+    expect((await integration.invoice(request, trip.number, { number: 'INV-0902', freight: 43800 })).status()).toBe(200);
     t = await get();
     expect(t.status).toBe('INVOICED');
-    expect(t.invoice).toMatchObject({ number: 'INV-0902', total: 42500, status: 'RECEIVED', needsApproval: true });
+    expect(t.invoice).toMatchObject({ number: 'INV-0902', total: 43800, status: 'RECEIVED', needsApproval: true });
     expect(t.invoice.checks.every((c: { ok: boolean }) => c.ok)).toBe(true);
-    expect(t.nextStep).toBe('Approve invoice ₹42,500');
+    expect(t.nextStep).toBe('Approve invoice ₹43,800');
 
     const item = (await (await anita.get('/approvals')).json()).approvals.find((a: { ref: string }) => a.ref === 'INV-0902');
-    expect(item).toMatchObject({ kind: 'PAYMENT', amount: 42500, reason: 'POD accepted, invoice matches the award.' });
+    expect(item).toMatchObject({ kind: 'PAYMENT', amount: 43800, reason: 'POD accepted, invoice matches the award.' });
     expect((await anita.post(`/approvals/${item.id}/approve`)).status()).toBe(200);
 
     const noRef = await anita.post(`/trips/${trip.id}/invoice/pay`, { mode: 'UPI' });
@@ -57,7 +57,7 @@ test.describe('Execution and billing API', () => {
     expect(t.invoice).toMatchObject({ status: 'PAID', paymentMode: 'UPI', paymentRef: 'UPI-4471-0902' });
     expect(t.nextStep).toMatch(/^Paid /);
     const texts = t.activity.map((a: { text: string }) => a.text);
-    for (const s of ['Truck TN 10 AZ 2210 confirmed, driver Murugan V', 'Loaded; on the way', 'Delivered: 220 good', 'POD accepted', 'Invoice INV-0902 received: ₹42,500', 'Paid ₹42,500 by UPI, ref UPI-4471-0902', 'Trip closed']) {
+    for (const s of ['Truck TN 10 AZ 2210 confirmed, driver Murugan V', 'Loaded; on the way', 'Delivered: 220 good', 'POD accepted', 'Invoice INV-0902 received: ₹43,800', 'Paid ₹43,800 by UPI, ref UPI-4471-0902', 'Trip closed']) {
       expect(texts).toContain(s);
     }
   });
@@ -95,7 +95,7 @@ test.describe('Execution and billing API', () => {
     expect((await anita.post(`/trips/${trip.id}/pod/accept`)).status()).toBe(200);
 
     // Invoice while the claim is still open fails the claims check.
-    await integration.invoice(request, trip.number, { number: 'INV-C1', freight: 42500 });
+    await integration.invoice(request, trip.number, { number: 'INV-C1', freight: 43800 });
     t = (await (await anita.get(`/trips/${trip.id}`)).json()).trip;
     expect(t.invoice.checks.find((c: { label: string }) => c.label === 'Claims')).toMatchObject({ ok: false, detail: `${claim.number} still waiting for the carrier` });
     const inbox = (await (await anita.get('/approvals')).json()).approvals.find((a: { ref: string }) => a.ref === 'INV-C1');
@@ -104,9 +104,9 @@ test.describe('Execution and billing API', () => {
 
     await integration.claimResponse(request, claim.number, true, 'Agreed');
     expect((await integration.claimResponse(request, claim.number, true)).status()).toBe(409);
-    expect((await integration.invoice(request, trip.number, { number: 'INV-C2', freight: 42500, claimDeduction: 3200 })).status()).toBe(200);
+    expect((await integration.invoice(request, trip.number, { number: 'INV-C2', freight: 43800, claimDeduction: 3200 })).status()).toBe(200);
     t = (await (await anita.get(`/trips/${trip.id}`)).json()).trip;
-    expect(t.invoice).toMatchObject({ number: 'INV-C2', total: 39300, claimDeduction: 3200 });
+    expect(t.invoice).toMatchObject({ number: 'INV-C2', total: 40600, claimDeduction: 3200 });
     expect(t.invoice.checks.every((c: { ok: boolean }) => c.ok)).toBe(true);
     expect(t.claims[0]).toMatchObject({ status: 'ACCEPTED', amount: 3200, carrierNote: 'Agreed' });
     expect(t.activity.map((a: { text: string }) => a.text)).toContain('Invoice INV-C1 queried — “Deduct claim once agreed”');
@@ -125,7 +125,7 @@ test.describe('Execution and billing API', () => {
     await integration.invoice(request, trip.number, { number: 'INV-M1', freight: 45000, detention: 1500 });
     const t = (await (await anita.get(`/trips/${trip.id}`)).json()).trip;
     const checks = Object.fromEntries(t.invoice.checks.map((c: { label: string; ok: boolean; detail: string }) => [c.label, c]));
-    expect(checks.Freight).toMatchObject({ ok: false, detail: '₹45,000 billed, award was ₹42,500' });
+    expect(checks.Freight).toMatchObject({ ok: false, detail: '₹45,000 billed, award was ₹43,800' });
     expect(checks.Detention).toMatchObject({ ok: false });
     expect(checks.Claims).toMatchObject({ ok: true, detail: 'No claims' });
     expect(t.invoice.total).toBe(46500);
@@ -139,11 +139,11 @@ test.describe('Execution and billing API', () => {
     await integration.pod(request, trip.number);
     let t = (await (await anita.get(`/trips/${trip.id}`)).json()).trip;
     expect(t.nextStep).toBe('Waiting for the POD hard copy');
-    const early = await integration.invoice(request, trip.number, { number: 'INV-H1', freight: 42500 });
+    const early = await integration.invoice(request, trip.number, { number: 'INV-H1', freight: 43800 });
     expect(early.status()).toBe(409);
     expect((await early.json()).error.code).toBe('POD_RULE');
     expect((await anita.post(`/trips/${trip.id}/pod/hard-copy`)).status()).toBe(200);
-    expect((await integration.invoice(request, trip.number, { number: 'INV-H1', freight: 42500 })).status()).toBe(200);
+    expect((await integration.invoice(request, trip.number, { number: 'INV-H1', freight: 43800 })).status()).toBe(200);
     t = (await (await anita.get(`/trips/${trip.id}`)).json()).trip;
     expect(t.pod).toMatchObject({ hardCopy: true, readyToPay: true });
     await setPolicy(anita);
@@ -155,7 +155,7 @@ test.describe('Execution and billing API', () => {
     await setPolicy(anita, { podRule: 'BOTH' });
     const trip = await deliveredTrip(request, anita, r);
     await integration.pod(request, trip.number);
-    expect((await integration.invoice(request, trip.number, { number: 'INV-B1', freight: 42500 })).status()).toBe(200);
+    expect((await integration.invoice(request, trip.number, { number: 'INV-B1', freight: 43800 })).status()).toBe(200);
     await anita.post(`/trips/${trip.id}/invoice/approve`);
     const t = (await (await anita.get(`/trips/${trip.id}`)).json()).trip;
     expect(t.nextStep).toBe('Pay after the POD hard copy arrives');
@@ -172,21 +172,22 @@ test.describe('Execution and billing API', () => {
     await setPolicy(anita, { billing: 2, paymentApprovalAbove: 50000 });
     const small = await deliveredTrip(request, anita, r);
     await integration.pod(request, small.number);
-    await integration.invoice(request, small.number, { number: 'INV-A1', freight: 42500 });
+    await integration.invoice(request, small.number, { number: 'INV-A1', freight: 43800 });
     let t = (await (await anita.get(`/trips/${small.id}`)).json()).trip;
     expect(t.invoice.status).toBe('APPROVED');
     expect(t.activity.map((a: { text: string }) => a.text)).toContain('Invoice INV-A1 approved (rule: within ₹50,000 and all checks passed)');
     expect((await (await anita.get('/approvals')).json()).approvals.some((a: { ref: string }) => a.ref === 'INV-A1')).toBe(false);
 
-    const large = await deliveredTrip(request, anita, r, 0, 45000);
+    await setPolicy(anita, { billing: 2, paymentApprovalAbove: 43800 });
+    const large = await deliveredTrip(request, anita, r);
     await integration.pod(request, large.number);
-    await integration.invoice(request, large.number, { number: 'INV-A2', freight: 45000 });
+    await integration.invoice(request, large.number, { number: 'INV-A2', freight: 43800 });
     t = (await (await anita.get(`/trips/${large.id}`)).json()).trip;
-    expect(t.invoice.status).toBe('APPROVED'); // ₹45,000 is still within ₹50,000
-    await setPolicy(anita, { billing: 2, paymentApprovalAbove: 44000 });
-    const above = await deliveredTrip(request, anita, r, 0, 45000);
+    expect(t.invoice.status).toBe('APPROVED'); // ₹43,800 is exactly the limit: still within it
+    await setPolicy(anita, { billing: 2, paymentApprovalAbove: 43799 }); // ₹1 below the invoice
+    const above = await deliveredTrip(request, anita, r);
     await integration.pod(request, above.number);
-    await integration.invoice(request, above.number, { number: 'INV-A3', freight: 45000 });
+    await integration.invoice(request, above.number, { number: 'INV-A3', freight: 43800 });
     t = (await (await anita.get(`/trips/${above.id}`)).json()).trip;
     expect(t.invoice.status).toBe('RECEIVED'); // above the limit: a person decides
     await setPolicy(anita);
@@ -198,7 +199,7 @@ test.describe('Execution and billing API', () => {
     await setPolicy(anita);
     const trip = await deliveredTrip(request, anita, r);
     await integration.pod(request, trip.number);
-    await integration.invoice(request, trip.number, { number: 'INV-P1', freight: 42500 });
+    await integration.invoice(request, trip.number, { number: 'INV-P1', freight: 43800 });
     const karthik = await asUser(request, USERS.shipperExec);
     expect((await karthik.post(`/trips/${trip.id}/invoice/approve`)).status()).toBe(403);
     const priya = await asUser(request, PRIYA);

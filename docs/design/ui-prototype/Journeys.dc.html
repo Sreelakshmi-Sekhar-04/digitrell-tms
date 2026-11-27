@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Navigation and user journeys</title>
+<script src="./_runtime/react.js"></script>
+<script src="./_runtime/react-dom.js"></script>
+<script src="./_runtime/support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap">
+<style>
+body{margin:0;background:#F5F7F6}
+.jx *{box-sizing:border-box}
+.h{font-family:'Space Grotesk',Inter,sans-serif;letter-spacing:-0.01em}
+.card{background:#fff;border:1px solid #E1E7E5;border-radius:14px;padding:24px}
+.sec{font:700 12px Inter,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#0A5360;margin:0 0 6px}
+.muted{color:#52606D}
+.nv{display:flex;justify-content:space-between;gap:12px;padding:10px 12px;border-radius:10px;font-size:14px}
+.steps{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.st{padding:8px 12px;border-radius:10px;background:#F3F8F7;border:1px solid #D7E6E3;font-size:13px;line-height:1.35;max-width:220px}
+.st.tap{background:#E6F2F3;border-color:#0E6B7A;color:#0A5360;font-weight:600}
+.ar{color:#8A9A96;font-size:16px}
+.cnt{min-width:92px;text-align:center;padding:8px 10px;border-radius:10px;background:#0E6B7A;color:#fff;font:700 13px Inter,sans-serif}
+.jr{display:grid;grid-template-columns:minmax(0,220px) minmax(0,1fr) auto;gap:16px;align-items:center;padding:16px 0;border-bottom:1px solid #EEF2F1}
+</style>
+</helmet>
+<div class="jx" style="font-family: Inter, system-ui, sans-serif; color: #17212B; background: #F5F7F6; padding: 48px 24px 64px">
+<div style="max-width: 1100px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px">
+
+  <header>
+    <p class="sec">Information architecture</p>
+    <h1 class="h" style="margin: 0; font-size: 36px">Seven menu items, one level deep</h1>
+    <p class="muted" style="margin: 10px 0 0; font-size: 16px; line-height: 1.55; max-width: 760px">Each role sees only its own menu. No sub-menus: second-level choices are tabs on the page. Breadcrumb plus the highlighted menu item always answer “where am I”; the trip progress bar answers “what's next”.</p>
+  </header>
+
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); gap: 20px">
+    <section class="card">
+      <h2 class="h" style="margin: 0 0 12px; font-size: 20px">Shipper</h2>
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <div class="nv" style="background: #E6F2F3"><strong>Home</strong><span class="muted">Decisions, active trips, month stats</span></div>
+        <div class="nv"><strong>Trips</strong><span class="muted">List with tabs → trip detail</span></div>
+        <div class="nv"><strong>New booking</strong><span class="muted">Form, repeat, paste message</span></div>
+        <div class="nv"><strong>Approvals</strong><span class="muted">Awards, fixes, claims, payments</span></div>
+        <div class="nv"><strong>Carriers and lanes</strong><span class="muted">Tabs: lanes, addresses, users</span></div>
+        <div class="nv"><strong>Reports</strong><span class="muted">Spend, on time, POD, scorecard</span></div>
+        <div class="nv"><strong>Policies</strong><span class="muted">Autonomy, limits, POD rule</span></div>
+      </div>
+    </section>
+    <section class="card">
+      <h2 class="h" style="margin: 0 0 12px; font-size: 20px">Carrier</h2>
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <div class="nv" style="background: #E6F2F3"><strong>Home</strong><span class="muted">Open quote requests, free trucks</span></div>
+        <div class="nv"><strong>Loads</strong><span class="muted">Quote, assign, track → detail</span></div>
+        <div class="nv"><strong>Approvals</strong><span class="muted">Quotes, fixes, invoices, overrides</span></div>
+        <div class="nv"><strong>Fleet and rates</strong><span class="muted">Tabs: trucks, drivers, rate cards, users</span></div>
+        <div class="nv"><strong>Reports</strong><span class="muted">Margin, billing ageing, scorecard</span></div>
+        <div class="nv"><strong>Policies</strong><span class="muted">Rate band, margin floor, autonomy</span></div>
+      </div>
+    </section>
+  </div>
+
+  <section class="card">
+    <p class="sec">Every screen answers four questions</p>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: 14px; font-size: 14px; line-height: 1.5">
+      <div><strong>Where am I?</strong><br><span class="muted">Highlighted menu item, breadcrumb, page title = the lane or record name.</span></div>
+      <div><strong>What am I doing?</strong><br><span class="muted">One task panel at the top of the detail page, titled as the task: “Choose a carrier”.</span></div>
+      <div><strong>What can I do next?</strong><br><span class="muted">One primary button labelled with the outcome: “Award to Kaveri · ₹42,500”.</span></div>
+      <div><strong>What happens after?</strong><br><span class="muted">A toast says what happened and what comes next: “Truck details will follow on WhatsApp”.</span></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <p class="sec">User journeys</p>
+    <h2 class="h" style="margin: 0 0 4px; font-size: 24px">Clicks to finish each core task</h2>
+    <p class="muted" style="margin: 0 0 8px; font-size: 14px">Highlighted steps are the user's taps. Everything else is done by agents.</p>
+
+    <div class="jr">
+      <div><strong>Shipper books a truck</strong><div class="muted" style="font-size: 13px">WhatsApp</div></div>
+      <div class="steps"><span class="st tap">Send voice note or slip photo</span><span class="ar">→</span><span class="st">Agent reads it, asks only what's missing</span><span class="ar">→</span><span class="st tap">Tap “Confirm booking”</span><span class="ar">→</span><span class="st">Quote requests go out</span></div>
+      <div class="cnt">2 actions</div>
+    </div>
+    <div class="jr">
+      <div><strong>Shipper repeats a booking</strong><div class="muted" style="font-size: 13px">Web</div></div>
+      <div class="steps"><span class="st tap">Home → Repeat last booking</span><span class="ar">→</span><span class="st tap">Check weight</span><span class="ar">→</span><span class="st tap">Review and confirm</span><span class="ar">→</span><span class="st tap">Confirm and ask for quotes</span></div>
+      <div class="cnt">4 clicks</div>
+    </div>
+    <div class="jr">
+      <div><strong>Shipper approves the award</strong><div class="muted" style="font-size: 13px">WhatsApp or Home card</div></div>
+      <div class="steps"><span class="st">Quotes close, agent scores them</span><span class="ar">→</span><span class="st tap">Tap “Approve Kaveri”</span><span class="ar">→</span><span class="st">Losers told, carrier starts sourcing</span></div>
+      <div class="cnt">1 tap</div>
+    </div>
+    <div class="jr">
+      <div><strong>Shipper picks a different carrier</strong><div class="muted" style="font-size: 13px">Web</div></div>
+      <div class="steps"><span class="st tap">Review</span><span class="ar">→</span><span class="st tap">Click another row</span><span class="ar">→</span><span class="st tap">Award to NorthStar · ₹45,900</span></div>
+      <div class="cnt">3 clicks</div>
+    </div>
+    <div class="jr">
+      <div><strong>Carrier quotes a load</strong><div class="muted" style="font-size: 13px">WhatsApp</div></div>
+      <div class="steps"><span class="st">Rate card price and free trucks shown</span><span class="ar">→</span><span class="st tap">Tap “Send ₹42,500”</span><span class="ar">→</span><span class="st">Outside band? Owner gets 1-tap approval</span></div>
+      <div class="cnt">1 tap</div>
+    </div>
+    <div class="jr">
+      <div><strong>Carrier confirms a truck</strong><div class="muted" style="font-size: 13px">WhatsApp</div></div>
+      <div class="steps"><span class="st">Free, compliant trucks listed first</span><span class="ar">→</span><span class="st tap">Tap a truck</span><span class="ar">→</span><span class="st">Checks, LR and e-way bill issued</span></div>
+      <div class="cnt">1 tap</div>
+    </div>
+    <div class="jr">
+      <div><strong>Breakdown on the road</strong><div class="muted" style="font-size: 13px">Driver + carrier + shipper</div></div>
+      <div class="steps"><span class="st tap">Driver taps “Problem”, adds photo</span><span class="ar">→</span><span class="st">Agent proposes swap or wait</span><span class="ar">→</span><span class="st tap">Carrier approves</span><span class="ar">→</span><span class="st">Shipper gets new ETA</span></div>
+      <div class="cnt">1 tap each</div>
+    </div>
+    <div class="jr">
+      <div><strong>POD to payment</strong><div class="muted" style="font-size: 13px">WhatsApp</div></div>
+      <div class="steps"><span class="st">Receiver code + signed LR photo</span><span class="ar">→</span><span class="st tap">Carrier: Send invoice</span><span class="ar">→</span><span class="st tap">Shipper: Pay by UPI</span><span class="ar">→</span><span class="st">Posted to Tally, trip closed</span></div>
+      <div class="cnt">1 tap each</div>
+    </div>
+    <div class="jr" style="border-bottom: 0">
+      <div><strong>First-time shipper</strong><div class="muted" style="font-size: 13px">Web</div></div>
+      <div class="steps"><span class="st tap">Add lanes</span><span class="ar">→</span><span class="st tap">Invite carriers by phone</span><span class="ar">→</span><span class="st tap">Set limits (defaults offered)</span><span class="ar">→</span><span class="st tap">First booking</span></div>
+      <div class="cnt">About 10 min</div>
+    </div>
+  </section>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1200,"height":1900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

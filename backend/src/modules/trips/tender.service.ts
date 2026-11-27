@@ -1,19 +1,23 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
-import { HttpError, forbidden, notFound } from '../../lib/errors';
+import { HttpError, notFound } from '../../lib/errors';
 import { toNumber } from '../../lib/validate';
 import { audit } from '../../lib/audit';
-import { recommendationReason, scoreQuotes, type QuoteInput } from './scoring';
+import { getPolicy } from '../policies/policies.routes';
 
-/** Awards can be undone for this long; losing carriers are only told after it (assumption, plan §7.3). */
-export const UNDO_MINUTES = 10;
+/*
+ * Contract-rate offers. The shipper types no price: every carrier with a valid rate-card line for
+ * the trip's cities and truck type is a candidate, ordered by that rate. Only the lowest is offered
+ * the load, at its contract rate; a pass or a missed deadline moves the offer to the next one.
+ * The first carrier to accept is awarded the trip at the rate on its Quote row.
+ */
 
 export const tripInclude = {
   lane: true,
   pickupAddress: true,
   dropAddress: true,
   carrier: { select: { id: true, name: true } },
-  quotes: { include: { carrier: { include: { performance: true } } }, orderBy: { createdAt: 'asc' as const } },
+  quotes: { include: { carrier: { include: { performance: true } } }, orderBy: [{ sequence: 'asc' as const }, { createdAt: 'asc' as const }] },
   documents: { orderBy: { createdAt: 'asc' as const } },
   claims: { orderBy: { createdAt: 'asc' as const } },
   invoices: { orderBy: { createdAt: 'desc' as const } },
@@ -21,26 +25,10 @@ export const tripInclude = {
 } satisfies Prisma.TripInclude;
 export type TripFull = Prisma.TripGetPayload<{ include: typeof tripInclude }>;
 
-const OPEN = ['QUOTES_REQUESTED', 'QUOTES_RECEIVED'] as const;
+/** Trip statuses before an award (QUOTES_RECEIVED is kept for old rows). */
+export const OFFERING = ['QUOTES_REQUESTED', 'QUOTES_RECEIVED'] as const;
 
-export function quoteInputs(trip: TripFull): QuoteInput[] {
-  return trip.quotes
-    .filter((q) => q.status === 'QUOTED' && q.amount != null)
-    .map((q) => ({
-      id: q.id,
-      carrierId: q.carrierId,
-      carrierName: q.carrier.name,
-      amount: toNumber(q.amount)!,
-      perf: q.carrier.performance
-        ? { trips: q.carrier.performance.trips, onTimePct: q.carrier.performance.onTimePct, podDays: toNumber(q.carrier.performance.podDays)!, acceptPct: q.carrier.performance.acceptPct }
-        : null,
-    }));
-}
-
-export function scored(trip: TripFull) {
-  const list = scoreQuotes(quoteInputs(trip), toNumber(trip.budget));
-  return { list, reason: recommendationReason(list) };
-}
+const OFFER_CLOSED = () => new HttpError(409, 'OFFER_CLOSED', 'This load is no longer offered to you.');
 
 export async function loadTrip(tripId: string, shipperId?: string) {
   const trip = await prisma.trip.findFirst({ where: { id: tripId, ...(shipperId ? { shipperId } : {}) }, include: tripInclude });
@@ -48,133 +36,240 @@ export async function loadTrip(tripId: string, shipperId?: string) {
   return trip;
 }
 
-/** An award needs a person unless the lane says otherwise; one pending approval per trip. */
-async function ensureAwardApproval(trip: TripFull) {
-  const existing = await prisma.approval.findFirst({ where: { tripId: trip.id, kind: 'AWARD', status: 'PENDING' } });
-  if (!existing) await prisma.approval.create({ data: { tripId: trip.id, companyId: trip.shipperId, kind: 'AWARD', payload: {} } });
+// ---------- candidates ----------
+
+export interface Candidate {
+  carrierId: string;
+  carrierName: string;
+  rate: number;
+  rateCardLineId: string;
+  transitDays: number | null;
+  perfScore: number;
 }
+
+/** Tie-break only: higher is better. Carriers with no record are scored at a neutral level. */
+function perfScore(p: { onTimePct: number; acceptPct: number; podDays: Prisma.Decimal } | null) {
+  const onTime = p?.onTimePct ?? 70;
+  const accept = p?.acceptPct ?? 70;
+  const pod = Math.max(0, Math.min(100, 100 - ((p ? toNumber(p.podDays)! : 3) - 1) * 20));
+  return 0.5 * onTime + 0.3 * accept + 0.2 * pod;
+}
+
+export const noContractRate = (origin: string, destination: string, truckType: string) =>
+  new HttpError(400, 'NO_CONTRACT_RATE', `No contract rate for ${origin} → ${destination}, ${truckType}. Add one in Master data › Rate cards.`, {
+    rate: `No contract rate for ${origin} → ${destination}, ${truckType}.`,
+  });
 
 /**
- * Closes the quote request when every carrier has answered or the deadline has passed, then
- * applies the lane's award rule. Safe to call on every read: it only acts once.
+ * Every carrier with a contract line for this city pair and truck type whose rate card is valid on
+ * the pickup day (YYYY-MM-DD), who is active or invited (not inactive) and in the shipper's carrier list. Cheapest first; ties
+ * go to the better performance score, then the name.
  */
-export async function syncTrip(tripId: string): Promise<void> {
-  const trip = await prisma.trip.findUnique({ where: { id: tripId }, include: tripInclude });
-  if (!trip || !OPEN.includes(trip.status as (typeof OPEN)[number]) || trip.quotesClosedAt) return;
-  const allAnswered = trip.quotes.length > 0 && trip.quotes.every((q) => q.status !== 'REQUESTED');
-  const due = trip.quoteDeadline != null && trip.quoteDeadline <= new Date();
-  if (!allAnswered && !due) return;
-
-  const claimed = await prisma.trip.updateMany({ where: { id: trip.id, quotesClosedAt: null }, data: { quotesClosedAt: new Date() } });
-  if (claimed.count === 0) return; // another request closed it first
-  await audit('tender-agent', 'QUOTES_CLOSED', { quoted: quoteInputs(trip).length, asked: trip.quotes.length, reason: allAnswered ? 'all replied' : 'deadline' }, { tripId: trip.id });
-
-  const { list } = scored(trip);
-  if (!list.length) return; // no quotes: the shipper chooses what next (re-tender)
-
-  if (trip.lane?.awardRule === 'AUTO_LOWEST' && trip.budget != null) {
-    const budget = toNumber(trip.budget)!;
-    const lowest = [...list].sort((a, b) => a.amount - b.amount)[0];
-    const priorAwards = await prisma.quote.count({ where: { carrierId: lowest.carrierId, status: 'AWARDED', trip: { shipperId: trip.shipperId } } });
-    // BRD §6: no agent awards a first trip to a new carrier on its own; never above budget.
-    if (lowest.amount <= budget && priorAwards > 0) {
-      await awardQuote(trip.id, lowest.id, null, 'Lane rule: lowest quote within budget, awarded automatically.');
-      return;
-    }
-    await audit('bid-evaluation-agent', 'AUTO_AWARD_SKIPPED', { reason: lowest.amount > budget ? 'over budget' : 'first trip with this carrier' }, { tripId: trip.id });
-  }
-  await ensureAwardApproval(trip);
-}
-
-/** Called when a carrier quotes or declines (integration point for the carrier module). */
-export async function receiveQuote(tripId: string, carrierId: string, amount: number | null) {
-  const trip = await loadTrip(tripId);
-  const quote = trip.quotes.find((q) => q.carrierId === carrierId);
-  if (!quote) throw new HttpError(404, 'NOT_FOUND', 'This carrier was not asked to quote on this trip.');
-  if (!OPEN.includes(trip.status as (typeof OPEN)[number]) || trip.quotesClosedAt) throw new HttpError(409, 'CLOSED', 'This quote request is closed.');
-  if (quote.status !== 'REQUESTED' && quote.status !== 'QUOTED') throw new HttpError(409, 'CLOSED', 'This carrier has already answered.');
-
-  await prisma.quote.update({
-    where: { id: quote.id },
-    data: amount == null ? { status: 'DECLINED', amount: null, quotedAt: new Date() } : { status: 'QUOTED', amount: new Prisma.Decimal(amount), quotedAt: new Date() },
+export async function offerCandidates(shipperId: string, origin: string, destination: string, truckType: string, pickupDay: string): Promise<Candidate[]> {
+  const lines = await prisma.rateCardLine.findMany({
+    where: {
+      truckType,
+      origin: { equals: origin, mode: 'insensitive' },
+      destination: { equals: destination, mode: 'insensitive' },
+      rateCard: { shipperId, carrier: { status: { in: ['ACTIVE', 'INVITED'] }, listedBy: { some: { shipperId, isActive: true } } } },
+    },
+    include: { rateCard: { include: { carrier: { include: { performance: true } } } } },
   });
-  if (amount != null && trip.status === 'QUOTES_REQUESTED') await prisma.trip.update({ where: { id: trip.id }, data: { status: 'QUOTES_RECEIVED' } });
-  await audit(`carrier:${carrierId}`, amount == null ? 'QUOTE_DECLINED' : 'QUOTE_RECEIVED', { carrier: quote.carrier.name, amount }, { tripId: trip.id });
-
-  const fresh = await loadTrip(trip.id);
-  if (amount != null && fresh.lane?.awardRule !== 'AUTO_LOWEST') await ensureAwardApproval(fresh);
-  await syncTrip(trip.id);
+  const day = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
+  const out: Candidate[] = [];
+  for (const l of lines) {
+    const from = day(l.rateCard.validFrom);
+    const to = day(l.rateCard.validTo);
+    if ((from && from > pickupDay) || (to && to < pickupDay)) continue;
+    out.push({
+      carrierId: l.rateCard.carrierId,
+      carrierName: l.rateCard.carrier.name,
+      rate: toNumber(l.rate)!,
+      rateCardLineId: l.id,
+      transitDays: l.transitDays,
+      perfScore: perfScore(l.rateCard.carrier.performance),
+    });
+  }
+  return out.sort((a, b) => a.rate - b.rate || b.perfScore - a.perfScore || a.carrierName.localeCompare(b.carrierName));
 }
+
+/** Quote rows for an ordered candidate list: the first is offered now, the rest wait in line. */
+export function offerRows(candidates: Candidate[], windowHours: number, now = new Date()) {
+  const respondBy = new Date(now.getTime() + windowHours * 3600_000);
+  return {
+    respondBy,
+    rows: candidates.map((c, i) => ({
+      carrierId: c.carrierId,
+      amount: new Prisma.Decimal(c.rate),
+      rateCardLineId: c.rateCardLineId,
+      sequence: i + 1,
+      status: i === 0 ? 'REQUESTED' : 'QUEUED',
+      offeredAt: i === 0 ? now : null,
+      respondBy: i === 0 ? respondBy : null,
+    })),
+  };
+}
+
+// ---------- advancing the line ----------
+
+type Tx = Prisma.TransactionClient;
+
+/**
+ * Offers the load to the next carrier in line, or closes the request when none is left. Conditional
+ * updates make a second caller a no-op. Returns what happened, for the audit trail.
+ */
+async function offerNext(tx: Tx, tripId: string, windowHours: number, now: Date): Promise<{ offeredTo: { carrierId: string; carrier: string; amount: number; sequence: number; of: number } | null }> {
+  const next = await tx.quote.findFirst({ where: { tripId, status: 'QUEUED' }, orderBy: { sequence: 'asc' }, include: { carrier: { select: { name: true } } } });
+  if (!next) {
+    await tx.trip.updateMany({ where: { id: tripId, status: 'QUOTES_REQUESTED', quotesClosedAt: null }, data: { quotesClosedAt: now } });
+    return { offeredTo: null };
+  }
+  const respondBy = new Date(now.getTime() + windowHours * 3600_000);
+  const claimed = await tx.quote.updateMany({ where: { id: next.id, status: 'QUEUED' }, data: { status: 'REQUESTED', offeredAt: now, respondBy } });
+  if (claimed.count === 0) return { offeredTo: null };
+  await tx.trip.update({ where: { id: tripId }, data: { quoteDeadline: respondBy } });
+  const of = await tx.quote.count({ where: { tripId } });
+  return { offeredTo: { carrierId: next.carrierId, carrier: next.carrier.name, amount: toNumber(next.amount)!, sequence: next.sequence ?? 0, of } };
+}
+
+async function afterAdvance(tripId: string, result: Awaited<ReturnType<typeof offerNext>>, offered: number) {
+  if (result.offeredTo) {
+    const o = result.offeredTo;
+    await audit('tender-agent', 'OFFER_SENT', { carrier: o.carrier, amount: o.amount, sequence: o.sequence, of: o.of }, { tripId });
+  } else {
+    await audit('tender-agent', 'OFFERS_EXHAUSTED', { carriers: offered }, { tripId });
+    const t = await prisma.trip.findUnique({ where: { id: tripId }, include: { pickupAddress: true, dropAddress: true, lane: true } });
+    if (t) {
+      const lane = `${t.pickupAddress?.city ?? t.lane?.origin ?? ''} → ${t.dropAddress?.city ?? t.lane?.destination ?? ''}`;
+      await notifyShipper(t.shipperId, { kind: 'OFFERS_EXHAUSTED', tripId, title: `No carrier accepted ${t.number} (${lane})`, body: 'Send again or cancel the trip.' });
+    }
+  }
+}
+
+/** The offer is open: REQUESTED for this carrier on a trip still looking for one. */
+async function openOffer(tx: Tx, tripId: string, carrierId: string) {
+  const quote = await tx.quote.findFirst({ where: { tripId, carrierId, status: 'REQUESTED' }, include: { trip: true, carrier: { select: { name: true } } } });
+  if (!quote || quote.offeredAt == null || quote.trip.status !== 'QUOTES_REQUESTED' || quote.trip.cancelledAt || quote.trip.carrierId) throw OFFER_CLOSED();
+  return quote;
+}
+
+/** Tells every active user of the shipper company (in-app bell). */
+export async function notifyShipper(companyId: string, n: { kind: string; tripId: string; title: string; body?: string }, tx: Tx | typeof prisma = prisma) {
+  const users = await tx.user.findMany({ where: { companyId, isActive: true }, select: { id: true } });
+  if (!users.length) return;
+  await tx.notification.createMany({ data: users.map((u) => ({ companyId, userId: u.id, kind: n.kind, tripId: n.tripId, title: n.title, body: n.body ?? null })) });
+}
+
+const inr = (n: number) => '₹' + n.toLocaleString('en-IN', { maximumFractionDigits: 2 });
+
+/**
+ * Carrier accepts the offer at the contract rate on its Quote row (the amount never comes from the
+ * caller) and the trip is awarded at once. No shipper approval; the shipper is notified.
+ */
+export async function acceptOffer(tripId: string, carrierId: string, userId: string): Promise<void> {
+  const now = new Date();
+  const done = await prisma.$transaction(async (tx) => {
+    const quote = await openOffer(tx, tripId, carrierId);
+    if (quote.amount == null) throw OFFER_CLOSED();
+    const trip = await tx.trip.updateMany({
+      where: { id: tripId, status: 'QUOTES_REQUESTED', carrierId: null, cancelledAt: null },
+      data: { status: 'AWARDED', carrierId, awardedAmount: quote.amount, awardedAt: now, awardedById: userId, quotesClosedAt: now },
+    });
+    if (trip.count === 0) throw OFFER_CLOSED();
+    const upd = await tx.quote.updateMany({ where: { id: quote.id, status: 'REQUESTED' }, data: { status: 'AWARDED', isWinner: true, respondedById: userId, quotedAt: now } });
+    if (upd.count === 0) throw OFFER_CLOSED(); // rolls the trip update back
+    await tx.quote.updateMany({ where: { tripId, id: { not: quote.id }, status: { in: ['QUEUED', 'REQUESTED'] } }, data: { status: 'WITHDRAWN' } });
+    await tx.approval.updateMany({ where: { tripId, kind: 'AWARD', status: 'PENDING' }, data: { status: 'REJECTED', reason: 'Awarded on carrier acceptance', decidedAt: now } });
+    const t = await tx.trip.findUniqueOrThrow({ where: { id: tripId }, include: { pickupAddress: true, dropAddress: true, lane: true } });
+    const lane = `${t.pickupAddress?.city ?? t.lane?.origin ?? ''} → ${t.dropAddress?.city ?? t.lane?.destination ?? ''}`;
+    const amount = toNumber(quote.amount)!;
+    await notifyShipper(quote.trip.shipperId, { kind: 'OFFER_ACCEPTED', tripId, title: `${quote.carrier.name} accepted ${t.number} (${lane}) at ${inr(amount)}`, body: 'Awarded at the contract rate.' }, tx);
+    return { carrier: quote.carrier.name, amount };
+  });
+  await audit(userId, 'OFFER_ACCEPTED', { carrier: done.carrier, amount: done.amount }, { tripId });
+  await audit(userId, 'AWARDED', { carrier: done.carrier, amount: done.amount }, { tripId });
+}
+
+/** Carrier passes; the offer moves to the next carrier, or the request closes. */
+export async function declineOffer(tripId: string, carrierId: string, userId: string, reason?: string): Promise<void> {
+  const now = new Date();
+  const text = reason?.trim() ? reason.trim().slice(0, 200) : null;
+  const trip = await prisma.trip.findUnique({ where: { id: tripId }, select: { shipperId: true } });
+  const hours = trip ? (await getPolicy(trip.shipperId)).quoteWindowHours : 4;
+  const r = await prisma.$transaction(async (tx) => {
+    const quote = await openOffer(tx, tripId, carrierId);
+    const upd = await tx.quote.updateMany({ where: { id: quote.id, status: 'REQUESTED' }, data: { status: 'DECLINED', respondedById: userId, declineReason: text, quotedAt: now } });
+    if (upd.count === 0) throw OFFER_CLOSED();
+    return { carrier: quote.carrier.name, next: await offerNext(tx, tripId, hours, now), total: await tx.quote.count({ where: { tripId } }) };
+  });
+  await audit(userId, 'OFFER_DECLINED', { carrier: r.carrier, reason: text }, { tripId, reason: text ?? undefined });
+  await afterAdvance(tripId, r.next, r.total);
+}
+
+/** Marks offers whose deadline has passed EXPIRED and moves each trip on. Returns how many expired. */
+export async function expireOffers(now: Date = new Date()): Promise<number> {
+  const due = await prisma.quote.findMany({
+    where: { status: 'REQUESTED', respondBy: { lt: now }, trip: { status: 'QUOTES_REQUESTED', cancelledAt: null, carrierId: null } },
+    include: { carrier: { select: { name: true } }, trip: { select: { shipperId: true } } },
+    orderBy: { respondBy: 'asc' },
+  });
+  let count = 0;
+  for (const q of due) {
+    const hours = (await getPolicy(q.trip.shipperId)).quoteWindowHours;
+    const r = await prisma.$transaction(async (tx) => {
+      const upd = await tx.quote.updateMany({ where: { id: q.id, status: 'REQUESTED', respondBy: { lt: now } }, data: { status: 'EXPIRED' } });
+      if (upd.count === 0) return null;
+      return { next: await offerNext(tx, q.tripId, hours, now), total: await tx.quote.count({ where: { tripId: q.tripId } }) };
+    });
+    if (!r) continue;
+    count++;
+    await audit('tender-agent', 'OFFER_EXPIRED', { carrier: q.carrier.name }, { tripId: q.tripId });
+    await afterAdvance(q.tripId, r.next, r.total);
+  }
+  return count;
+}
+
+/** @deprecated Kept so older callers still compile; offers now advance through expireOffers. */
+export async function syncTrip(_tripId?: string): Promise<void> {
+  await expireOffers();
+}
+
+// ---------- restart ----------
 
 interface Actor {
   id: string;
   name: string;
 }
 
-/** Checks a person may approve this amount (BRD §6: nobody commits money above their limit). */
-export async function assertCanApprove(actor: Actor, amount: number) {
-  const user = await prisma.user.findUniqueOrThrow({ where: { id: actor.id } });
-  const limit = toNumber(user.approvalLimit);
-  if (limit == null) throw forbidden("Your role can't approve awards. Your logistics head or an approver will get it.");
-  if (amount > limit) throw forbidden(`₹${amount.toLocaleString('en-IN')} is above your approval limit of ₹${limit.toLocaleString('en-IN')}. Ask your logistics head to approve it.`);
-}
-
-/** Awards one quote. `actor` null means the lane rule awarded it. */
-export async function awardQuote(tripId: string, quoteId: string, actor: Actor | null, note?: string) {
-  const trip = await loadTrip(tripId);
-  if (!OPEN.includes(trip.status as (typeof OPEN)[number])) throw new HttpError(409, 'NOT_OPEN', 'This trip is not waiting for an award any more.');
-  const quote = trip.quotes.find((q) => q.id === quoteId);
-  if (!quote || quote.status !== 'QUOTED' || quote.amount == null) throw new HttpError(409, 'NOT_QUOTED', 'That carrier has no quote to award.');
-  const amount = toNumber(quote.amount)!;
-  if (actor) await assertCanApprove(actor, amount);
-
-  const now = new Date();
+/**
+ * Throws NO_CONTRACT_RATE if the trip has no candidate for `pickupDay`; otherwise replaces the offer
+ * list from the lowest carrier. Prices are re-read from the current rate cards.
+ */
+export async function rebuildOffers(trip: TripFull, pickupDay: string): Promise<{ candidates: Candidate[]; respondBy: Date }> {
+  const origin = trip.pickupAddress?.city ?? trip.lane?.origin ?? '';
+  const destination = trip.dropAddress?.city ?? trip.lane?.destination ?? '';
+  const candidates = await offerCandidates(trip.shipperId, origin, destination, trip.truckType ?? '', pickupDay);
+  if (!candidates.length) throw noContractRate(origin, destination, trip.truckType ?? '');
+  const policy = await getPolicy(trip.shipperId);
+  const { rows, respondBy } = offerRows(candidates, policy.quoteWindowHours);
   await prisma.$transaction([
-    prisma.quote.update({ where: { id: quote.id }, data: { status: 'AWARDED', isWinner: true } }),
-    prisma.quote.updateMany({ where: { tripId: trip.id, id: { not: quote.id }, status: 'QUOTED' }, data: { status: 'LOST' } }),
-    prisma.quote.updateMany({ where: { tripId: trip.id, status: 'REQUESTED' }, data: { status: 'WITHDRAWN' } }),
-    prisma.trip.update({
-      where: { id: trip.id },
-      data: { status: 'AWARDED', carrierId: quote.carrierId, awardedAmount: quote.amount, awardedAt: now, awardedById: actor?.id ?? null, quotesClosedAt: trip.quotesClosedAt ?? now },
-    }),
-    prisma.approval.updateMany({ where: { tripId: trip.id, kind: 'AWARD', status: 'PENDING' }, data: { status: 'APPROVED', approverId: actor?.id ?? null, decidedAt: now } }),
-  ]);
-  const { list } = scored(trip);
-  const recommended = list[0]?.id === quote.id;
-  await audit(actor?.id ?? 'bid-evaluation-agent', 'AWARDED', { carrier: quote.carrier.name, amount, recommended, note }, { tripId: trip.id, reason: note });
-}
-
-export async function undoAward(tripId: string, shipperId: string, actor: Actor) {
-  const trip = await loadTrip(tripId, shipperId);
-  if (trip.status !== 'AWARDED' || !trip.awardedAt) throw new HttpError(409, 'NOT_AWARDED', 'This trip has no award to undo.');
-  if (Date.now() - trip.awardedAt.getTime() > UNDO_MINUTES * 60_000) {
-    throw new HttpError(409, 'TOO_LATE', `Awards can be undone for ${UNDO_MINUTES} minutes. The carrier has started; ask them to cancel instead.`);
-  }
-  const reopen = trip.quoteDeadline != null && trip.quoteDeadline > new Date();
-  await prisma.$transaction([
-    prisma.quote.updateMany({ where: { tripId: trip.id, status: { in: ['AWARDED', 'LOST'] } }, data: { status: 'QUOTED', isWinner: false } }),
-    prisma.quote.updateMany({ where: { tripId: trip.id, status: 'WITHDRAWN' }, data: { status: reopen ? 'REQUESTED' : 'WITHDRAWN' } }),
-    prisma.trip.update({
-      where: { id: trip.id },
-      data: { status: 'QUOTES_RECEIVED', carrierId: null, awardedAmount: null, awardedAt: null, awardedById: null, quotesClosedAt: reopen ? null : trip.quotesClosedAt },
-    }),
-    prisma.approval.create({ data: { tripId: trip.id, companyId: trip.shipperId, kind: 'AWARD', payload: {} } }),
-  ]);
-  await audit(actor.id, 'AWARD_UNDONE', { carrier: trip.carrier?.name }, { tripId: trip.id });
-}
-
-/** Rejects every quote and asks the same approved carriers again with a fresh deadline. */
-export async function retender(tripId: string, shipperId: string, actor: Actor, reason: string, windowHours: number) {
-  const trip = await loadTrip(tripId, shipperId);
-  if (!OPEN.includes(trip.status as (typeof OPEN)[number])) throw new HttpError(409, 'NOT_OPEN', 'Quotes can only be re-requested before an award.');
-  const carriers = await prisma.laneCarrier.findMany({ where: { laneId: trip.laneId ?? '' } });
-  if (!carriers.length) throw new HttpError(409, 'NO_CARRIERS', 'This lane has no approved carriers left. Add carriers to the lane first.');
-  const previous = quoteInputs(trip).map((q) => ({ carrier: q.carrierName, amount: q.amount }));
-  await prisma.$transaction([
+    prisma.approval.updateMany({ where: { tripId: trip.id, kind: 'AWARD', status: 'PENDING' }, data: { status: 'REJECTED', reason: 'Offers restarted', decidedAt: new Date() } }),
     prisma.quote.deleteMany({ where: { tripId: trip.id } }),
-    prisma.quote.createMany({ data: carriers.map((c) => ({ tripId: trip.id, carrierId: c.carrierId })) }),
-    prisma.trip.update({ where: { id: trip.id }, data: { status: 'QUOTES_REQUESTED', quotesClosedAt: null, quoteDeadline: new Date(Date.now() + windowHours * 3600_000) } }),
-    prisma.approval.updateMany({ where: { tripId: trip.id, kind: 'AWARD', status: 'PENDING' }, data: { status: 'REJECTED', approverId: actor.id, reason, decidedAt: new Date() } }),
+    prisma.quote.createMany({ data: rows.map((r) => ({ ...r, tripId: trip.id })) }),
+    prisma.trip.update({ where: { id: trip.id }, data: { status: 'QUOTES_REQUESTED', quotesClosedAt: null, quoteDeadline: respondBy } }),
   ]);
-  await audit(actor.id, 'QUOTES_REJECTED', { previous, carriersAskedAgain: carriers.length }, { tripId: trip.id, reason });
+  await audit('tender-agent', 'OFFER_SENT', { carrier: candidates[0].carrierName, amount: candidates[0].rate, sequence: 1, of: candidates.length }, { tripId: trip.id });
+  return { candidates, respondBy };
 }
+
+/** Shipper restarts the offers from the lowest carrier after "No carrier accepted". */
+export async function sendAgain(tripId: string, shipperId: string, actor: Actor) {
+  const trip = await loadTrip(tripId, shipperId);
+  if (trip.status !== 'QUOTES_REQUESTED' || !trip.quotesClosedAt) throw new HttpError(409, 'NOT_CLOSED', 'Offers can be sent again once every carrier has passed or not answered.');
+  const day = (trip.pickupDate ?? new Date()).toISOString().slice(0, 10);
+  const r = await rebuildOffers(trip, day);
+  await audit(actor.id, 'OFFERS_RESTARTED', { carriers: r.candidates.length, first: r.candidates[0].carrierName, amount: r.candidates[0].rate }, { tripId: trip.id });
+  return { offeredTo: r.candidates[0].carrierName, amount: r.candidates[0].rate, carriers: r.candidates.length, respondBy: r.respondBy };
+}
+
+

@@ -94,6 +94,41 @@ export class Validator {
     return n;
   }
 
+  /** Calendar date as YYYY-MM-DD (the date input's format); returned as midnight UTC. */
+  date(key: string, label: string, opts: { required?: boolean } = {}): Date | null {
+    const v = this.raw(key);
+    if (v == null || v === '') {
+      if (opts.required) this.fields[key] = `Enter ${label}.`;
+      return null;
+    }
+    const s = String(v).slice(0, 10);
+    const d = new Date(`${s}T00:00:00.000Z`);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(s) || Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== s) {
+      this.fields[key] = `Enter ${label} as a date, e.g. 2027-03-31.`;
+      return null;
+    }
+    if (d.getUTCFullYear() < 2000 || d.getUTCFullYear() > 2100) {
+      this.fields[key] = `Check ${label}: the year looks wrong.`;
+      return null;
+    }
+    return d;
+  }
+
+  /** Decimal number within [min, max], e.g. a percentage. */
+  decimal(key: string, label: string, min: number, max: number, opts: { required?: boolean } = { required: true }): number | null {
+    const v = this.raw(key);
+    if (v == null || v === '') {
+      if (opts.required) this.fields[key] = `Enter ${label}.`;
+      return null;
+    }
+    const n = typeof v === 'number' ? v : Number(String(v).replace(/[%\s]/g, ''));
+    if (!Number.isFinite(n) || n < min || n > max) {
+      this.fields[key] = `Enter ${label} between ${min} and ${max}.`;
+      return null;
+    }
+    return Math.round(n * 100) / 100;
+  }
+
   fail(key: string, message: string) {
     this.fields[key] = message;
   }

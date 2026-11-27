@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Claim and invoice detail</title>
+<script src="./_runtime/react.js"></script>
+<script src="./_runtime/react-dom.js"></script>
+<script src="./_runtime/support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap">
+<style>
+body{margin:0;background:#F5F7F6}
+.x *{box-sizing:border-box}
+.h{font-family:'Space Grotesk',Inter,sans-serif;letter-spacing:-.01em}
+.muted{color:#52606D}
+.cap{font:700 12px Inter,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#0A5360;margin:0 0 6px}
+.card{background:#fff;border:1px solid #E1E7E5;border-radius:14px;padding:22px}
+.btn{min-height:44px;padding:0 18px;border-radius:10px;border:1px solid transparent;font:600 14px/1 Inter,sans-serif;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;white-space:nowrap}
+.bp{background:#0E6B7A;color:#fff}.bs{background:#fff;color:#17212B;border-color:#CBD5D1}.bd{background:#fff;color:#9F1D1D;border-color:#E9B8B8}.sm{min-height:36px;padding:0 12px;font-size:13px}
+.chip{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:999px;font:600 12px/1 Inter,sans-serif;white-space:nowrap}
+.chip:before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.cs{background:#E4F4E9;color:#166534}.ca{background:#FDF0DF;color:#8A3B0B}.cn{background:#EDF1F5;color:#334155}.cb{background:#ECE9FB;color:#4C2B9A}
+.tbl{width:100%;border-collapse:collapse;font:14px/1.45 Inter,sans-serif}
+.tbl th{text-align:left;font-weight:600;font-size:12px;color:#52606D;text-transform:uppercase;letter-spacing:.04em;padding:10px 12px;border-bottom:1px solid #E1E7E5;background:#FAFBFB}
+.tbl td{padding:10px 12px;border-bottom:1px solid #EEF2F1}
+.ph{border-radius:10px;background:#EEF2F1;border:1px dashed #A7B4B0;display:flex;align-items:center;justify-content:center;text-align:center;font-size:12px;color:#52606D}
+.stp{display:flex;align-items:center;gap:8px;font-size:13px}
+.d{width:14px;height:14px;border-radius:50%;flex:none}
+</style>
+</helmet>
+<div class="x" style="font-family: Inter, system-ui, sans-serif; color: #17212B; background: #F5F7F6; padding: 40px 24px 56px">
+<div style="max-width: 1360px; margin: 0 auto; display: flex; flex-direction: column; gap: 28px">
+
+  <section style="display: flex; flex-direction: column; gap: 16px">
+    <div>
+      <p class="cap">Shipper › Trips › TR-24125 › Claim</p>
+      <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px"><h1 class="h" style="margin: 0; font-size: 28px">Claim CL-0031 · 2 cartons damaged</h1><span class="chip ca">Waiting for carrier</span></div>
+      <p class="muted" style="margin: 6px 0 0; font-size: 14px">Coimbatore → Kochi · Deccan Freight Carriers · raised 24 Nov by Anita Rao from the POD remark</p>
+    </div>
+    <div class="card" style="display: flex; flex-wrap: wrap; gap: 24px">
+      <div class="stp"><span class="d" style="background: #0E6B7A"></span>Raised</div>
+      <div class="stp"><span class="d" style="border: 3px solid #0E6B7A; background: #fff"></span><strong>Carrier responds (by 27 Nov)</strong></div>
+      <div class="stp"><span class="d" style="border: 2px solid #A7B4B0"></span>Agreed or escalated</div>
+      <div class="stp"><span class="d" style="border: 2px solid #A7B4B0"></span>Adjusted on invoice</div>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(400px, 100%), 1fr)); gap: 20px; align-items: start">
+      <div class="card">
+        <h2 class="h" style="margin: 0 0 12px; font-size: 17px">Evidence</h2>
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px">
+          <div class="ph" style="height: 120px">Signed LR<br>“2 ctn damaged”</div>
+          <div class="ph" style="height: 120px">Receiver photo 1</div>
+          <div class="ph" style="height: 120px">Receiver photo 2</div>
+        </div>
+        <p class="muted" style="margin: 12px 0 0; font-size: 13px; line-height: 1.5">Remark read from LR KR-000470 (QR matched). Receiver confirmed 218 good, 2 damaged with code at 16:05, 24 Nov.</p>
+      </div>
+      <div class="card" style="padding: 0; overflow: hidden">
+        <h2 class="h" style="margin: 0; padding: 18px 22px 10px; font-size: 17px">Amount claimed</h2>
+        <table class="tbl">
+          <thead><tr><th>Item</th><th>Qty</th><th style="text-align: right">Value each</th><th style="text-align: right">Total</th></tr></thead>
+          <tbody>
+            <tr><td>Biscuits, 24 × 200 g carton</td><td>2</td><td style="text-align: right">₹1,600</td><td style="text-align: right; font-weight: 700">₹3,200</td></tr>
+          </tbody>
+        </table>
+        <div style="padding: 14px 22px; font-size: 13px; line-height: 1.5" class="muted">Value from your invoice to the buyer. Edit the amount before the carrier replies; after that, changes need their agreement.</div>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px; padding: 0 22px 20px"><button type="button" class="btn bs sm">Edit amount</button><button type="button" class="btn bs sm">Remind carrier</button><button type="button" class="btn bd sm">Withdraw claim</button></div>
+      </div>
+    </div>
+    <div class="card" style="font-size: 14px; line-height: 1.6"><strong>What the carrier sees on WhatsApp:</strong> <span class="muted">Sunrise Foods claims ₹3,200 for 2 damaged cartons on TR-24125 (photos attached). [Accept deduction] [Dispute with reason]</span><br><strong>If accepted:</strong> <span class="muted">₹3,200 is deducted on invoice INV-0874 automatically and billing continues.</span></div>
+  </section>
+
+  <section style="display: flex; flex-direction: column; gap: 16px">
+    <div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px">
+      <div>
+        <p class="cap">Shipper › Trips › TR-24119 › Invoice</p>
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px"><h1 class="h" style="margin: 0; font-size: 28px">Invoice INV-0871 · ₹48,500</h1><span class="chip cb">Due 8 Dec · 14 days left</span></div>
+        <p class="muted" style="margin: 6px 0 0; font-size: 14px">From Sai Ganesh Transport · Chennai → Hyderabad · received 23 Nov</p>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px"><button type="button" class="btn bp">Pay ₹48,500</button><button type="button" class="btn bs">Query invoice</button><button type="button" class="btn bs">Download PDF</button></div>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(400px, 100%), 1fr)); gap: 20px; align-items: start">
+      <div class="card" style="padding: 0; overflow: hidden">
+        <table class="tbl">
+          <thead><tr><th>Line</th><th style="text-align: right">Amount</th><th>Checked against</th></tr></thead>
+          <tbody>
+            <tr><td>Freight, 32ft MXL, 15 t</td><td style="text-align: right">₹48,500</td><td><span class="chip cs">Matches award</span></td></tr>
+            <tr><td>Detention</td><td style="text-align: right">₹0</td><td><span class="chip cs">No delay logged</span></td></tr>
+            <tr><td>Claims deducted</td><td style="text-align: right">₹0</td><td><span class="chip cs">No claims</span></td></tr>
+            <tr><td>GST</td><td style="text-align: right">[RATE]</td><td><span class="chip cn">Confirm with accounts</span></td></tr>
+            <tr><td style="font-weight: 700">Total payable</td><td style="text-align: right; font-weight: 700">₹48,500</td><td></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 16px">
+        <div class="card">
+          <h2 class="h" style="margin: 0 0 10px; font-size: 17px">Attached</h2>
+          <div style="display: flex; flex-direction: column; gap: 8px; font-size: 14px">
+            <div style="display: flex; justify-content: space-between"><span>LR KR-000455</span><span class="chip cs">Matches trip</span></div>
+            <div style="display: flex; justify-content: space-between"><span>POD photo, signed 22 Nov</span><span class="chip cs">Accepted</span></div>
+          </div>
+        </div>
+        <div class="card">
+          <h2 class="h" style="margin: 0 0 10px; font-size: 17px">Pay</h2>
+          <p class="muted" style="margin: 0 0 10px; font-size: 14px; line-height: 1.5">Pay opens your UPI app or shows bank details. Your approval limit is ₹2,00,000, so no second approval is needed.</p>
+          <div style="font-size: 14px; line-height: 1.7">UPI ID: [CARRIER UPI ID]<br>Bank: [ACCOUNT DETAILS FROM CARRIER MASTER]</div>
+          <p class="muted" style="margin: 10px 0 0; font-size: 13px">Once paid, the payment is posted to Tally and the trip closes.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1500}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

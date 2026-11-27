@@ -1,5 +1,5 @@
 import { USERS, asUser, expect, loginUi, test } from './helpers';
-import { book, carrierQuotes, refs } from './trips.helpers';
+import { book, carrierAccepts, deliveredTrip, integration, refs } from './trips.helpers';
 
 test.describe('Home dashboard', () => {
   test('first-time shipper sees the setup checklist with what is done', async ({ page }) => {
@@ -15,8 +15,11 @@ test.describe('Home dashboard', () => {
   test('decisions can be approved from Home; month tiles and active trips are shown', async ({ page, request }) => {
     const anita = await asUser(request, USERS.shipperHead);
     const r = await refs(anita);
-    const trip = await book(anita, r, { reference: 'HOME-1' });
-    await carrierQuotes(request, trip.number, r.kaveri, 42500);
+    // A decision for the shipper: a delivered trip whose invoice waits for approval.
+    await book(anita, r, { reference: 'HOME-1' });
+    const billed = await deliveredTrip(request, anita, r);
+    await integration.pod(request, billed.number);
+    await integration.invoice(request, billed.number, { number: `INV-H${Date.now() % 100000}`, freight: 43800 });
     await loginUi(page, USERS.shipperHead);
     await expect(page.getByText(/decisions? (is|are) waiting for you\./)).toBeVisible();
     for (const tile of ['Trips booked', 'On time', 'Freight awarded', 'PODs to review']) await expect(page.getByText(tile, { exact: true })).toBeVisible();
@@ -78,17 +81,18 @@ test.describe('Reports and activity log', () => {
     const anita = await asUser(request, USERS.shipperHead);
     const r = await refs(anita);
     const trip = await book(anita, r);
-    await carrierQuotes(request, trip.number, r.kaveri, 42500);
+    await carrierAccepts(request, trip.number, r.deccan);
     await loginUi(page, USERS.shipperHead, '/reports');
     await page.getByRole('link', { name: 'Activity log' }).click();
     await expect(page.getByRole('heading', { name: 'Activity log', level: 1 })).toBeVisible();
     await page.getByRole('textbox', { name: 'Trip number' }).fill(trip.number);
     const rows = page.getByRole('table', { name: 'Activity' }).getByRole('row');
-    await expect(rows.filter({ hasText: 'Kaveri Roadlines quoted ₹42,500' })).toHaveCount(1);
+    await expect(rows.filter({ hasText: 'Offered to Deccan Freight Carriers at ₹43,800' })).toHaveCount(1);
+    await expect(rows.filter({ hasText: /Deccan Freight Carriers (accepted|was awarded)|Awarded to Deccan Freight Carriers/ }).first()).toBeVisible();
     await expect(rows.filter({ hasNotText: trip.number })).toHaveCount(1); // only the header row lacks it
     await page.getByLabel('Who').selectOption('people');
     await expect(rows.filter({ hasText: 'Booked on the web' })).toHaveCount(1);
-    await expect(rows.filter({ hasText: 'quoted' })).toHaveCount(0);
+    await expect(rows.filter({ hasText: 'Offered to' })).toHaveCount(0);
     const download = page.waitForEvent('download');
     await page.getByRole('button', { name: 'Export CSV' }).click();
     expect((await download).suggestedFilename()).toBe('activity-log.csv');

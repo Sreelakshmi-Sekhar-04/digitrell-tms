@@ -1,12 +1,12 @@
 import { Router } from 'express';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
-import { HttpError, asyncHandler, badRequest } from '../../lib/errors';
+import { asyncHandler } from '../../lib/errors';
 import { Validator, toNumber } from '../../lib/validate';
 import { audit } from '../../lib/audit';
 import { TRUCK_TYPES } from '../../shared/masters';
 import { getPolicy } from '../policies/policies.routes';
-import { agreedRates } from '../masters/rateCards.routes';
+import { noContractRate, offerCandidates, offerRows, type Candidate } from './tender.service';
 
 export const bookingsRouter = Router();
 
@@ -15,8 +15,8 @@ const MAX_DAYS_AHEAD = 60;
 const todayIST = () => new Date(Date.now() + 5.5 * 3600_000).toISOString().slice(0, 10);
 
 /**
- * Validates a booking and finds its lane (pickup city → drop city, truck type). Booking needs an
- * active lane with approved carriers: quote requests only go to those (BRD §4.2).
+ * Validates a booking and finds who can carry it. The shipper types no price: every carrier with a
+ * valid contract line for the pickup city, drop city and truck type is a candidate, cheapest first.
  */
 async function readBooking(body: Record<string, unknown>, companyId: string) {
   const v = new Validator(body);
@@ -32,9 +32,7 @@ async function readBooking(body: Record<string, unknown>, companyId: string) {
   const receiverContact = v.text('receiverContact', 'the receiver contact', { max: 80 });
   const reference = v.text('reference', 'your reference', { max: 40 });
   const notes = v.text('notes', 'notes', { max: 200 });
-  const budget = v.money('budget', 'the budget per trip');
   const policy = await getPolicy(companyId);
-  const quoteWindowHours = body.quoteWindowHours == null || body.quoteWindowHours === '' ? policy.quoteWindowHours : v.int('quoteWindowHours', 'the quote window', 1, 48);
 
   if (pickupDate) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(pickupDate) || Number.isNaN(Date.parse(pickupDate))) v.fail('pickupDate', 'Choose a valid date.');
@@ -50,39 +48,25 @@ async function readBooking(body: Record<string, unknown>, companyId: string) {
   if (pickup && drop && pickup.id === drop.id) v.fail('dropAddressId', 'Drop must differ from pickup.');
   v.done();
 
+  const candidates = await offerCandidates(companyId, pickup!.city, drop!.city, truckType!, pickupDate!);
+  if (!candidates.length) throw noContractRate(pickup!.city, drop!.city, truckType!);
   const lane = await prisma.lane.findFirst({
     where: { shipperId: companyId, isActive: true, truckType: truckType!, origin: { equals: pickup!.city, mode: 'insensitive' }, destination: { equals: drop!.city, mode: 'insensitive' } },
-    include: { carriers: { include: { carrier: { select: { id: true, name: true, status: true } } } } },
   });
-  if (!lane || lane.carriers.length === 0) {
-    throw new HttpError(400, 'NO_LANE', `No approved carriers for ${pickup!.city} → ${drop!.city} with ${truckType}. Add or update this lane in Master data first.`, {
-      lane: `No approved carriers for ${pickup!.city} → ${drop!.city}, ${truckType}.`,
-    });
-  }
-  // Automatic award only picks a quote within the booking's budget, so it can't run without one.
-  if (lane.awardRule === 'AUTO_LOWEST' && budget == null) {
-    throw badRequest('Please fix the highlighted fields.', { budget: 'Enter a budget: on this lane the lowest quote within it is awarded automatically.' });
-  }
   return {
-    pickup: pickup!, drop: drop!, lane, pickupDate: pickupDate!, truckType: truckType!, material: material!, weight,
-    receiverContact, reference, notes, quoteWindowHours: quoteWindowHours!, budget,
+    pickup: pickup!, drop: drop!, lane, candidates, pickupDate: pickupDate!, truckType: truckType!, material: material!, weight,
+    receiverContact, reference, notes, respondHours: policy.quoteWindowHours,
   };
 }
 
-type LaneWithCarriers = { origin: string; destination: string; truckType: string; carriers: { carrier: { id: string; name: string; status: string } }[] };
-
-/** The lane's carriers with their agreed rate (from current rate cards): lowest first, then the rest by name. */
-async function carriersWithRates(shipperId: string, lane: LaneWithCarriers) {
-  const rates = await agreedRates(shipperId, lane.origin, lane.destination, lane.truckType, lane.carriers.map((c) => c.carrier.id));
-  return lane.carriers
-    .map((c) => ({ ...c.carrier, rate: rates.get(c.carrier.id)?.rate ?? null, transitDays: rates.get(c.carrier.id)?.transitDays ?? null }))
-    .sort((a, b) => (a.rate ?? Infinity) - (b.rate ?? Infinity) || a.name.localeCompare(b.name));
-}
+/** The ordered offer list as the booking screens show it: the first carrier is offered first. */
+const listView = (candidates: Candidate[]) =>
+  candidates.map((c, i) => ({ id: c.carrierId, name: c.carrierName, rate: c.rate, transitDays: c.transitDays, sequence: i + 1, offeredFirst: i === 0 }));
 
 /**
- * While the form is filled in: the lane for this pickup, drop and truck type, its carriers with
- * their agreed rates, and the budget of the last booking on it, as references for the budget.
- * Returns `lane: null` (not an error) when there is no usable lane yet.
+ * While the form is filled in: the carriers on contract for this pickup, drop and truck type, in
+ * the order they will be offered the load, with their rates. `ready: false` until the form has
+ * enough to look up; `noContractRate: true` when nobody has a valid contract line.
  */
 bookingsRouter.get(
   '/lane-info',
@@ -93,17 +77,20 @@ bookingsRouter.get(
       prisma.address.findFirst({ where: { id: String(req.query.dropAddressId ?? ''), companyId, isActive: true } }),
     ]);
     const truckType = String(req.query.truckType ?? '');
-    if (!pickup || !drop || !(TRUCK_TYPES as readonly string[]).includes(truckType)) return res.json({ lane: null });
+    if (!pickup || !drop || !(TRUCK_TYPES as readonly string[]).includes(truckType)) return res.json({ ready: false, lane: null, carriers: [] });
+    const asked = String(req.query.pickupDate ?? '');
+    const day = /^\d{4}-\d{2}-\d{2}$/.test(asked) ? asked : todayIST();
+    const candidates = await offerCandidates(companyId, pickup.city, drop.city, truckType, day);
     const lane = await prisma.lane.findFirst({
       where: { shipperId: companyId, isActive: true, truckType, origin: { equals: pickup.city, mode: 'insensitive' }, destination: { equals: drop.city, mode: 'insensitive' } },
-      include: { carriers: { include: { carrier: { select: { id: true, name: true, status: true } } } } },
     });
-    if (!lane || !lane.carriers.length) return res.json({ lane: null });
-    const last = await prisma.trip.findFirst({ where: { shipperId: companyId, laneId: lane.id, budget: { not: null } }, orderBy: { createdAt: 'desc' }, select: { budget: true } });
     res.json({
-      lane: { id: lane.id, origin: lane.origin, destination: lane.destination, truckType: lane.truckType, awardRule: lane.awardRule },
-      carriers: await carriersWithRates(companyId, lane),
-      lastBudget: toNumber(last?.budget),
+      ready: true,
+      lane: lane ? { id: lane.id, origin: lane.origin, destination: lane.destination, truckType: lane.truckType } : null,
+      route: { origin: pickup.city, destination: drop.city, truckType },
+      carriers: listView(candidates),
+      noContractRate: candidates.length === 0,
+      message: candidates.length ? null : noContractRate(pickup.city, drop.city, truckType).message,
     });
   }),
 );
@@ -113,34 +100,42 @@ bookingsRouter.post(
   '/preview',
   asyncHandler(async (req, res) => {
     const b = await readBooking(req.body, req.user!.companyId);
+    const carriers = listView(b.candidates);
     res.json({
-      lane: { id: b.lane.id, origin: b.lane.origin, destination: b.lane.destination, awardRule: b.lane.awardRule },
-      budget: b.budget,
-      carriers: await carriersWithRates(req.user!.companyId, b.lane),
-      quoteWindowHours: b.quoteWindowHours,
-      quotesClose: new Date(Date.now() + b.quoteWindowHours * 3600_000),
+      lane: b.lane ? { id: b.lane.id, origin: b.lane.origin, destination: b.lane.destination } : null,
+      route: { origin: b.pickup.city, destination: b.drop.city, truckType: b.truckType },
+      carriers,
+      offeredFirst: carriers[0],
+      respondHours: b.respondHours,
+      respondBy: new Date(Date.now() + b.respondHours * 3600_000),
     });
   }),
 );
 
-/** Creates the booking and sends the quote request to every approved carrier on the lane. */
+/** Creates the booking and offers the load to the carrier with the lowest contract rate. */
 bookingsRouter.post(
   '/',
   asyncHandler(async (req, res) => {
     const b = await readBooking(req.body, req.user!.companyId);
+    const { rows, respondBy } = offerRows(b.candidates, b.respondHours);
     const trip = await prisma.trip.create({
       data: {
-        shipperId: req.user!.companyId, laneId: b.lane.id, pickupAddressId: b.pickup.id, dropAddressId: b.drop.id,
+        shipperId: req.user!.companyId, laneId: b.lane?.id ?? null, pickupAddressId: b.pickup.id, dropAddressId: b.drop.id,
         pickupDate: new Date(`${b.pickupDate}T00:00:00.000Z`), truckType: b.truckType, material: b.material,
         weightKg: new Prisma.Decimal(Math.round(b.weight * 1000)), receiverContact: b.receiverContact, reference: b.reference, notes: b.notes,
-        budget: b.budget != null ? new Prisma.Decimal(b.budget) : null,
-        status: 'QUOTES_REQUESTED', quoteDeadline: new Date(Date.now() + b.quoteWindowHours * 3600_000), createdById: req.user!.id,
-        quotes: { create: b.lane.carriers.map((c) => ({ carrierId: c.carrierId })) },
+        status: 'QUOTES_REQUESTED', quoteDeadline: respondBy, createdById: req.user!.id,
+        quotes: { create: rows },
       },
     });
-    await audit(req.user!.id, 'BOOKED', { lane: `${b.pickup.city} → ${b.drop.city}`, channel: 'web', budget: b.budget }, { tripId: trip.id });
-    await audit('tender-agent', 'QUOTES_REQUESTED', { carriers: b.lane.carriers.map((c) => c.carrier.name), windowHours: b.quoteWindowHours }, { tripId: trip.id });
-    res.status(201).json({ trip: { id: trip.id, number: trip.number, quoteDeadline: trip.quoteDeadline, carriersAsked: b.lane.carriers.length } });
+    const first = b.candidates[0];
+    await audit(req.user!.id, 'BOOKED', { lane: `${b.pickup.city} → ${b.drop.city}`, channel: 'web' }, { tripId: trip.id });
+    await audit('tender-agent', 'OFFER_SENT', { carrier: first.carrierName, amount: first.rate, sequence: 1, of: b.candidates.length }, { tripId: trip.id });
+    res.status(201).json({
+      trip: {
+        id: trip.id, number: trip.number, quoteDeadline: trip.quoteDeadline, carriersInLine: b.candidates.length,
+        offeredTo: { id: first.carrierId, name: first.carrierName, rate: first.rate },
+      },
+    });
   }),
 );
 
@@ -165,7 +160,6 @@ bookingsRouter.get(
         lane: `${t.pickupAddress!.city} → ${t.dropAddress!.city}`,
         pickupName: t.pickupAddress!.name, dropName: t.dropAddress!.name,
         truckType: t.truckType, material: t.material, weightTonnes: t.weightKg != null ? toNumber(t.weightKg)! / 1000 : null,
-        budget: toNumber(t.budget),
         lastBooked: t.createdAt,
       });
       if (recent.length === 3) break;

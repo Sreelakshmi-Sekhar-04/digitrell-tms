@@ -1,8 +1,9 @@
 import fs from 'fs';
 import path from 'path';
 
-export const API_PORT = 4100;
-export const WEB_PORT = 3100;
+// Override with E2E_API_PORT / E2E_WEB_PORT when 4100/3100 are busy (e.g. the Playwright VS Code extension holds them).
+export const API_PORT = Number(process.env.E2E_API_PORT ?? 4100);
+export const WEB_PORT = Number(process.env.E2E_WEB_PORT ?? 3100);
 export const API_URL = `http://localhost:${API_PORT}/api`;
 
 /**

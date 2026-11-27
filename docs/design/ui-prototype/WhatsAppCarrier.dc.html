@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Carrier bot conversation</title>
+<script src="./_runtime/react.js"></script>
+<script src="./_runtime/react-dom.js"></script>
+<script src="./_runtime/support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0}
+.in{align-self:flex-start;max-width:86%;background:#fff;border-radius:4px 14px 14px 14px;padding:10px 12px;font-size:14px;line-height:1.45;color:#17212B;box-shadow:0 1px 1px rgba(0,0,0,.06)}
+.out{align-self:flex-end;max-width:80%;background:#D6EFEA;border-radius:14px 4px 14px 14px;padding:10px 12px;font-size:14px;line-height:1.45;color:#17212B}
+.tm{display:block;text-align:right;font-size:11px;color:#52606D;margin-top:4px}
+.bts{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.bt{min-height:44px;border:1px solid #C8DCD7;background:#F6FBFA;border-radius:10px;font:600 14px Inter,sans-serif;color:#0A5360;cursor:pointer}
+.tag{align-self:center;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#0A5360;background:#E6F2F3;padding:6px 10px;border-radius:999px;margin:8px 0 2px}
+</style>
+</helmet>
+<div style="width: 390px; min-height: 1700px; font-family: Inter, system-ui, sans-serif; background: #ECE8E1; display: flex; flex-direction: column">
+  <div style="display: flex; align-items: center; gap: 10px; padding: 14px 16px; background: #0E6B7A; color: #fff">
+    <div style="width: 38px; height: 38px; border-radius: 50%; background: #fff; color: #0E6B7A; display: flex; align-items: center; justify-content: center; font-weight: 700">D</div>
+    <div><div style="font-weight: 700; font-size: 16px">DigitRell Freight</div><div style="font-size: 12px; opacity: .85">To: Vijay Kumar, Kaveri Roadlines</div></div>
+  </div>
+  <div style="flex: 1; padding: 14px 12px 20px; display: flex; flex-direction: column; gap: 8px">
+
+    <span class="tag">1 · Quote inside rate band</span>
+    <div class="in"><strong>Sunrise Foods</strong> · quote request TR-24131<br>Chennai → Bengaluru · 25 Nov · 32ft MXL · 14 t biscuits<br><br>Your rate card: <strong>₹42,500</strong>. 2 trucks free that day. Closes 14:30.
+      <div class="bts"><button type="button" class="bt">Send ₹42,500</button><button type="button" class="bt">Change amount</button><button type="button" class="bt">Pass</button></div><span class="tm">12:30</span></div>
+    <div class="out">Send ₹42,500<span class="tm">12:41</span></div>
+    <div class="in">Quote sent to Sunrise Foods. I'll tell you the result.<span class="tm">12:41</span></div>
+
+    <span class="tag">2 · Quote outside band needs owner</span>
+    <div class="in"><strong>Approval needed</strong> · TR-24135, Chennai → Salem<br>Divya wants to quote <strong>₹39,000</strong>, below your band (₹40,400+). Reason given: truck returns empty from Salem.
+      <div class="bts"><button type="button" class="bt">Approve ₹39,000</button><button type="button" class="bt">Use ₹40,400</button><button type="button" class="bt">Reject</button></div><span class="tm">13:10</span></div>
+
+    <span class="tag">3 · Won: confirm the truck</span>
+    <div class="in"><strong>You won TR-24131</strong> · ₹42,500<br>Free on 25 Nov:<br>• TN 10 AZ 2210 · Murugan V (Tamil)<br>• TN 09 BX 4471 · insurance expires 27 Nov
+      <div class="bts"><button type="button" class="bt">Use TN 10 AZ 2210</button><button type="button" class="bt">Pick another truck</button></div><span class="tm">14:02</span></div>
+    <div class="out">Use TN 10 AZ 2210<span class="tm">14:05</span></div>
+    <div class="in">Documents checked. LR <strong>KR-000491</strong> and e-way bill issued and sent to the shipper and driver.<span class="tm">14:06</span></div>
+
+    <span class="tag">4 · Exception: approve the fix</span>
+    <div class="in"><strong>TR-24117</strong> · breakdown near Hubballi<br>Driver: clutch failure, 2 photos. Repair 18 h.<br>Proposal: swap to KA 22 TT 5120 from Belagavi. ETA +5 h. Cost ₹3,500.
+      <div class="bts"><button type="button" class="bt">Approve swap</button><button type="button" class="bt">Wait for repair</button><button type="button" class="bt">Call driver</button></div><span class="tm">09:42</span></div>
+
+    <span class="tag">5 · POD in, invoice out</span>
+    <div class="in"><strong>TR-24131</strong> · POD received 06:15<br>QR matches LR KR-000491. 220 cartons, no damage. Sunrise Foods accepts digital POD.<br><br>Invoice ready: <strong>₹42,500</strong> + GST.
+      <div class="bts"><button type="button" class="bt">Send invoice</button><button type="button" class="bt">View PDF</button></div><span class="tm">06:16</span></div>
+    <div class="out">Send invoice<span class="tm">08:02</span></div>
+    <div class="in">Invoice INV-0902 sent with LR and POD. Posted to Tally. I'll remind Sunrise Foods 3 days before 10 Dec.<span class="tm">08:02</span></div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":1700}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>DigitRell TMS design system</title>
+<script src="./_runtime/react.js"></script>
+<script src="./_runtime/react-dom.js"></script>
+<script src="./_runtime/support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap">
+<style>
+body{margin:0;background:#F5F7F6}
+.ds *{box-sizing:border-box}
+.h{font-family:'Space Grotesk',Inter,sans-serif;letter-spacing:-0.01em}
+.card{background:#fff;border:1px solid #E1E7E5;border-radius:14px;padding:24px}
+.sec{font:700 12px Inter,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#0A5360;margin:0 0 6px}
+.muted{color:#52606D}
+.sw{border-radius:12px;overflow:hidden;border:1px solid #E1E7E5;background:#fff}
+.sw-c{height:72px}
+.sw-t{padding:10px 12px;font-size:13px;line-height:1.4}
+.btn{min-height:44px;padding:0 18px;border-radius:10px;border:1px solid transparent;font:600 14px/1 Inter,sans-serif;display:inline-flex;align-items:center;justify-content:center;gap:8px;cursor:pointer}
+.chip{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:999px;font:600 12px/1 Inter,sans-serif}
+.chip:before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.inp{width:100%;min-height:44px;padding:0 12px;border:1px solid #CBD5D1;border-radius:10px;font:14px Inter,sans-serif;background:#fff;color:#17212B}
+.lbl{font:600 13px Inter,sans-serif;color:#2A3642;display:block;margin-bottom:6px}
+.tbl{width:100%;border-collapse:collapse;font:14px/1.4 Inter,sans-serif}
+.tbl th{text-align:left;font-weight:600;font-size:12px;color:#52606D;text-transform:uppercase;letter-spacing:.04em;padding:10px 14px;border-bottom:1px solid #E1E7E5;background:#FAFBFB}
+.tbl td{padding:11px 14px;border-bottom:1px solid #EEF2F1}
+.g{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(min(180px,100%),1fr))}
+</style>
+</helmet>
+<div class="ds" style="font-family: Inter, system-ui, sans-serif; color: #17212B; background: #F5F7F6; padding: 48px 24px 64px">
+<div style="max-width: 1280px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px">
+
+  <header>
+    <p class="sec">DigitRell TMS · Design system v1</p>
+    <h1 class="h" style="margin: 0; font-size: 40px">Calm teal, warm amber, plenty of white</h1>
+    <p class="muted" style="margin: 10px 0 0; font-size: 16px; max-width: 760px; line-height: 1.55">A cool deep teal says “reliable and in control”. Amber is kept for the one thing that needs you. Every colour pair below passes WCAG AA (4.5:1 for text), and status is always shown with a word and a dot, never colour alone.</p>
+  </header>
+
+  <section class="card">
+    <p class="sec">Colour</p>
+    <h2 class="h" style="margin: 0 0 16px; font-size: 22px">Brand and surfaces</h2>
+    <div class="g">
+      <div class="sw"><div class="sw-c" style="background: #0E6B7A"></div><div class="sw-t"><strong>Primary · Teal 700</strong><br>#0E6B7A · buttons, links, active nav, focus</div></div>
+      <div class="sw"><div class="sw-c" style="background: #0A5360"></div><div class="sw-t"><strong>Primary hover · Teal 800</strong><br>#0A5360 · hover, pressed, link text</div></div>
+      <div class="sw"><div class="sw-c" style="background: #E6F2F3"></div><div class="sw-t"><strong>Primary tint · Teal 50</strong><br>#E6F2F3 · selected rows, active nav</div></div>
+      <div class="sw"><div class="sw-c" style="background: #B45309"></div><div class="sw-t"><strong>Attention · Amber 700</strong><br>#B45309 · badges, required marks</div></div>
+      <div class="sw"><div class="sw-c" style="background: #17212B"></div><div class="sw-t"><strong>Ink</strong><br>#17212B · body text, headings</div></div>
+      <div class="sw"><div class="sw-c" style="background: #52606D"></div><div class="sw-t"><strong>Ink muted</strong><br>#52606D · helper text, table headers (6.3:1)</div></div>
+      <div class="sw"><div class="sw-c" style="background: #F5F7F6"></div><div class="sw-t"><strong>Background</strong><br>#F5F7F6 · app canvas</div></div>
+      <div class="sw"><div class="sw-c" style="background: #FFFFFF"></div><div class="sw-t"><strong>Surface</strong><br>#FFFFFF · cards, tables, inputs</div></div>
+      <div class="sw"><div class="sw-c" style="background: #E1E7E5"></div><div class="sw-t"><strong>Border</strong><br>#E1E7E5 · cards · #CBD5D1 inputs</div></div>
+    </div>
+    <h2 class="h" style="margin: 28px 0 16px; font-size: 22px">Feedback colours</h2>
+    <div class="g">
+      <div class="sw"><div class="sw-c" style="background: #166534"></div><div class="sw-t"><strong>Success</strong> #166534 on #E4F4E9<br>Delivered, paid, valid documents</div></div>
+      <div class="sw"><div class="sw-c" style="background: #8A3B0B"></div><div class="sw-t"><strong>Warning / your turn</strong> #8A3B0B on #FDF0DF<br>Needs decision, expiring soon</div></div>
+      <div class="sw"><div class="sw-c" style="background: #9F1D1D"></div><div class="sw-t"><strong>Error / blocked</strong> #9F1D1D on #FCE9E9<br>On hold, validation errors, reject</div></div>
+      <div class="sw"><div class="sw-c" style="background: #0B4F78"></div><div class="sw-t"><strong>Info / moving</strong> #0B4F78 on #E1F0FA<br>Awarded, in transit</div></div>
+      <div class="sw"><div class="sw-c" style="background: #4C2B9A"></div><div class="sw-t"><strong>Money</strong> #4C2B9A on #ECE9FB<br>Invoiced, payment due</div></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <p class="sec">Typography</p>
+    <h2 class="h" style="margin: 0 0 16px; font-size: 22px">Space Grotesk for headings, Inter for everything else</h2>
+    <div style="display: flex; flex-direction: column; gap: 14px">
+      <div style="display: grid; grid-template-columns: 180px 1fr; gap: 16px; align-items: baseline; border-bottom: 1px solid #EEF2F1; padding-bottom: 12px"><span class="muted" style="font-size: 13px">Page title · 26/32 · 700</span><span class="h" style="font-size: 26px; font-weight: 700">Chennai → Bengaluru</span></div>
+      <div style="display: grid; grid-template-columns: 180px 1fr; gap: 16px; align-items: baseline; border-bottom: 1px solid #EEF2F1; padding-bottom: 12px"><span class="muted" style="font-size: 13px">Section · 17–18/24 · 600</span><span class="h" style="font-size: 18px; font-weight: 600">Choose a carrier</span></div>
+      <div style="display: grid; grid-template-columns: 180px 1fr; gap: 16px; align-items: baseline; border-bottom: 1px solid #EEF2F1; padding-bottom: 12px"><span class="muted" style="font-size: 13px">KPI · 28/32 · 700</span><span class="h" style="font-size: 28px; font-weight: 700">₹18.6 L</span></div>
+      <div style="display: grid; grid-template-columns: 180px 1fr; gap: 16px; align-items: baseline; border-bottom: 1px solid #EEF2F1; padding-bottom: 12px"><span class="muted" style="font-size: 13px">Body · 14–15/22 · 400</span><span style="font-size: 15px">3 of 4 carriers quoted. Budget for this lane is ₹46,000.</span></div>
+      <div style="display: grid; grid-template-columns: 180px 1fr; gap: 16px; align-items: baseline; border-bottom: 1px solid #EEF2F1; padding-bottom: 12px"><span class="muted" style="font-size: 13px">Label · 13/16 · 600</span><span style="font-size: 13px; font-weight: 600">Pickup date *</span></div>
+      <div style="display: grid; grid-template-columns: 180px 1fr; gap: 16px; align-items: baseline"><span class="muted" style="font-size: 13px">Caption · 12/16 · 400–600</span><span class="muted" style="font-size: 12px">Saved addresses. Type to search or add new.</span></div>
+    </div>
+    <p class="muted" style="margin: 16px 0 0; font-size: 13px">Minimum body size 14 px, never below 12 px. Amounts use tabular figures (font-variant-numeric: tabular-nums) and Indian grouping (₹1,00,000).</p>
+  </section>
+
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr)); gap: 24px">
+    <section class="card">
+      <p class="sec">Buttons</p>
+      <h2 class="h" style="margin: 0 0 16px; font-size: 22px">One primary action per area</h2>
+      <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center">
+        <button type="button" class="btn" style="background: #0E6B7A; color: #fff">Approve award</button>
+        <button type="button" class="btn" style="background: #fff; color: #17212B; border-color: #CBD5D1">Change</button>
+        <button type="button" class="btn" style="background: #fff; color: #9F1D1D; border-color: #E9B8B8">Reject</button>
+        <button type="button" class="btn" style="background: transparent; color: #0A5360; padding: 0 10px">See all</button>
+        <button type="button" class="btn" disabled="" style="background: #E9EEEC; color: #6B7A86; cursor: not-allowed">Disabled</button>
+      </div>
+      <ul class="muted" style="margin: 16px 0 0; padding-left: 18px; font-size: 13px; line-height: 1.6">
+        <li>Height 44 px (36 px inside table rows). Radius 10 px.</li>
+        <li>Labels are verbs with the object: “Award to Kaveri · ₹42,500”, not “Submit”.</li>
+        <li>Order: primary, secondary, destructive. Destructive never sits first.</li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <p class="sec">Inputs</p>
+      <h2 class="h" style="margin: 0 0 16px; font-size: 22px">Label on top, help below</h2>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px">
+        <div><label class="lbl" for="d1">Pickup <span style="color: #B45309">*</span></label><select id="d1" class="inp"><option>Ambattur DC, Chennai</option></select><div class="muted" style="font-size: 12px; margin-top: 6px">Searchable, saved addresses first</div></div>
+        <div><label class="lbl" for="d2">Material</label><input id="d2" class="inp" value="Biscuits (packed cartons)" style="outline: 2px solid #0E6B7A; outline-offset: 1px; border-color: #0E6B7A"><div class="muted" style="font-size: 12px; margin-top: 6px">Focus: 2 px teal ring</div></div>
+        <div><label class="lbl" for="d3">Weight (tonnes) <span style="color: #B45309">*</span></label><input id="d3" class="inp" placeholder="e.g. 14" style="border-color: #B91C1C; background: #FFFBFB" aria-invalid="true"><div style="font-size: 12px; margin-top: 6px; color: #9F1D1D; font-weight: 600">Enter the weight in tonnes, e.g. 14.</div></div>
+        <div><label class="lbl" for="d4">Quote window</label><input id="d4" class="inp" value="2 hours" disabled="" style="background: #F1F4F3; color: #52606D"><div class="muted" style="font-size: 12px; margin-top: 6px">Read-only: set in Policies</div></div>
+      </div>
+      <p class="muted" style="margin: 14px 0 0; font-size: 13px">Required fields carry an amber asterisk; optional ones say “(optional)”. Errors appear on blur or submit, next to the field, and keep what was typed.</p>
+    </section>
+  </div>
+
+  <section class="card">
+    <p class="sec">Status</p>
+    <h2 class="h" style="margin: 0 0 16px; font-size: 22px">Every trip status has one chip</h2>
+    <div style="display: flex; flex-wrap: wrap; gap: 10px">
+      <span class="chip" style="background: #EDF1F5; color: #334155">Request received</span>
+      <span class="chip" style="background: #EDF1F5; color: #334155">Booked</span>
+      <span class="chip" style="background: #EDF1F5; color: #334155">Quotes requested</span>
+      <span class="chip" style="background: #FDF0DF; color: #8A3B0B">Quotes received</span>
+      <span class="chip" style="background: #E1F0FA; color: #0B4F78">Awarded</span>
+      <span class="chip" style="background: #E1F0FA; color: #0B4F78">Sourcing truck</span>
+      <span class="chip" style="background: #E1F0FA; color: #0B4F78">Truck confirmed</span>
+      <span class="chip" style="background: #E1F0FA; color: #0B4F78">Cleared</span>
+      <span class="chip" style="background: #E1F0FA; color: #0B4F78">Ready for pickup</span>
+      <span class="chip" style="background: #E1F0FA; color: #0B4F78">In transit</span>
+      <span class="chip" style="background: #E4F4E9; color: #166534">Delivered</span>
+      <span class="chip" style="background: #E4F4E9; color: #166534">POD received</span>
+      <span class="chip" style="background: #ECE9FB; color: #4C2B9A">Invoiced</span>
+      <span class="chip" style="background: #E4F4E9; color: #166534">Closed</span>
+      <span class="chip" style="background: #FCE9E9; color: #9F1D1D">On hold</span>
+      <span class="chip" style="background: #EDF1F5; color: #334155">Cancelled</span>
+    </div>
+    <p class="muted" style="margin: 14px 0 0; font-size: 13px">Five tones only: grey = waiting on others, amber = waiting on you, blue = moving, green = done, red = blocked; purple marks money states. The detail page also shows a 7-stage progress bar so users never read 16 raw statuses.</p>
+  </section>
+
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr)); gap: 24px">
+    <section class="card" style="padding: 0; overflow: hidden">
+      <div style="padding: 24px 24px 12px"><p class="sec">Tables</p><h2 class="h" style="margin: 0; font-size: 22px">Compact, scannable, row = link</h2></div>
+      <table class="tbl">
+        <thead><tr><th>Trip</th><th>Lane</th><th>Status</th><th style="text-align: right">Amount</th></tr></thead>
+        <tbody>
+          <tr><td style="font-weight: 600">TR-24131</td><td>Chennai → Bengaluru</td><td><span class="chip" style="background: #FDF0DF; color: #8A3B0B">Quotes received</span></td><td style="text-align: right; font-weight: 600">₹42,500</td></tr>
+          <tr style="background: #F4F9F9"><td style="font-weight: 600">TR-24128</td><td>Pune → Hyderabad</td><td><span class="chip" style="background: #E1F0FA; color: #0B4F78">In transit</span></td><td style="text-align: right; font-weight: 600">₹38,200</td></tr>
+        </tbody>
+      </table>
+      <p class="muted" style="margin: 0; padding: 14px 24px 22px; font-size: 13px">Row height 44–48 px. Headers 12 px caps. Amounts right-aligned. Hover tint #F4F9F9. Over 6 columns: horizontal scroll inside the card, first column stays readable.</p>
+    </section>
+
+    <section class="card">
+      <p class="sec">Feedback patterns</p>
+      <h2 class="h" style="margin: 0 0 16px; font-size: 22px">Toast, dialog, empty, loading</h2>
+      <div style="display: flex; flex-direction: column; gap: 14px">
+        <div role="status" style="padding: 12px 16px; border-radius: 12px; background: #E4F4E9; border: 1px solid #B7E0C3; color: #14532D; font-size: 14px"><strong>Awarded to Kaveri Roadlines.</strong> Other carriers are told.</div>
+        <div style="border: 1px solid #E1E7E5; border-radius: 14px; padding: 18px; box-shadow: 0 12px 32px rgba(23,33,43,.14)">
+          <div class="h" style="font-weight: 600; font-size: 17px">Cancel booking TR-24133?</div>
+          <p class="muted" style="margin: 6px 0 14px; font-size: 14px">4 carriers will be told. LR numbers are not used yet, so nothing is voided.</p>
+          <div style="display: flex; gap: 8px; justify-content: flex-end"><button type="button" class="btn" style="background: #fff; border-color: #CBD5D1; min-height: 36px">Keep booking</button><button type="button" class="btn" style="background: #9F1D1D; color: #fff; min-height: 36px">Cancel booking</button></div>
+        </div>
+        <div style="border: 1px dashed #CBD5D1; border-radius: 12px; padding: 18px; text-align: center"><div class="h" style="font-weight: 600">You're all caught up</div><div class="muted" style="font-size: 13px; margin-top: 4px">New approvals appear here and on WhatsApp.</div></div>
+        <div style="display: flex; flex-direction: column; gap: 8px" aria-label="Loading">
+          <div style="height: 14px; width: 60%; border-radius: 6px; background: #E9EEEC"></div>
+          <div style="height: 14px; width: 85%; border-radius: 6px; background: #E9EEEC"></div>
+          <div style="height: 14px; width: 40%; border-radius: 6px; background: #E9EEEC"></div>
+        </div>
+      </div>
+      <p class="muted" style="margin: 14px 0 0; font-size: 13px">Dialogs only for actions that can't be undone (cancel, void LR, override block). Everything else uses a toast with Undo.</p>
+    </section>
+  </div>
+
+  <section class="card">
+    <p class="sec">Space, shape, icons</p>
+    <h2 class="h" style="margin: 0 0 16px; font-size: 22px">4-px base, soft corners, line icons</h2>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); gap: 24px; font-size: 14px">
+      <div>
+        <div style="font-weight: 600; margin-bottom: 10px">Spacing scale</div>
+        <div style="display: flex; align-items: flex-end; gap: 10px">
+          <div style="width: 4px; height: 4px; background: #0E6B7A"></div><div style="width: 8px; height: 8px; background: #0E6B7A"></div><div style="width: 12px; height: 12px; background: #0E6B7A"></div><div style="width: 16px; height: 16px; background: #0E6B7A"></div><div style="width: 20px; height: 20px; background: #0E6B7A"></div><div style="width: 24px; height: 24px; background: #0E6B7A"></div><div style="width: 32px; height: 32px; background: #0E6B7A"></div>
+        </div>
+        <div class="muted" style="font-size: 13px; margin-top: 8px">4 · 8 · 12 · 16 · 20 · 24 · 32. Card padding 20–24, page gutter 28 (16 on phones).</div>
+      </div>
+      <div>
+        <div style="font-weight: 600; margin-bottom: 10px">Radius and elevation</div>
+        <div style="display: flex; gap: 12px">
+          <div style="width: 56px; height: 40px; border-radius: 8px; border: 1px solid #CBD5D1"></div>
+          <div style="width: 56px; height: 40px; border-radius: 10px; border: 1px solid #CBD5D1"></div>
+          <div style="width: 56px; height: 40px; border-radius: 14px; border: 1px solid #CBD5D1"></div>
+          <div style="width: 56px; height: 40px; border-radius: 14px; background: #fff; box-shadow: 0 12px 32px rgba(23,33,43,.14)"></div>
+        </div>
+        <div class="muted" style="font-size: 13px; margin-top: 8px">8 small buttons · 10 inputs, buttons · 14 cards. Cards use borders, not shadows; only dialogs and menus float.</div>
+      </div>
+      <div>
+        <div style="font-weight: 600; margin-bottom: 10px">Icons</div>
+        <div style="display: flex; gap: 14px; color: #2A3642">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" role="img" aria-label="Truck"><path d="M3 7h11v9H3zM14 10h4l3 3v3h-7z"></path><circle cx="7" cy="18" r="2"></circle><circle cx="17" cy="18" r="2"></circle></svg>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" role="img" aria-label="Document"><path d="M6 3h9l4 4v14H6z"></path><path d="M9 12h7M9 16h7"></path></svg>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" role="img" aria-label="Approve"><circle cx="12" cy="12" r="9"></circle><path d="M8 12l3 3 5-6"></path></svg>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" role="img" aria-label="Alert"><path d="M12 3l10 18H2z"></path><path d="M12 10v5M12 18h.01"></path></svg>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" role="img" aria-label="Location"><path d="M12 21s-7-6-7-11a7 7 0 0114 0c0 5-7 11-7 11z"></path><circle cx="12" cy="10" r="2.5"></circle></svg>
+        </div>
+        <div class="muted" style="font-size: 13px; margin-top: 8px">2 px line icons, 20–22 px, always with a text label except in search and close. lucide-react matches this style and is already used in your WMS project.</div>
+      </div>
+    </div>
+  </section>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

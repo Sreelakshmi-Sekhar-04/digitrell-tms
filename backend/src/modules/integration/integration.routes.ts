@@ -2,7 +2,7 @@ import { Router, type NextFunction, type Request, type Response } from 'express'
 import { prisma } from '../../lib/prisma';
 import { HttpError, asyncHandler, notFound } from '../../lib/errors';
 import { Validator } from '../../lib/validate';
-import { receiveQuote, syncTrip } from '../trips/tender.service';
+import { acceptOffer, declineOffer, expireOffers } from '../trips/tender.service';
 import { TRACKING_EVENTS, claimResponse, delivered, invoiceRaised, podReceived, trackingEvent, truckConfirmed } from '../trips/billing.service';
 import { EXCEPTION_KINDS, FIX_KINDS, proposeFix, reportException, resolveException, type Proposal } from '../trips/exceptions.service';
 
@@ -27,31 +27,34 @@ async function tripByNumber(number: string) {
   return trip;
 }
 
-/** Carrier quote agent: a carrier quotes an amount, or passes (`amount: null`). */
+/** Carrier agent: the offered carrier accepts (`accept: true`) or passes (`accept: false`, optional `reason`). The amount is always the contract rate. */
 integrationRouter.post(
   '/quotes',
   asyncHandler(async (req, res) => {
     const v = new Validator(req.body);
     const number = v.text('tripNumber', 'the trip number', { required: true });
     const carrierId = v.text('carrierId', 'the carrier id', { required: true });
-    const pass = req.body?.amount === null;
-    const amount = pass ? null : v.money('amount', 'the quote amount', { required: true });
+    const reason = v.text('reason', 'the reason', { max: 200 });
+    if (typeof req.body?.accept !== 'boolean') v.fail('accept', 'Send accept: true or false.');
     v.done();
     const trip = await tripByNumber(number!);
-    await receiveQuote(trip.id, carrierId!, amount);
+    if (req.body.accept) await acceptOffer(trip.id, carrierId!, 'integration');
+    else await declineOffer(trip.id, carrierId!, 'integration', reason ?? undefined);
     res.json({ ok: true });
   }),
 );
 
-/** Test tool (non-production only): make a quote request's deadline pass now. */
+/** Test tool (non-production only): make the current offer's response time pass now, then move offers on. */
 integrationRouter.post(
   '/trips/:number/expire-quotes',
   asyncHandler(async (req, res) => {
     if (process.env.NODE_ENV === 'production') throw notFound();
     const trip = await tripByNumber(req.params.number);
-    await prisma.trip.update({ where: { id: trip.id }, data: { quoteDeadline: new Date(Date.now() - 1000) } });
-    await syncTrip(trip.id);
-    res.json({ ok: true });
+    const past = new Date(Date.now() - 1000);
+    await prisma.quote.updateMany({ where: { tripId: trip.id, status: 'REQUESTED' }, data: { respondBy: past } });
+    await prisma.trip.update({ where: { id: trip.id }, data: { quoteDeadline: past } });
+    const expired = await expireOffers();
+    res.json({ ok: true, expired });
   }),
 );
 

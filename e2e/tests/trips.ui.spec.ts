@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { USERS, asUser, expect, loginUi, test } from './helpers';
-import { book, carrierQuotes, refs } from './trips.helpers';
+import { book, carrierAccepts, carrierPasses, refs } from './trips.helpers';
 
 /** A form field by its visible label, ignoring the "*" / "(optional)" suffix. */
 const field = (page: Page, label: string) =>
@@ -20,27 +20,32 @@ test.describe('New booking', () => {
     await field(page, 'Weight (tonnes)').fill('14');
     await page.getByText('32ft MXL', { exact: true }).click();
     await field(page, 'Material').fill('Biscuits (packed cartons)');
-    await field(page, 'Budget per trip (₹)').fill('46000');
+    await expect(page.getByLabel(/Budget/)).toHaveCount(0); // no price to type
+    const onContract = page.getByRole('region', { name: 'Carriers on contract for this lane' });
+    await expect(onContract).toContainText('Deccan Freight Carriers');
+    await expect(onContract).toContainText('Offered first');
+    await expect(onContract).toContainText('₹43,800');
+    await expect(onContract).not.toContainText('Sai Ganesh'); // no contract rate
     await page.getByRole('button', { name: '+ Receiver contact, reference, notes' }).click();
     await field(page, 'Your reference').fill('PO-77810');
     await page.getByRole('button', { name: 'Review and confirm' }).click();
 
     await expect(page.getByRole('heading', { name: 'Check and confirm' })).toBeVisible();
-    await expect(page.getByText('4 approved carriers: ')).toContainText('Kaveri Roadlines');
-    await expect(page.getByText('₹46,000 per trip')).toBeVisible();
-    await page.getByLabel('Quote window').selectOption('4');
-    await page.getByRole('button', { name: 'Confirm and ask for quotes' }).click();
+    await expect(page.getByText('Deccan Freight Carriers at ₹43,800 (contract rate)')).toBeVisible();
+    await expect(page.getByText('Kaveri Roadlines (₹44,500), then NorthStar Logistics (₹45,200)')).toBeVisible();
+    await expect(page.getByText(/2 hours per carrier/)).toBeVisible();
+    await page.getByRole('button', { name: 'Confirm and offer the load' }).click();
 
     await expect(page).toHaveURL(/\/trips\/[a-z0-9]+$/);
     // (The "TR-… booked." toast shows for 6 s; the first dev-server compile of this page can take longer, so it isn't asserted here.)
     await expect(page.getByRole('heading', { name: 'Chennai → Bengaluru', level: 1 })).toBeVisible();
     await expect(page.getByText(/Booked on the web · Anita Rao/)).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Waiting for quotes' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Offered to Deccan Freight Carriers' })).toBeVisible();
     await expect(page.locator('dd').filter({ hasText: 'PO-77810' })).toBeVisible();
-    await expect(page.locator('[aria-current="step"]')).toContainText('Quotes');
+    await expect(page.locator('[aria-current="step"]')).toContainText('Offer');
   });
 
-  test('a lane with no approved carriers explains what to do and keeps the form', async ({ page }) => {
+  test('a lane with no contract rate explains what to do, blocks the booking and keeps the form', async ({ page }) => {
     await loginUi(page, USERS.shipperHead, '/bookings/new');
     await page.getByRole('button', { name: 'Clear' }).click();
     await field(page, 'Pickup').selectOption({ label: 'Ambattur DC, Chennai' });
@@ -48,10 +53,10 @@ test.describe('New booking', () => {
     await field(page, 'Weight (tonnes)').fill('5');
     await page.getByText('14ft', { exact: true }).click();
     await field(page, 'Material').fill('Snacks');
-    await page.getByRole('button', { name: 'Review and confirm' }).click();
-    const alert = page.getByRole('alert').filter({ hasText: 'No approved carriers for Chennai → Hyderabad with 14ft' });
+    const alert = page.getByRole('alert').filter({ hasText: 'No contract rate for Chennai → Hyderabad, 14ft' });
     await expect(alert).toBeVisible();
-    await expect(alert.getByRole('link', { name: 'Open Master data → Lanes' })).toHaveAttribute('href', '/masters?tab=lanes');
+    await expect(alert.getByRole('link', { name: 'Open Master data › Rate cards' })).toHaveAttribute('href', '/masters?tab=rate-cards');
+    await expect(page.getByRole('button', { name: 'Review and confirm' })).toBeDisabled();
     await expect(field(page, 'Material')).toHaveValue('Snacks');
   });
 
@@ -76,106 +81,46 @@ test.describe('New booking', () => {
   });
 });
 
-test.describe('Compare quotes and award', () => {
-  test('recommended carrier is pre-selected with reasons; award another, undo, then award', async ({ page, request }) => {
+test.describe('Offer and accept', () => {
+  test('carriers are listed in offer order; when the first accepts, the trip is awarded at the contract rate', async ({ page, request }) => {
     const anita = await asUser(request, USERS.shipperHead);
     const r = await refs(anita);
     const trip = await book(anita, r);
-    await carrierQuotes(request, trip.number, r.kaveri, 42500);
-    await carrierQuotes(request, trip.number, r.northstar, 45900);
-    await carrierQuotes(request, trip.number, r.deccan, 41800);
-
     await loginUi(page, USERS.shipperHead, `/trips/${trip.id}`);
-    await expect(page.getByRole('heading', { name: 'Choose a carrier' })).toBeVisible();
-    await expect(page.getByText('3 of 4 carriers quoted. Budget for this trip: ₹46,000.')).toBeVisible();
-    await expect(page.getByRole('radio', { name: 'Pick Kaveri Roadlines' })).toBeChecked();
-    await expect(page.getByText('Why Kaveri Roadlines:')).toBeVisible();
-    await expect(page.getByRole('row', { name: /Sai Ganesh Transport/ })).toContainText('Waiting');
+    await expect(page.getByRole('heading', { name: 'Offered to Deccan Freight Carriers' })).toBeVisible();
+    const table = page.getByRole('table', { name: 'Carriers in offer order' });
+    const rows = table.getByRole('row');
+    await expect(rows).toHaveCount(4); // header + 3; Sai Ganesh has no contract rate
+    await expect(rows.nth(1)).toContainText('Deccan Freight Carriers');
+    await expect(rows.nth(1)).toContainText('₹43,800');
+    await expect(rows.nth(1)).toContainText('Offered');
+    await expect(rows.nth(2)).toContainText('Kaveri Roadlines');
+    await expect(rows.nth(2)).toContainText('Waiting in line');
+    await expect(rows.nth(3)).toContainText('NorthStar Logistics');
+    await expect(table).not.toContainText('Sai Ganesh');
+    await expect(page.getByRole('button', { name: /^Approve|^Reject/ })).toHaveCount(0); // no approval step
 
-    await page.getByRole('row', { name: /Deccan Freight Carriers/ }).click();
-    const award = page.getByRole('button', { name: 'Award to Deccan Freight Carriers · ₹41,800' });
-    await award.click();
-    await expect(page.getByRole('status').filter({ hasText: 'Awarded to Deccan Freight Carriers.' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Awarded to Deccan Freight Carriers · ₹41,800' })).toBeVisible();
+    expect((await carrierAccepts(request, trip.number, r.deccan)).status()).toBe(200);
+    await page.reload();
+    await expect(page.getByRole('heading', { name: 'Accepted by Deccan Freight Carriers at ₹43,800 (contract rate)' })).toBeVisible();
     await expect(page.locator('[aria-current="step"]')).toContainText('Awarded');
-    await expect(page.getByText(/Awarded to Deccan Freight Carriers at ₹41,800 \(not the recommended carrier\)/)).toBeVisible();
-
-    await page.getByRole('button', { name: 'Undo award' }).click();
-    await expect(page.getByRole('heading', { name: 'Choose a carrier' })).toBeVisible();
-    await page.getByRole('button', { name: 'Award to Kaveri Roadlines · ₹42,500' }).click();
-    await expect(page.getByRole('heading', { name: 'Awarded to Kaveri Roadlines · ₹42,500' })).toBeVisible();
+    await expect(table.getByRole('row').nth(1)).toContainText('Accepted');
+    await expect(table.getByRole('row').nth(2)).toContainText('Withdrawn');
   });
 
-  test('reject all needs a reason, then the trip waits for fresh quotes', async ({ page, request }) => {
+  test('when every carrier passes: No carrier accepted, then Send again starts from the lowest rate', async ({ page, request }) => {
     const anita = await asUser(request, USERS.shipperHead);
     const r = await refs(anita);
     const trip = await book(anita, r);
-    await carrierQuotes(request, trip.number, r.kaveri, 55000);
+    await carrierPasses(request, trip.number, r.deccan, 'No truck free');
+    await carrierPasses(request, trip.number, r.kaveri);
+    await carrierPasses(request, trip.number, r.northstar);
     await loginUi(page, USERS.shipperHead, `/trips/${trip.id}`);
-    await page.getByRole('button', { name: 'Reject all and ask again' }).click();
-    await page.getByRole('button', { name: 'Reject all and ask again' }).click();
-    await expect(page.getByText('Say why, e.g. "All quotes above budget".')).toBeVisible();
-    await field(page, 'Reason').fill('Quote above budget');
-    await page.getByRole('button', { name: 'Reject all and ask again' }).click();
-    await expect(page.getByRole('heading', { name: 'Waiting for quotes' })).toBeVisible();
-    await expect(page.getByText(/All quotes rejected; 4 carriers asked again — “Quote above budget”/)).toBeVisible();
-  });
-
-  test('booking executive sees why they cannot award', async ({ page, request }) => {
-    const anita = await asUser(request, USERS.shipperHead);
-    const r = await refs(anita);
-    const trip = await book(anita, r);
-    await carrierQuotes(request, trip.number, r.kaveri, 42500);
-    await loginUi(page, USERS.shipperExec, `/trips/${trip.id}`);
-    await expect(page.getByText("Your role can't approve awards.")).toBeVisible();
-    await expect(page.getByRole('button', { name: /^Award to/ })).toBeDisabled();
-  });
-});
-
-test.describe('Approvals inbox', () => {
-  test('badge shows the count; approve awards the recommended carrier; reject asks for a reason', async ({ page, request }) => {
-    const anita = await asUser(request, USERS.shipperHead);
-    const r = await refs(anita);
-    const a = await book(anita, r, { reference: 'INBOX-A' });
-    const b = await book(anita, r, { reference: 'INBOX-B' });
-    await carrierQuotes(request, a.number, r.kaveri, 42500);
-    await carrierQuotes(request, b.number, r.northstar, 44000);
-
-    await loginUi(page, USERS.shipperHead, '/approvals');
-    const badge = page.getByRole('navigation', { name: 'Main', exact: true }).getByTestId('approvals-badge');
-    const before = Number(await badge.textContent());
-    expect(before).toBeGreaterThanOrEqual(2);
-
-    const rowA = page.getByRole('row', { name: new RegExp(a.number) });
-    await expect(rowA).toContainText('Award Chennai → Bengaluru to Kaveri Roadlines');
-    await expect(rowA).toContainText('₹42,500');
-    await rowA.getByRole('button', { name: 'Approve' }).click();
-    await expect(page.getByRole('status').filter({ hasText: `${a.number} awarded.` })).toBeVisible();
-    await expect(page.getByRole('row', { name: new RegExp(a.number) })).toHaveCount(0);
-    await expect(badge).toHaveText(String(before - 1));
-
-    const rowB = page.getByRole('row', { name: new RegExp(b.number) });
-    await rowB.getByRole('button', { name: 'Reject' }).click();
-    await page.getByRole('button', { name: 'Reject and ask again' }).click();
-    await expect(page.getByText('Say why. It is logged with the trip.')).toBeVisible();
-    await field(page, `Why reject all quotes for ${b.number}?`).fill('Need a 2nd quote');
-    await page.getByRole('button', { name: 'Reject and ask again' }).click();
-    await expect(page.getByRole('row', { name: new RegExp(b.number) })).toHaveCount(0);
-
-    await page.getByRole('link', { name: a.number }).count(); // gone from inbox; open it from Trips instead
-    await page.goto(`/trips/${a.id}`);
-    await expect(page.getByRole('heading', { name: 'Awarded to Kaveri Roadlines · ₹42,500' })).toBeVisible();
-  });
-
-  test('approver above their limit cannot approve but can see the item', async ({ page, request }) => {
-    const anita = await asUser(request, USERS.shipperHead);
-    const r = await refs(anita);
-    const trip = await book(anita, r);
-    await carrierQuotes(request, trip.number, r.kaveri, 42500);
-    await loginUi(page, { email: 'priya@sunrisefoods.test', password: 'Shipper@123' }, '/approvals');
-    const row = page.getByRole('row', { name: new RegExp(trip.number) });
-    await expect(row.getByRole('button', { name: 'Approve' })).toBeDisabled();
-    await expect(row.getByRole('button', { name: 'Approve' })).toHaveAttribute('title', 'Above your limit of ₹40,000');
+    await expect(page.getByRole('heading', { name: 'No carrier accepted' })).toBeVisible();
+    await expect(page.getByRole('table', { name: 'Carriers in offer order' }).getByRole('row').filter({ hasText: 'Deccan Freight Carriers' })).toContainText('No truck free');
+    await page.getByRole('button', { name: 'Send again' }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'Offers sent again.' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Offered to Deccan Freight Carriers' })).toBeVisible();
   });
 });
 
@@ -184,7 +129,7 @@ test.describe('Trips list', () => {
     const anita = await asUser(request, USERS.shipperHead);
     const r = await refs(anita);
     const trip = await book(anita, r, { reference: 'FIND-ME-42' });
-    await carrierQuotes(request, trip.number, r.kaveri, 42000);
+    await carrierPasses(request, trip.number, r.deccan);
 
     await loginUi(page, USERS.shipperHead, '/trips');
     await expect(page.getByRole('tab', { name: /^All \d+/ })).toBeVisible();
@@ -192,8 +137,8 @@ test.describe('Trips list', () => {
     await expect(page.getByRole('row')).toHaveCount(2); // header + 1
     await expect(page).toHaveURL(/q=find-me-42/);
     const row = page.getByRole('row', { name: new RegExp(trip.number) });
-    await expect(row).toContainText('Quotes received');
-    await expect(row).toContainText('Choose a carrier (1 of 4 quoted)');
+    await expect(row).toContainText('Quotes requested');
+    await expect(row).toContainText('Offered to Kaveri Roadlines at ₹44,500');
 
     await page.getByRole('tab', { name: /^Closed/ }).click();
     await expect(page.getByRole('heading', { name: 'No trips match' })).toBeVisible();

@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Desk app at phone width</title>
+<script src="./_runtime/react.js"></script>
+<script src="./_runtime/react-dom.js"></script>
+<script src="./_runtime/support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap">
+<style>
+body{margin:0}
+.x *{box-sizing:border-box}
+.h{font-family:'Space Grotesk',Inter,sans-serif;letter-spacing:-.01em}
+.muted{color:#52606D}
+.ph{width:390px;height:844px;background:#F5F7F6;border-radius:28px;border:1px solid #CBD5D1;overflow:hidden;display:flex;flex-direction:column}
+.top{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:#fff;border-bottom:1px solid #E1E7E5}
+.body{flex:1;padding:16px;display:flex;flex-direction:column;gap:12px;overflow:hidden}
+.card{background:#fff;border:1px solid #E1E7E5;border-radius:14px;padding:14px}
+.btn{min-height:44px;padding:0 14px;border-radius:10px;border:1px solid transparent;font:600 14px/1 Inter,sans-serif;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex:1}
+.bp{background:#0E6B7A;color:#fff}.bs{background:#fff;color:#17212B;border-color:#CBD5D1}.bd{background:#fff;color:#9F1D1D;border-color:#E9B8B8}
+.chip{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 9px;border-radius:999px;font:600 11px/1 Inter,sans-serif;white-space:nowrap}
+.chip:before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.ca{background:#FDF0DF;color:#8A3B0B}.cp{background:#E1F0FA;color:#0B4F78}.cs{background:#E4F4E9;color:#166534}.cd{background:#FCE9E9;color:#9F1D1D}
+.tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));background:#fff;border-top:1px solid #E1E7E5}
+.tb{min-height:60px;border:0;background:transparent;font:600 12px Inter,sans-serif;color:#52606D;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer}
+.tb.on{color:#0E6B7A}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:12px 0;border-bottom:1px solid #EEF2F1;font-size:14px}
+</style>
+</helmet>
+<div class="x" style="width: 900px; height: 980px; padding: 40px; background: #E9EEEC; font-family: Inter, system-ui, sans-serif; color: #17212B; display: flex; gap: 40px">
+
+  <div style="display: flex; flex-direction: column; gap: 10px">
+    <div class="muted" style="font-size: 13px"><strong style="color: #17212B">Home on a phone</strong> · side menu becomes 4 bottom tabs</div>
+    <div class="ph">
+      <div class="top"><div class="h" style="font-weight: 700">DigitRell</div><div style="width: 32px; height: 32px; border-radius: 50%; background: #E6F2F3; color: #0A5360; display: flex; align-items: center; justify-content: center; font: 700 12px Inter, sans-serif">AR</div></div>
+      <div class="body">
+        <div><h1 class="h" style="margin: 0; font-size: 22px">Good afternoon, Anita</h1><p class="muted" style="margin: 4px 0 0; font-size: 14px">4 decisions are waiting.</p></div>
+        <div class="card" style="display: flex; flex-direction: column; gap: 10px">
+          <div style="font-size: 11px; font-weight: 700; color: #8A3B0B; text-transform: uppercase; letter-spacing: .04em">Carrier award · TR-24131</div>
+          <div style="font-weight: 600">Kaveri Roadlines · ₹42,500</div>
+          <div class="muted" style="font-size: 13px">Score 92 · 96% on time · ₹3,500 under budget</div>
+          <div style="display: flex; gap: 8px"><button type="button" class="btn bp">Approve</button><button type="button" class="btn bs">Review</button></div>
+        </div>
+        <div class="card" style="display: flex; flex-direction: column; gap: 10px">
+          <div style="font-size: 11px; font-weight: 700; color: #8A3B0B; text-transform: uppercase; letter-spacing: .04em">Exception fix · TR-24117</div>
+          <div style="font-weight: 600">Swap truck after breakdown</div>
+          <div style="display: flex; gap: 8px"><button type="button" class="btn bp">Approve</button><button type="button" class="btn bs">Review</button></div>
+        </div>
+        <div class="card" style="padding: 4px 14px">
+          <div class="row"><div><div style="font-weight: 600">TR-24128</div><div class="muted" style="font-size: 12px">Pune → Hyderabad</div></div><span class="chip cp">In transit</span></div>
+          <div class="row" style="border-bottom: 0"><div><div style="font-weight: 600">TR-24125</div><div class="muted" style="font-size: 12px">Coimbatore → Kochi</div></div><span class="chip cs">Delivered</span></div>
+        </div>
+      </div>
+      <nav class="tabs" aria-label="Main"><button type="button" class="tb on">Home</button><button type="button" class="tb">Trips</button><button type="button" class="tb">Approvals · 4</button><button type="button" class="tb">More</button></nav>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 10px">
+    <div class="muted" style="font-size: 13px"><strong style="color: #17212B">Choose a carrier on a phone</strong> · table becomes cards</div>
+    <div class="ph">
+      <div class="top"><button type="button" style="border: 0; background: transparent; font: 600 14px Inter, sans-serif; color: #0A5360; min-height: 44px; cursor: pointer">← Trips</button><span class="chip ca">Your decision</span></div>
+      <div class="body">
+        <div><h1 class="h" style="margin: 0; font-size: 20px">Chennai → Bengaluru</h1><p class="muted" style="margin: 4px 0 0; font-size: 13px">TR-24131 · 32ft MXL · 14 t · budget ₹46,000</p></div>
+        <div class="card" style="border: 2px solid #0E6B7A; background: #F3F8F8">
+          <div style="display: flex; justify-content: space-between"><strong>Kaveri Roadlines</strong><strong>₹42,500</strong></div>
+          <div style="font-size: 12px; color: #0A5360; font-weight: 600; margin-top: 2px">Recommended · score 92</div>
+          <div class="muted" style="font-size: 13px; margin-top: 6px">96% on time · POD 1.2 days · ₹3,500 under</div>
+        </div>
+        <div class="card">
+          <div style="display: flex; justify-content: space-between"><strong>NorthStar Logistics</strong><strong>₹45,900</strong></div>
+          <div class="muted" style="font-size: 13px; margin-top: 6px">Score 86 · 93% on time · POD 1.8 days</div>
+        </div>
+        <div class="card">
+          <div style="display: flex; justify-content: space-between"><strong>Deccan Freight</strong><strong>₹41,800</strong></div>
+          <div class="muted" style="font-size: 13px; margin-top: 6px">Score 81 · 84% on time · POD 3.5 days</div>
+        </div>
+        <div class="muted" style="font-size: 13px">Sai Ganesh Transport can reply until 14:30.</div>
+      </div>
+      <div style="padding: 12px 16px 16px; background: #fff; border-top: 1px solid #E1E7E5; display: flex; flex-direction: column; gap: 8px">
+        <button type="button" class="btn bp" style="flex: none; width: 100%">Award to Kaveri · ₹42,500</button>
+        <div style="display: flex; gap: 8px"><button type="button" class="btn bs">Wait</button><button type="button" class="btn bd">Reject all</button></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":900,"height":980}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

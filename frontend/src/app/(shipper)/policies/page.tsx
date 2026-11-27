@@ -21,7 +21,7 @@ interface Policy {
 type Form = { paymentApprovalAbove: string; quoteWindowHours: string; podRule: string; autonomy: Record<Agent, number> };
 
 const AGENTS: { id: Agent; name: string; desc: string }[] = [
-  { id: 'tender', name: 'Tender', desc: 'Sends quote requests to approved carriers' },
+  { id: 'tender', name: 'Tender', desc: 'Offers the load to carriers on contract, lowest rate first' },
   { id: 'bidEvaluation', name: 'Bid evaluation', desc: 'Recommends and records the award' },
   { id: 'billing', name: 'Billing', desc: 'Prepares payments of carrier invoices' },
 ];
@@ -69,6 +69,7 @@ export default function PoliciesPage() {
   };
 
   return (
+    <div className="flex flex-col gap-5">
     <form onSubmit={save} noValidate className="flex flex-col gap-5">
       <PageHeader title="Policies and approvals" subtitle={canEdit ? 'Decide what agents may do alone. Changes apply to new bookings.' : 'Only the logistics head can change these. You can see them here.'} />
       {formError && <p role="alert" className="rounded-xl border border-[#E9B8B8] bg-tone-danger-bg px-4 py-3 text-sm font-semibold text-[#7A1616]">{formError}</p>}
@@ -112,7 +113,7 @@ export default function PoliciesPage() {
         <h2 className="mb-3.5 text-[17px] font-semibold">Limits</h2>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <TextField label="Payments need approval above (₹)" required inputMode="numeric" disabled={!canEdit} value={form.paymentApprovalAbove} onChange={(e) => setForm({ ...form, paymentApprovalAbove: toRupeeInput(e.target.value) })} error={errors.paymentApprovalAbove} help="Smaller invoices are paid when the POD is accepted, if Billing may act within limits." />
-          <TextField label="Quote window (hours)" required inputMode="numeric" disabled={!canEdit} value={form.quoteWindowHours} onChange={(e) => setForm({ ...form, quoteWindowHours: e.target.value.replace(/[^\d]/g, '').slice(0, 2) })} error={errors.quoteWindowHours} help="How long carriers have to quote. You can change it on each booking." />
+          <TextField label="Carrier response time (hours)" required inputMode="numeric" disabled={!canEdit} value={form.quoteWindowHours} onChange={(e) => setForm({ ...form, quoteWindowHours: e.target.value.replace(/[^\d]/g, '').slice(0, 2) })} error={errors.quoteWindowHours} help="How long each carrier has to accept or pass before the load is offered to the next one." />
         </div>
         <div className="mt-4">
           <RadioCards
@@ -137,5 +138,6 @@ export default function PoliciesPage() {
         </div>
       )}
     </form>
+    </div>
   );
 }

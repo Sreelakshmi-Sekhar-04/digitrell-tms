@@ -5,7 +5,7 @@ import { asyncHandler, conflict, notFound } from '../../lib/errors';
 import { Validator } from '../../lib/validate';
 import { audit } from '../../lib/audit';
 import { requireRole } from '../../middleware/auth';
-import { AWARD_RULES, TRUCK_TYPES } from '../../shared/masters';
+import { TRUCK_TYPES } from '../../shared/masters';
 
 export const lanesRouter = Router();
 
@@ -14,7 +14,7 @@ type LaneRow = Prisma.LaneGetPayload<{ include: typeof laneInclude }>;
 
 const view = (l: LaneRow) => ({
   id: l.id, origin: l.origin, destination: l.destination, truckType: l.truckType,
-  awardRule: l.awardRule, isActive: l.isActive,
+  isActive: l.isActive,
   carriers: l.carriers.map((lc) => lc.carrier),
 });
 
@@ -27,11 +27,10 @@ const cityCase = (s: string) => s.replace(/\b\w/g, (c) => c.toUpperCase());
 async function readLane(body: Record<string, unknown>, shipperId: string, current?: LaneRow) {
   const v = new Validator(body);
   const partial = !!current;
-  const out: { origin?: string; destination?: string; truckType?: string; awardRule?: string; isActive?: boolean; carrierIds?: string[] } = {};
+  const out: { origin?: string; destination?: string; truckType?: string; isActive?: boolean; carrierIds?: string[] } = {};
   if (!partial || v.has('origin')) out.origin = v.text('origin', 'the pickup city', { required: true, max: 60 }) ?? undefined;
   if (!partial || v.has('destination')) out.destination = v.text('destination', 'the drop city', { required: true, max: 60 }) ?? undefined;
   if (!partial || v.has('truckType')) out.truckType = v.oneOf('truckType', 'truck type', TRUCK_TYPES) ?? undefined;
-  if (!partial || v.has('awardRule')) out.awardRule = v.oneOf('awardRule', 'how awards are made', AWARD_RULES) ?? undefined;
   if (v.has('isActive')) out.isActive = Boolean(body.isActive);
   if (!partial || v.has('carrierIds')) {
     const ids = Array.isArray(body.carrierIds) ? [...new Set(body.carrierIds.map(String))] : [];
@@ -54,10 +53,6 @@ async function readLane(body: Record<string, unknown>, shipperId: string, curren
   const destination = out.destination ?? current?.destination;
   if (origin && destination && origin.toLowerCase() === destination.toLowerCase()) v.fail('destination', 'Drop city must differ from pickup city.');
 
-  // Automatic award needs at least one approved carrier (and a budget on each booking, checked there).
-  const rule = out.awardRule ?? current?.awardRule;
-  const carrierCount = out.carrierIds ? out.carrierIds.length : current?.carriers.length ?? 0;
-  if (rule === 'AUTO_LOWEST' && carrierCount === 0) v.fail('carrierIds', 'Approve at least one carrier before turning on automatic award.');
   v.done();
   return out;
 }
@@ -86,7 +81,7 @@ lanesRouter.post(
     await assertUnique(req.user!.companyId, d);
     const lane = await prisma.lane.create({
       data: {
-        shipperId: req.user!.companyId, origin: d.origin!, destination: d.destination!, truckType: d.truckType!, awardRule: d.awardRule!,
+        shipperId: req.user!.companyId, origin: d.origin!, destination: d.destination!, truckType: d.truckType!,
         carriers: { create: d.carrierIds!.map((carrierId) => ({ carrierId })) },
       },
       include: laneInclude,
@@ -112,13 +107,13 @@ lanesRouter.patch(
       return tx.lane.update({
         where: { id: current.id },
         data: {
-          origin: d.origin, destination: d.destination, truckType: d.truckType, awardRule: d.awardRule, isActive: d.isActive,
+          origin: d.origin, destination: d.destination, truckType: d.truckType, isActive: d.isActive,
         },
         include: laneInclude,
       });
     });
     const changes = Object.keys(d);
-    await audit(req.user!.id, 'LANE_UPDATED', { id: lane.id, changes, awardRule: d.awardRule ?? undefined });
+    await audit(req.user!.id, 'LANE_UPDATED', { id: lane.id, changes });
     res.json({ lane: view(lane) });
   }),
 );

@@ -46,11 +46,25 @@ model Company {
   // Carrier added by a shipper but not yet on DigitRell: INVITED. Otherwise ACTIVE.
   status    String      @default("ACTIVE")
   phone     String?
+  // Carrier profile (carrier spec C3). PAN and GSTIN are checked for format; verification needs a provider.
+  gstin           String?
+  pan             String?
+  address         String?
+  // FCM = carrier charges GST; RCM = shipper pays under reverse charge.
+  gstOption       String?
+  // Owns 10 or fewer goods carriages, so shippers don't deduct TDS (section 194C).
+  tdsDeclared     Boolean   @default(false)
+  tdsDeclaredAt   DateTime?
+  bankAccountName String?
+  bankAccountNo   String?
+  bankIfsc        String?
   users     User[]
   addresses Address[]
   lanes     Lane[]      @relation("ShipperLanes")
   carrierOn LaneCarrier[]
   policy    ShipperPolicy?
+  carrierPolicy CarrierPolicy?
+  invoiceSeries CarrierInvoiceSeries?
   trips     Trip[]      @relation("ShipperTrips")
   wonTrips  Trip[]      @relation("CarrierTrips")
   quotes    Quote[]
@@ -141,6 +155,57 @@ model ShipperPolicy {
   updatedAt            DateTime @updatedAt
 }
 
+// One row per carrier company: quote band, margin floor, limits and agent autonomy (carrier spec C3).
+model CarrierPolicy {
+  companyId            String   @id
+  company              Company  @relation(fields: [companyId], references: [id])
+  // Quotes within ±bandPct of the rate card can go out without the owner.
+  bandPct              Decimal  @default(5) @db.Decimal(5, 2)
+  // No quote is sent below this margin (uses a trip cost per rate-card line from phase 2).
+  marginFloorPct       Decimal  @default(8) @db.Decimal(5, 2)
+  // Invoices to shippers above this amount need the owner's approval.
+  invoiceApprovalAbove Decimal  @default(25000) @db.Decimal(12, 2)
+  // Gets reminders when the owner hasn't answered an approval in time.
+  backupApproverId     String?
+  autonomy             Json     // { quote, truckAssignment, documents, billing }: 0 suggest, 1 ask first, 2 act within limits
+  updatedById          String?
+  updatedAt            DateTime @updatedAt
+}
+
+// A carrier's own invoice numbering (carrier phase 6): PREFIX/FY/0001, one running count, a number is never reused.
+model CarrierInvoiceSeries {
+  companyId  String   @id
+  company    Company  @relation(fields: [companyId], references: [id])
+  prefix     String
+  nextNumber Int      @default(1)
+  updatedAt  DateTime @updatedAt
+}
+
+// A photo or PDF of a paper (carrier phase 7: truck RC, insurance, permit, fitness, PUC). The row with
+// replacedAt null is the live one per owner + docKey. extractStatus/extractedJson are for the future AI reader.
+model FileUpload {
+  id            String    @id @default(cuid())
+  companyId     String
+  // TRUCK for now.
+  ownerType     String
+  ownerId       String
+  // rcExpiry | insuranceExpiry | permitExpiry | fitnessExpiry | pucExpiry
+  docKey        String
+  fileName      String
+  mimeType      String
+  size          Int
+  storageKey    String
+  uploadedById  String
+  createdAt     DateTime  @default(now())
+  // NONE | PENDING | DONE | FAILED
+  extractStatus String    @default("NONE")
+  extractedJson Json?
+  replacedAt    DateTime?
+
+  @@index([ownerType, ownerId, docKey])
+  @@index([companyId])
+}
+
 model User {
   id        String   @id @default(cuid())
   companyId String
@@ -149,6 +214,9 @@ model User {
   email     String?  @unique
   phone     String?  @unique
   role      String
+  // Carrier users may hold several roles (one person is often owner and traffic manager). `role` is
+  // the main one shown in the header; access checks use `role` plus `roles`.
+  roles     String[] @default([])
   language  String   @default("en")
   // Email update preferences: which updates, and quiet hours "22:00-07:00" or null.
   // Stored for the notifications module; nothing sends messages yet.
@@ -198,24 +266,53 @@ model Lane {
   @@unique([shipperId, origin, destination, truckType])
 }
 
+// A carrier's truck (carrier spec C5). Status is worked out from document dates and trips, never stored.
 model Truck {
   id          String    @id @default(cuid())
   carrierId   String
+  // Stored without spaces, e.g. TN09BX4471; shown as "TN 09 BX 4471".
   number      String    @unique
   truckType   String
+  // OWN | ATTACHED (attached trucks belong to an outside owner who is paid per trip).
+  ownership   String    @default("OWN")
+  make        String?
+  capacityKg  Decimal?  @db.Decimal(12, 2)
+  ownerName   String?
+  ownerPhone  String?
   rcExpiry    DateTime?
   insuranceExpiry DateTime?
   permitExpiry DateTime?
   fitnessExpiry DateTime?
+  pucExpiry   DateTime?
+  usualDriverId String?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now()) @updatedAt
+
+  @@index([carrierId])
 }
 
+// A carrier's driver (carrier spec C6). Drivers work on WhatsApp only; they have no login.
 model Driver {
   id            String    @id @default(cuid())
   carrierId     String
   name          String
   phone         String    @unique
   licenceNumber String?
+  // Vehicle class on the licence: LMV, HMV, HGMV or HTV. Phase 4 checks it against the truck type.
+  licenceClass  String?
   licenceExpiry DateTime?
+  language      String    @default("en")
+  // Advances go only to a verified UPI ID. A change by one person waits for a second (maker-checker).
+  upiId         String?
+  upiVerifiedAt DateTime?
+  pendingUpiId  String?
+  pendingUpiById String?
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @default(now()) @updatedAt
+
+  @@index([carrierId])
 }
 
 // A carrier's agreed rates for one shipper: one card per shipper and carrier, one line per
@@ -250,6 +347,31 @@ model RateCardLine {
   transitDays     Int?
 
   @@unique([rateCardId, origin, destination, truckType])
+}
+
+// A carrier's own price for a lane and truck type, for one shipper or any shipper (carrier spec C3).
+// Separate from RateCard, which is the shipper's master-data record of rates agreed with a carrier.
+model CarrierRate {
+  id          String    @id @default(cuid())
+  carrierId   String
+  // Null = any shipper. A shipper-specific line wins over an "any shipper" line.
+  shipperId   String?
+  laneId      String?
+  origin      String
+  destination String
+  truckType   String
+  rate        Decimal   @db.Decimal(12, 2)
+  // Quotes within ±bandPct of the rate go out without the owner.
+  bandPct     Decimal   @db.Decimal(5, 2)
+  // Estimated cost of running the trip; the margin floor is checked against it.
+  tripCost    Decimal?  @db.Decimal(12, 2)
+  validFrom   DateTime
+  validTo     DateTime
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now()) @updatedAt
+
+  @@index([carrierId])
 }
 
 model LrSeries {
@@ -296,6 +418,8 @@ model Trip {
   truckNumber    String?
   driverName     String?
   driverPhone    String?
+  // When the assigned truck is expected at pickup (optional, entered by the carrier at assignment).
+  pickupEta      DateTime?
   eta            DateTime?
   // First ETA given at loading; "on time" means delivered by this (later delays move eta, not this).
   promisedEta    DateTime?
@@ -334,12 +458,20 @@ model Quote {
   trip      Trip     @relation(fields: [tripId], references: [id])
   carrierId String
   carrier   Company  @relation(fields: [carrierId], references: [id])
-  // REQUESTED → QUOTED | DECLINED → AWARDED | LOST; WITHDRAWN when the request is reissued.
+  // QUEUED → REQUESTED (offered) → AWARDED (accepted) | DECLINED | EXPIRED; remaining QUEUED/REQUESTED become
+  // WITHDRAWN on award or cancel. Older rows may hold QUOTED / LOST.
   status    String   @default("REQUESTED")
   amount    Decimal? @db.Decimal(12, 2)
   score     Decimal? @db.Decimal(6, 2)
   isWinner  Boolean  @default(false)
   quotedAt  DateTime?
+  // Contract-rate offers: order in the offer list (1 = lowest rate) and when the offer reached the carrier.
+  sequence       Int?
+  offeredAt      DateTime?
+  respondBy      DateTime?
+  rateCardLineId String?
+  respondedById  String?
+  declineReason  String?
   createdAt DateTime @default(now())
 
   @@unique([tripId, carrierId])
@@ -354,6 +486,12 @@ model Document {
   isVoid    Boolean  @default(false)
   fileUrl   String?
   validUntil DateTime?
+  // Carrier LR lifecycle (phase 4): who issued it, and why and by whom it was voided; replacedById is the reissued LR.
+  issuedById   String?
+  voidReason   String?
+  voidedById   String?
+  voidedAt     DateTime?
+  replacedById String?
   createdAt DateTime @default(now())
 }
 
@@ -448,3 +586,20 @@ model TripException {
 
   @@index([tripId])
 }
+
+// In-app notification for a shipper user (bell in the header). One row per user.
+model Notification {
+  id        String    @id @default(cuid())
+  companyId String
+  userId    String?
+  kind      String
+  tripId    String?
+  title     String
+  body      String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, readAt, createdAt])
+  @@index([companyId, createdAt])
+}
+

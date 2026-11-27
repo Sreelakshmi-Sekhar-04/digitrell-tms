@@ -143,7 +143,7 @@ function TripsInner() {
                     <td className={td}>{t.carrier ?? <span className="text-ink-muted">Not yet</span>}</td>
                     <td className={td}><TripStatusChip status={t.status} /></td>
                     <td className={`${td} text-ink-muted`}>{t.nextStep}</td>
-                    <td className={`${td} tabular whitespace-nowrap text-right font-semibold`}>{t.amount != null ? rupees(t.amount) : t.budget != null ? <span className="font-normal text-ink-muted">Budget {rupees(t.budget)}</span> : '—'}</td>
+                    <td className={`${td} tabular whitespace-nowrap text-right font-semibold`}>{t.amount != null ? rupees(t.amount) : '—'}</td>
                   </tr>
                 ))}
               </DataTable>

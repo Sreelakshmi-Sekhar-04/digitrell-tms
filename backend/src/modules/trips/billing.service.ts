@@ -6,6 +6,7 @@ import { audit } from '../../lib/audit';
 import { getPolicy } from '../policies/policies.routes';
 import { DEFAULT_AUTONOMY, type Autonomy } from '../policies/policy.defaults';
 import { loadTrip, type TripFull } from './tender.service';
+import { issueLr } from './lr.service';
 
 /*
  * Trip execution, POD, claims and billing for the shipper (BRD §4.8–4.11, §6 "POD and billing").
@@ -75,27 +76,21 @@ export function invoiceChecks(trip: TripFull, inv: Invoice): Check[] {
 
 // ---------- carrier / driver side (integration points) ----------
 
-/** Carrier confirms truck and driver; documents agent issues LR and e-way bill. Trip → Ready for pickup. */
+/** Integration stand-in: carrier confirms truck and driver, and the LR is issued through the carrier's LR service. Trip → Ready for pickup. */
 export async function truckConfirmed(tripId: string, d: { truckNumber: string; driverName: string; driverPhone: string; lrNumber: string; ewayBillNumber: string; ewayValidUntil: Date }) {
   const trip = await loadTrip(tripId);
   if (trip.status !== 'AWARDED' && trip.status !== 'SOURCING_TRUCK') throw conflict('WRONG_STATE', 'Truck can only be confirmed after the award.');
-  await prisma.$transaction([
-    prisma.trip.update({ where: { id: trip.id }, data: { status: 'READY_FOR_PICKUP', truckNumber: d.truckNumber, driverName: d.driverName, driverPhone: d.driverPhone, lastUpdateAt: new Date() } }),
-    prisma.document.createMany({
-      data: [
-        { tripId: trip.id, kind: 'LR', number: d.lrNumber },
-        { tripId: trip.id, kind: 'EWAY_BILL', number: d.ewayBillNumber, validUntil: d.ewayValidUntil },
-      ],
-    }),
-  ]);
+  await prisma.trip.update({ where: { id: trip.id }, data: { status: 'TRUCK_CONFIRMED', truckNumber: d.truckNumber, driverName: d.driverName, driverPhone: d.driverPhone, lastUpdateAt: new Date() } });
   await audit(`carrier:${trip.carrierId}`, 'TRUCK_CONFIRMED', { truck: d.truckNumber, driver: d.driverName }, { tripId: trip.id });
-  await audit('documents-agent', 'DOCUMENTS_ISSUED', { lr: d.lrNumber, ewayBill: d.ewayBillNumber }, { tripId: trip.id });
+  // The stand-in supplies its own LR number (no series needed); the real flow takes it from the carrier's series.
+  await issueLr(trip.id, trip.carrierId!, 'documents-agent', { ewayBill: d.ewayBillNumber, number: d.lrNumber });
+  await prisma.document.updateMany({ where: { tripId: trip.id, kind: 'EWAY_BILL', number: d.ewayBillNumber }, data: { validUntil: d.ewayValidUntil } });
 }
 
 export const TRACKING_EVENTS = ['REACHED_PICKUP', 'LOADED', 'LOCATION', 'REACHED_DROP'] as const;
 
 /** Driver status buttons and location (BRD §4.8). LOADED moves the trip to In transit. */
-export async function trackingEvent(tripId: string, type: (typeof TRACKING_EVENTS)[number], location: string | null, eta: Date | null) {
+export async function trackingEvent(tripId: string, type: (typeof TRACKING_EVENTS)[number], location: string | null, eta: Date | null, by = 'tracking-agent') {
   const trip = await loadTrip(tripId);
   const allowed = type === 'REACHED_PICKUP' || type === 'LOADED' ? ['READY_FOR_PICKUP'] : ['IN_TRANSIT'];
   if (!allowed.includes(trip.status)) throw conflict('WRONG_STATE', `“${type}” doesn't fit a trip that is ${trip.status.toLowerCase().replace(/_/g, ' ')}.`);
@@ -106,31 +101,31 @@ export async function trackingEvent(tripId: string, type: (typeof TRACKING_EVENT
       promisedEta: type === 'LOADED' && eta && !trip.promisedEta ? eta : undefined,
     },
   });
-  await audit('tracking-agent', `TRACK_${type}`, { location, eta }, { tripId: trip.id });
+  await audit(by, `TRACK_${type}`, { location, eta }, { tripId: trip.id });
 }
 
 /** Receiver confirms with the delivery code: quantities received in good order and damaged. */
-export async function delivered(tripId: string, d: { goodQty: number; damagedQty: number; remarks: string | null }) {
+export async function delivered(tripId: string, d: { goodQty: number; damagedQty: number; remarks: string | null }, by = 'pod-agent') {
   const trip = await loadTrip(tripId);
   if (trip.status !== 'IN_TRANSIT') throw conflict('WRONG_STATE', 'Only a trip in transit can be delivered.');
   await prisma.trip.update({
     where: { id: trip.id },
     data: { status: 'DELIVERED', deliveredAt: new Date(), goodQty: d.goodQty, damagedQty: d.damagedQty, deliveryRemarks: d.remarks, lastUpdateAt: new Date() },
   });
-  await audit('pod-agent', 'DELIVERED', { goodQty: d.goodQty, damagedQty: d.damagedQty, remarks: d.remarks }, { tripId: trip.id });
+  await audit(by, 'DELIVERED', { goodQty: d.goodQty, damagedQty: d.damagedQty, remarks: d.remarks }, { tripId: trip.id });
 }
 
 /**
  * Driver sends the signed-LR photo. The POD agent checks the QR matches the LR. A clean, matching
  * POD is accepted by rule; a POD with remarks or no QR match waits for a person (BRD §4.10).
  */
-export async function podReceived(tripId: string, d: { qrMatched: boolean; remarks: string | null; photoUrl: string | null }) {
+export async function podReceived(tripId: string, d: { qrMatched: boolean; remarks: string | null; photoUrl: string | null }, by = 'pod-agent') {
   const trip = await loadTrip(tripId);
   if (trip.status !== 'DELIVERED') throw conflict('WRONG_STATE', 'A POD can only be added after delivery.');
   const lr = trip.documents.find((x) => x.kind === 'LR' && !x.isVoid);
   await prisma.document.create({ data: { tripId: trip.id, kind: 'POD', number: lr?.number ?? null, fileUrl: d.photoUrl } });
   const clean = d.qrMatched && !d.remarks && (trip.damagedQty ?? 0) === 0;
-  await audit('pod-agent', 'POD_RECEIVED', { qrMatched: d.qrMatched, remarks: d.remarks, clean }, { tripId: trip.id });
+  await audit(by, 'POD_RECEIVED', { qrMatched: d.qrMatched, remarks: d.remarks, clean }, { tripId: trip.id });
   if (clean) {
     await prisma.trip.update({ where: { id: trip.id }, data: { status: 'POD_RECEIVED', podAcceptedAt: new Date() } });
     await audit('pod-agent', 'POD_ACCEPTED', { by: 'rule: clean POD, QR matched' }, { tripId: trip.id });
@@ -138,12 +133,12 @@ export async function podReceived(tripId: string, d: { qrMatched: boolean; remar
 }
 
 /** Carrier accepts or disputes a claim. */
-export async function claimResponse(claimId: string, accept: boolean, note: string | null) {
+export async function claimResponse(claimId: string, accept: boolean, note: string | null, by = 'carrier') {
   const claim = await prisma.claim.findUnique({ where: { id: claimId } });
   if (!claim) throw new HttpError(404, 'NOT_FOUND', 'No such claim.');
   if (claim.status !== 'RAISED') throw conflict('DECIDED', 'This claim has already been answered or withdrawn.');
   await prisma.claim.update({ where: { id: claim.id }, data: { status: accept ? 'ACCEPTED' : 'DISPUTED', carrierNote: note, respondedAt: new Date() } });
-  await audit('carrier', accept ? 'CLAIM_ACCEPTED' : 'CLAIM_DISPUTED', { claim: claim.number, amount: toNumber(claim.amount), note }, { tripId: claim.tripId });
+  await audit(by, accept ? 'CLAIM_ACCEPTED' : 'CLAIM_DISPUTED', { claim: claim.number, amount: toNumber(claim.amount), note }, { tripId: claim.tripId });
 }
 
 /**
@@ -151,7 +146,7 @@ export async function claimResponse(claimId: string, accept: boolean, note: stri
  * agent checks it; within the payment limit and with Billing allowed to act, a clean invoice is
  * approved by rule, otherwise it goes to the approvals inbox.
  */
-export async function invoiceRaised(tripId: string, d: { number: string; freight: number; detention: number; claimDeduction: number; dueDate: Date | null }) {
+export async function invoiceRaised(tripId: string, d: { number: string; freight: number; detention: number; claimDeduction: number; dueDate: Date | null }, by?: string) {
   const trip = await loadTrip(tripId);
   if (!['POD_RECEIVED', 'INVOICED'].includes(trip.status)) throw conflict('WRONG_STATE', 'Invoices come after the POD.');
   const policy = await getPolicy(trip.shipperId);
@@ -172,7 +167,7 @@ export async function invoiceRaised(tripId: string, d: { number: string; freight
     await tx.trip.update({ where: { id: trip.id }, data: { status: 'INVOICED' } });
     return created;
   });
-  await audit(`carrier:${trip.carrierId}`, 'INVOICE_RECEIVED', { invoice: inv.number, total }, { tripId: trip.id });
+  await audit(by ?? `carrier:${trip.carrierId}`, 'INVOICE_RECEIVED', { invoice: inv.number, total }, { tripId: trip.id });
 
   const fresh = await loadTrip(trip.id);
   const checks = invoiceChecks(fresh, inv);

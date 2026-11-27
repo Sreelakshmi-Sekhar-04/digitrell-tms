@@ -187,7 +187,7 @@ export function RateCardsTab({ canManage, addSignal, openCarrierId, onOpened }: 
     <>
       {allCards.length === 0 ? (
         <EmptyState title="No rate cards yet" action={canManage && withoutCard.length ? <Button onClick={() => open('new')}>Add a rate card</Button> : undefined}>
-          A rate card holds the freight a carrier has agreed with you for each lane and truck type. It is shown when you book, so you can set a fair budget.
+          A rate card holds the freight a carrier has agreed with you for each lane and truck type. When you book, the load is offered to the carrier with the lowest valid rate first, at that rate.
         </EmptyState>
       ) : (
         <DataTable label="Rate cards" headers={['Carrier', 'Rates', 'Lowest – highest', 'Validity', '']}>

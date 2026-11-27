@@ -1,6 +1,6 @@
 import path from 'path';
 import { USERS, asUser, expect, loginUi, test } from './helpers';
-import { book, carrierQuotes, deliveredTrip, integration, refs, setPolicy } from './trips.helpers';
+import { book, carrierAccepts, deliveredTrip, integration, refs, setPolicy } from './trips.helpers';
 
 /**
  * Captures the key shipper screens for the design check against the approved UI design.
@@ -14,12 +14,10 @@ test('capture key screens', async ({ page, request }) => {
   const r = await refs(anita);
   await setPolicy(anita);
   const compare = await book(anita, r, { reference: 'PO-77810' });
-  await carrierQuotes(request, compare.number, r.kaveri, 42500);
-  await carrierQuotes(request, compare.number, r.northstar, 45900);
-  await carrierQuotes(request, compare.number, r.deccan, 41800);
+  await carrierAccepts(request, compare.number, r.deccan);
   const billed = await deliveredTrip(request, anita, r);
   await integration.pod(request, billed.number);
-  await integration.invoice(request, billed.number, { number: 'INV-0902', freight: 42500 });
+  await integration.invoice(request, billed.number, { number: 'INV-0902', freight: 43800 });
   const damaged = await deliveredTrip(request, anita, r, 2);
   await integration.pod(request, damaged.number, { remarks: '2 ctn damaged' });
 
@@ -38,8 +36,8 @@ test('capture key screens', async ({ page, request }) => {
   await expect(page.getByRole('table', { name: 'Trips' })).toBeVisible();
   await shot('03-trips');
   await page.goto(`/trips/${compare.id}`);
-  await expect(page.getByRole('heading', { name: 'Choose a carrier' })).toBeVisible();
-  await shot('04-trip-compare-quotes');
+  await expect(page.getByRole('heading', { name: 'Accepted by Deccan Freight Carriers at ₹43,800 (contract rate)' })).toBeVisible();
+  await shot('04-trip-awarded');
   await page.goto(`/trips/${damaged.id}`);
   await expect(page.getByRole('heading', { name: 'Delivered · POD needs a look' })).toBeVisible();
   await shot('05-trip-pod-review');
@@ -75,6 +73,6 @@ test('capture key screens', async ({ page, request }) => {
   await expect(page.getByRole('heading', { name: 'Needs your decision' })).toBeVisible();
   await shot('14-phone-home');
   await page.goto(`/trips/${compare.id}`);
-  await expect(page.getByRole('heading', { name: 'Choose a carrier' })).toBeVisible();
-  await shot('15-phone-compare-quotes');
+  await expect(page.getByRole('heading', { name: 'Accepted by Deccan Freight Carriers at ₹43,800 (contract rate)' })).toBeVisible();
+  await shot('15-phone-awarded');
 });

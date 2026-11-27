@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Message failures and language settings</title>
+<script src="./_runtime/react.js"></script>
+<script src="./_runtime/react-dom.js"></script>
+<script src="./_runtime/support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap">
+<style>
+body{margin:0;background:#F5F7F6}
+.x *{box-sizing:border-box}
+.h{font-family:'Space Grotesk',Inter,sans-serif;letter-spacing:-.01em}
+.muted{color:#52606D}
+.cap{font:700 12px Inter,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#0A5360;margin:0 0 6px}
+.card{background:#fff;border:1px solid #E1E7E5;border-radius:14px;padding:22px}
+.btn{min-height:36px;padding:0 12px;border-radius:8px;border:1px solid transparent;font:600 13px/1 Inter,sans-serif;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;white-space:nowrap}
+.bp{background:#0E6B7A;color:#fff;min-height:44px;padding:0 18px;font-size:14px;border-radius:10px}.bs{background:#fff;color:#17212B;border-color:#CBD5D1}
+.lbl{font:600 13px Inter,sans-serif;color:#2A3642;display:block;margin-bottom:6px}
+.inp{width:100%;min-height:44px;padding:0 12px;border:1px solid #CBD5D1;border-radius:10px;font:14px Inter,sans-serif;color:#17212B;background:#fff}
+.help{font:12px/1.4 Inter,sans-serif;color:#52606D;margin-top:6px}
+.ban{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:12px;padding:14px 16px;border-radius:12px;font-size:14px;line-height:1.5}
+.ck{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid #EEF2F1;font-size:14px}
+.tg{width:44px;height:26px;border-radius:999px;position:relative;flex:none;border:0;cursor:pointer}
+.tg:after{content:"";position:absolute;top:3px;width:20px;height:20px;border-radius:50%;background:#fff}
+.tg.on{background:#0E6B7A}.tg.on:after{right:3px}
+.tg.off{background:#B8C4C0}.tg.off:after{left:3px}
+</style>
+</helmet>
+<div class="x" style="font-family: Inter, system-ui, sans-serif; color: #17212B; background: #F5F7F6; padding: 40px 24px 56px">
+<div style="max-width: 1040px; margin: 0 auto; display: flex; flex-direction: column; gap: 26px">
+
+  <section style="display: flex; flex-direction: column; gap: 12px">
+    <div>
+      <p class="cap">When a message doesn't get through</p>
+      <h1 class="h" style="margin: 0; font-size: 28px">Fall back on its own, then tell a person</h1>
+      <p class="muted" style="margin: 6px 0 0; font-size: 14px; line-height: 1.55">These banners sit at the top of the trip or approval they belong to, never as pop-ups. They disappear when the problem is solved.</p>
+    </div>
+    <div class="ban" style="background: #FDF0DF; color: #6B2E08">
+      <div><strong>WhatsApp to driver Murugan V failed</strong> (number not on WhatsApp). Trip details were sent by SMS at 15:12 instead. Status buttons won't work by SMS, so he'll be asked to reply 1, 2 or 3.</div>
+      <div style="display: flex; gap: 8px"><button type="button" class="btn bs">Update number</button><button type="button" class="btn bs">Call driver</button></div>
+    </div>
+    <div class="ban" style="background: #E1F0FA; color: #0B3F60">
+      <div><strong>Anita hasn't answered the award for 2 hours.</strong> Reminder sent to Rahul Menon (backup approver). Nothing is awarded until one of them approves.</div>
+      <div style="display: flex; gap: 8px"><button type="button" class="btn bs">Approve here</button></div>
+    </div>
+    <div class="ban" style="background: #FCE9E9; color: #7A1616">
+      <div><strong>Message templates paused.</strong> WhatsApp limited this number after many unanswered messages. Updates go by SMS and email for now; DigitRell support has been told.</div>
+      <div style="display: flex; gap: 8px"><button type="button" class="btn bs">See what's affected</button></div>
+    </div>
+    <div class="ban" style="background: #EDF1F5; color: #253041">
+      <div><strong>Reply not understood.</strong> Karthik wrote “ok tmrw 2 trucks?”. The bot asked him to choose: one booking for 2 trucks, or two separate bookings.</div>
+      <div style="display: flex; gap: 8px"><button type="button" class="btn bs">Open chat</button></div>
+    </div>
+  </section>
+
+  <section style="display: flex; flex-direction: column; gap: 12px">
+    <div>
+      <p class="cap">Profile › My messages</p>
+      <h1 class="h" style="margin: 0; font-size: 28px">Language, channel and what you get</h1>
+      <p class="muted" style="margin: 6px 0 0; font-size: 14px">Each person sets this once. Admins can set it for drivers, who never log in.</p>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr)); gap: 20px; align-items: start">
+      <div class="card" style="display: flex; flex-direction: column; gap: 16px">
+        <div><label class="lbl" for="lg">Message language</label><select id="lg" class="inp"><option>English</option><option>Hindi</option><option>Tamil</option><option>Telugu</option><option>Kannada</option><option>Malayalam</option><option>Marathi</option></select><div class="help">Button labels and documents' cover note use this language too.</div></div>
+        <div><label class="lbl" for="ch">Send to</label><select id="ch" class="inp"><option>WhatsApp first, SMS if it fails</option><option>WhatsApp and email</option><option>Email only</option></select></div>
+        <div><label class="lbl" for="qh">Quiet hours</label><select id="qh" class="inp"><option>22:00 – 07:00, except approvals over ₹1,00,000</option><option>None</option></select><div class="help">Messages wait until morning; urgent exceptions still come through.</div></div>
+      </div>
+      <div class="card">
+        <h2 class="h" style="margin: 0 0 4px; font-size: 17px">What you get</h2>
+        <p class="muted" style="margin: 0 0 6px; font-size: 13px">Approvals can't be switched off; they're how work moves.</p>
+        <div class="ck"><span>Approvals for me</span><span class="muted" style="font-size: 13px">Always on</span></div>
+        <div class="ck"><span>Truck and driver confirmed</span><button type="button" class="tg on" aria-label="Truck and driver confirmed: on"></button></div>
+        <div class="ck"><span>Loaded, ETA changes</span><button type="button" class="tg on" aria-label="Loaded and ETA changes: on"></button></div>
+        <div class="ck"><span>Delivered and POD</span><button type="button" class="tg on" aria-label="Delivered and POD: on"></button></div>
+        <div class="ck"><span>Daily summary at 19:00</span><button type="button" class="tg off" aria-label="Daily summary: off"></button></div>
+        <div class="ck" style="border-bottom: 0"><span>Invoices and payment reminders</span><button type="button" class="tg off" aria-label="Invoices and payment reminders: off"></button></div>
+      </div>
+    </div>
+    <div><button type="button" class="btn bp">Save</button></div>
+  </section>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1100,"height":1350}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

@@ -88,7 +88,7 @@ export default function HomePage() {
         ? `${d.approvalsCount} decision${d.approvalsCount === 1 ? ' is' : 's are'} waiting for you.`
         : 'Nothing needs you right now. Everything is moving.';
 
-  const budgetNote = d?.month.budget ? `${Math.round((d.month.spend / d.month.budget) * 100)}% of ${rupees(d.month.budget)} budget` : 'Add a budget when booking to compare';
+  const budgetNote = d?.month.budget ? `${Math.round((d.month.spend / d.month.budget) * 100)}% of ${rupees(d.month.budget)} budget` : 'At contract rates';
 
   return (
     <div className="flex flex-col gap-5">

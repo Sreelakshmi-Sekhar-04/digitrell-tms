@@ -24,7 +24,7 @@ test.describe('Demo data (API)', () => {
 
     const { approvals } = await (await lakshmi.get('/approvals')).json();
     const kinds = approvals.map((a: { kind: string }) => a.kind).filter((k: string) => k !== 'PAYMENT').sort();
-    expect(kinds).toEqual(['AWARD', 'AWARD', 'EXCEPTION']);
+    expect(kinds).toEqual(['EXCEPTION']); // offers are awarded on accept, so no award waits for approval;
     expect([1, 2]).toContain(approvals.filter((a: { kind: string }) => a.kind === 'PAYMENT').length);
 
     const report = await (await lakshmi.get('/insights/reports?period=90d')).json();
@@ -47,7 +47,7 @@ test.describe('Demo data (API)', () => {
     expect(trip.status).toBe('CLOSED');
     expect(trip.claims).toHaveLength(1);
     expect(trip.claims[0]).toMatchObject({ status: 'ACCEPTED', amount: 2480 });
-    expect(trip.invoice).toMatchObject({ status: 'PAID', claimDeduction: 2480, total: 19800 - 2480 });
+    expect(trip.invoice).toMatchObject({ status: 'PAID', claimDeduction: 2480, total: 20600 - 2480 });
     expect(trip.quotes.filter((q: { status: string }) => q.status === 'AWARDED')).toHaveLength(1);
     const days = (Date.now() - new Date(trip.createdAt).getTime()) / 86400_000;
     expect(days).toBeGreaterThan(70);

@@ -3,13 +3,13 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { api } from '@/lib/api';
 import { formErrors, useApi } from '@/lib/useApi';
-import { AWARD_RULE_LABELS, TRUCK_TYPES } from '@/lib/masters';
+import { TRUCK_TYPES } from '@/lib/masters';
 import { Button } from '@/components/ui/Button';
 import { Chip } from '@/components/ui/Chip';
 import { EmptyState, Skeleton } from '@/components/ui/Card';
 import { Drawer } from '@/components/ui/Drawer';
 import { TextField } from '@/components/ui/Field';
-import { ChoiceChips, RadioCards } from '@/components/ui/Choice';
+import { ChoiceChips } from '@/components/ui/Choice';
 import { useToast } from '@/components/ui/Toast';
 import { DataTable, td } from './Table';
 import type { Address, Carrier, Lane } from './types';
@@ -111,16 +111,15 @@ export function LanesTab({ canManage, addSignal }: { canManage: boolean; addSign
     <>
       {rows.length === 0 ? (
         <EmptyState title="No lanes yet" action={canManage ? <Button onClick={() => open('new')}>Add your first lane</Button> : undefined}>
-          A lane is a pickup city, drop city and truck type, with the carriers you trust on it. Quote requests go only to those carriers.
+          A lane is a pickup city, drop city and truck type, with the carriers you trust on it. Offers are priced from the Rate cards, not from this list.
         </EmptyState>
       ) : (
-        <DataTable label="Lanes" headers={['Lane', 'Truck type', 'Approved carriers', 'Award rule', 'Status', '']}>
+        <DataTable label="Lanes" headers={['Lane', 'Truck type', 'Approved carriers', 'Status', '']}>
           {rows.map((l) => (
             <tr key={l.id} className={l.isActive ? '' : 'text-ink-muted'}>
               <td className={`${td} font-semibold`}>{l.origin} → {l.destination}</td>
               <td className={td}>{l.truckType}</td>
               <td className={td}>{l.carriers.length ? l.carriers.map((c) => c.name).join(', ') : <span className="text-ink-muted">None yet</span>}</td>
-              <td className={td}>{AWARD_RULE_LABELS[l.awardRule] ?? l.awardRule}</td>
               <td className={td}>{laneStatus(l)}</td>
               <td className={`${td} text-right`}>{canManage && <Button size="sm" variant="ghost" onClick={() => open(l)} aria-label={`Edit ${l.origin} to ${l.destination}`}>Edit</Button>}</td>
             </tr>
@@ -144,16 +143,6 @@ export function LanesTab({ canManage, addSignal }: { canManage: boolean; addSign
           <TextField label="Drop city" required list="lane-cities" value={form.destination} onChange={(e) => set('destination', e.target.value)} error={errors.destination} placeholder="e.g. Bengaluru" />
         </div>
         <ChoiceChips label="Truck type" required options={TRUCK_TYPES.map((t) => ({ value: t, label: t }))} value={form.truckType} onChange={(v) => set('truckType', v)} error={errors.truckType} />
-        <RadioCards
-          label="How awards are made"
-          options={[
-            { value: 'ASK', label: AWARD_RULE_LABELS.ASK, help: 'You approve every award with one tap.' },
-            { value: 'AUTO_LOWEST', label: AWARD_RULE_LABELS.AUTO_LOWEST, help: 'The lowest quote within the booking’s budget is awarded without asking. Each booking on this lane then needs a budget.' },
-          ]}
-          value={form.awardRule}
-          onChange={(v) => set('awardRule', v)}
-          error={errors.awardRule}
-        />
         <fieldset>
           <legend className="mb-1.5 text-[13px] font-semibold text-ink-soft">Approved carriers</legend>
           <div className="flex flex-col gap-1.5">

@@ -3,12 +3,11 @@ import { prisma } from '../../lib/prisma';
 import { HttpError, forbidden, notFound } from '../../lib/errors';
 import { toNumber } from '../../lib/validate';
 import { audit } from '../../lib/audit';
-import { getPolicy } from '../policies/policies.routes';
-import { loadTrip, type TripFull } from './tender.service';
+import { loadTrip, rebuildOffers, type TripFull } from './tender.service';
 
 /*
  * Phase 5: when things don't go to plan (BRD §4.9, §5 "On hold" / "Cancelled", §6 Bids).
- * Cancel and edit a booking, extend or widen a quote request, and handle problems on the road.
+ * Cancel and edit a booking, extend an offer's response time, and handle problems on the road.
  */
 
 type Actor = { id: string; name: string; role: string };
@@ -37,8 +36,8 @@ export function cancelPreview(trip: TripFull, role: string) {
     return { allowed: false, roleOnly: true, reason: 'The goods are on the truck. Only the logistics head can cancel now.', consequences: [] as string[] };
   }
   const c: string[] = [];
-  const asked = trip.quotes.filter((q) => ['REQUESTED', 'QUOTED'].includes(q.status)).length;
-  if (OPEN_QUOTES.includes(trip.status)) c.push(`${asked} carrier${asked === 1 ? ' is' : 's are'} told the request is withdrawn.`);
+  const live = trip.quotes.find((q) => ['REQUESTED', 'ACCEPTED'].includes(q.status));
+  if (OPEN_QUOTES.includes(trip.status) && live) c.push(`${live.carrier.name} is told the offer is withdrawn.`);
   if (trip.carrierId) c.push(`${trip.carrier?.name} is told the award is cancelled.`);
   const docs = trip.documents.filter((d) => ['LR', 'EWAY_BILL'].includes(d.kind) && !d.isVoid);
   if (docs.length) c.push(`${docs.map((d) => (d.kind === 'LR' ? `LR ${d.number}` : `e-way bill ${d.number}`)).join(' and ')} ${docs.length > 1 ? 'are' : 'is'} marked void. The numbers are never reused.`);
@@ -55,7 +54,7 @@ export async function cancelTrip(tripId: string, shipperId: string, actor: Actor
   const reason = `${CANCEL_REASON_LABEL[reasonCode]}${note ? `: ${note}` : ''}`;
   const now = new Date();
   await prisma.$transaction([
-    prisma.quote.updateMany({ where: { tripId: trip.id, status: { in: ['REQUESTED', 'QUOTED'] } }, data: { status: 'WITHDRAWN' } }),
+    prisma.quote.updateMany({ where: { tripId: trip.id, status: { in: ['QUEUED', 'REQUESTED', 'ACCEPTED', 'QUOTED'] } }, data: { status: 'WITHDRAWN' } }),
     prisma.approval.updateMany({ where: { tripId: trip.id, status: 'PENDING' }, data: { status: 'REJECTED', approverId: actor.id, reason: 'Trip cancelled', decidedAt: now } }),
     prisma.document.updateMany({ where: { tripId: trip.id, kind: { in: ['LR', 'EWAY_BILL'] } }, data: { isVoid: true } }),
     prisma.tripException.updateMany({ where: { tripId: trip.id, status: { notIn: ['RESOLVED', 'NOTICE'] } }, data: { status: 'RESOLVED', resolvedAt: now } }),
@@ -79,19 +78,20 @@ export interface BookingEdit {
 export function editRules(trip: TripFull) {
   const load = OPEN_QUOTES.includes(trip.status) || trip.status === 'BOOKED';
   const extras = !['CLOSED', 'CANCELLED'].includes(trip.status);
-  const answered = trip.quotes.some((q) => q.status === 'QUOTED' || q.status === 'DECLINED');
-  return { load, extras, requotes: load && answered };
+  // A new pickup date can change which rate cards are valid, so offers start again from the lowest carrier.
+  return { load, extras, requotes: load };
 }
 
 /**
- * Edits a booking. Changing the load (date, weight, material) after carriers have answered means
- * their prices no longer fit, so every approved carrier is asked again with a fresh deadline.
+ * Edits a booking. A new pickup date while carriers are being offered the load rebuilds the offer
+ * list from the start (prices re-read for that date); weight and material do not change contract rates.
  */
 export async function editBooking(tripId: string, shipperId: string, actor: Actor, e: BookingEdit) {
   const trip = await loadTrip(tripId, shipperId);
   const rules = editRules(trip);
+  const dateChanged = e.pickupDate !== undefined && e.pickupDate !== trip.pickupDate?.toISOString().slice(0, 10);
   const loadChanged =
-    (e.pickupDate !== undefined && e.pickupDate !== trip.pickupDate?.toISOString().slice(0, 10)) ||
+    dateChanged ||
     (e.weightTonnes !== undefined && Math.round(e.weightTonnes * 1000) !== toNumber(trip.weightKg)) ||
     (e.material !== undefined && e.material !== trip.material);
   if (loadChanged && !rules.load) throw conflict('LOCKED', 'Date, weight and material are fixed once a carrier is awarded. Cancel and rebook to change them.');
@@ -107,64 +107,28 @@ export async function editBooking(tripId: string, shipperId: string, actor: Acto
     if (e.weightTonnes !== undefined) data.weightKg = new Prisma.Decimal(Math.round(e.weightTonnes * 1000));
     if (e.material !== undefined) data.material = e.material;
   }
-  const requote = loadChanged && rules.requotes;
-  if (requote) {
-    const policy = await getPolicy(shipperId);
-    data.status = 'QUOTES_REQUESTED';
-    data.quotesClosedAt = null;
-    data.quoteDeadline = new Date(Date.now() + policy.quoteWindowHours * 3600_000);
-  }
-  await prisma.$transaction([
-    ...(requote
-      ? [
-          prisma.quote.updateMany({ where: { tripId: trip.id, status: { in: ['QUOTED', 'DECLINED'] } }, data: { status: 'REQUESTED', amount: null, quotedAt: null } }),
-          prisma.approval.updateMany({ where: { tripId: trip.id, kind: 'AWARD', status: 'PENDING' }, data: { status: 'REJECTED', approverId: actor.id, reason: 'Booking changed', decidedAt: new Date() } }),
-        ]
-      : []),
-    prisma.trip.update({ where: { id: trip.id }, data }),
-  ]);
-  await audit(actor.id, 'BOOKING_EDITED', { changes: Object.keys(e), requoted: requote }, { tripId: trip.id });
-  return { requoted: requote };
+  const restart = dateChanged && OPEN_QUOTES.includes(trip.status);
+  if (restart) await rebuildOffers(trip, e.pickupDate!); // throws NO_CONTRACT_RATE before anything changes
+  await prisma.trip.update({ where: { id: trip.id }, data });
+  await audit(actor.id, 'BOOKING_EDITED', { changes: Object.keys(e), requoted: restart }, { tripId: trip.id });
+  return { requoted: restart };
 }
 
-// ---------- widen a quote request ----------
+// ---------- give the offered carrier more time ----------
 
-/** Gives carriers more time; reopens a request that closed (with or without quotes). */
+/** Extends the current offer's response time. Not possible once every carrier has answered. */
 export async function extendDeadline(tripId: string, shipperId: string, actor: Actor, hours: number) {
   const trip = await loadTrip(tripId, shipperId);
-  if (!OPEN_QUOTES.includes(trip.status)) throw conflict('WRONG_STATE', 'Only an open quote request can be extended.');
-  if (!trip.quotes.some((q) => q.status === 'REQUESTED')) throw conflict('ALL_ANSWERED', 'Every carrier has already answered. Ask another carrier instead.');
-  const from = Math.max(Date.now(), trip.quoteDeadline?.getTime() ?? Date.now());
+  const offer = trip.status === 'QUOTES_REQUESTED' ? trip.quotes.find((q) => q.status === 'REQUESTED') : undefined;
+  if (!offer) throw conflict('WRONG_STATE', 'There is no open offer to extend. Use Send again if no carrier accepted.');
+  const from = Math.max(Date.now(), offer.respondBy?.getTime() ?? Date.now());
   const deadline = new Date(from + hours * 3600_000);
-  await prisma.trip.update({ where: { id: trip.id }, data: { quoteDeadline: deadline, quotesClosedAt: null } });
+  await prisma.$transaction([
+    prisma.quote.update({ where: { id: offer.id }, data: { respondBy: deadline } }),
+    prisma.trip.update({ where: { id: trip.id }, data: { quoteDeadline: deadline } }),
+  ]);
   await audit(actor.id, 'DEADLINE_EXTENDED', { hours, until: deadline }, { tripId: trip.id });
   return deadline;
-}
-
-/** Lane carriers not yet asked on this trip (e.g. approved after booking). */
-export async function carriersNotAsked(trip: TripFull) {
-  if (!trip.laneId) return [];
-  const lane = await prisma.laneCarrier.findMany({ where: { laneId: trip.laneId }, include: { carrier: { select: { id: true, name: true, status: true } } } });
-  const asked = new Set(trip.quotes.map((q) => q.carrierId));
-  return lane.filter((l) => !asked.has(l.carrierId)).map((l) => l.carrier);
-}
-
-export async function askMoreCarriers(tripId: string, shipperId: string, actor: Actor, carrierIds: string[]) {
-  const trip = await loadTrip(tripId, shipperId);
-  if (!OPEN_QUOTES.includes(trip.status)) throw conflict('WRONG_STATE', 'Carriers can only be added before the award.');
-  const allowed = new Set((await carriersNotAsked(trip)).map((c) => c.id));
-  const ids = [...new Set(carrierIds)].filter((id) => allowed.has(id));
-  if (!ids.length) throw new HttpError(400, 'VALIDATION_FAILED', 'Choose at least one approved carrier who was not asked yet.', { carrierIds: 'Choose at least one carrier.' });
-  const policy = await getPolicy(shipperId);
-  const reopen = !!trip.quotesClosedAt;
-  await prisma.$transaction([
-    prisma.quote.createMany({ data: ids.map((carrierId) => ({ tripId: trip.id, carrierId })) }),
-    prisma.trip.update({
-      where: { id: trip.id },
-      data: reopen ? { quotesClosedAt: null, quoteDeadline: new Date(Date.now() + policy.quoteWindowHours * 3600_000) } : {},
-    }),
-  ]);
-  await audit(actor.id, 'CARRIERS_ADDED', { added: ids.length }, { tripId: trip.id });
 }
 
 // ---------- problems on the road ----------
@@ -178,6 +142,8 @@ export interface Proposal {
   newEta: string | null;
   extraCost: number;
   payer: 'CARRIER' | 'SHIPPER';
+  /** Carrier module: the truck and driver a SWAP moves to (checked against the assignment rules before it is proposed). */
+  swap?: { truckId: string; truckNumber: string; driverId: string; driverName: string; driverPhone: string; override?: { reason: string; by: string } | null };
 }
 
 const needsShipper = (p: Proposal | null) => !!p && p.payer === 'SHIPPER' && p.extraCost > 0;
@@ -196,31 +162,31 @@ async function setProposal(exceptionId: string, trip: TripFull, p: Proposal | nu
  * Driver reports a problem (integration point for the driver / exception agent). A plain delay
  * is a notice: the ETA moves, no approval needed (BRD §4.9). Anything else puts the trip on hold.
  */
-export async function reportException(tripId: string, kind: (typeof EXCEPTION_KINDS)[number], description: string, proposal: Proposal | null) {
+export async function reportException(tripId: string, kind: (typeof EXCEPTION_KINDS)[number], description: string, proposal: Proposal | null, by = 'exception-agent') {
   const trip = await loadTrip(tripId);
   if (trip.status !== 'IN_TRANSIT') throw conflict('WRONG_STATE', 'Problems can be reported for a trip on the road.');
   if (kind === 'DELAY' && !needsShipper(proposal)) {
     await prisma.tripException.create({ data: { tripId: trip.id, kind, description, proposal: proposal ? (proposal as unknown as Prisma.InputJsonValue) : Prisma.JsonNull, status: 'NOTICE', resolvedAt: new Date() } });
     if (proposal?.newEta) await prisma.trip.update({ where: { id: trip.id }, data: { eta: new Date(proposal.newEta), lastUpdateAt: new Date() } });
-    await audit('exception-agent', 'DELAY_NOTICE', { description, newEta: proposal?.newEta ?? null }, { tripId: trip.id });
+    await audit(by, 'DELAY_NOTICE', { description, newEta: proposal?.newEta ?? null }, { tripId: trip.id });
     return;
   }
   const ex = await prisma.tripException.create({ data: { tripId: trip.id, kind, description } });
   await prisma.trip.update({ where: { id: trip.id }, data: { status: 'ON_HOLD', lastUpdateAt: new Date() } });
-  await audit('exception-agent', 'EXCEPTION_REPORTED', { kind, description }, { tripId: trip.id });
+  await audit(by, 'EXCEPTION_REPORTED', { kind, description }, { tripId: trip.id });
   if (proposal) {
     await setProposal(ex.id, trip, proposal);
-    await audit('exception-agent', 'FIX_PROPOSED', { label: proposal.label, extraCost: proposal.extraCost, payer: proposal.payer }, { tripId: trip.id });
+    await audit(by, 'FIX_PROPOSED', { label: proposal.label, extraCost: proposal.extraCost, payer: proposal.payer }, { tripId: trip.id });
   }
 }
 
-export async function proposeFix(exceptionId: string, proposal: Proposal) {
+export async function proposeFix(exceptionId: string, proposal: Proposal, by = 'exception-agent') {
   const ex = await prisma.tripException.findUnique({ where: { id: exceptionId } });
   if (!ex) throw notFound('No such exception.');
   if (!['OPEN', 'AWAITING_SHIPPER', 'REJECTED'].includes(ex.status)) throw conflict('WRONG_STATE', 'This problem is already being fixed or resolved.');
   const trip = await loadTrip(ex.tripId);
   await setProposal(ex.id, trip, proposal);
-  await audit('exception-agent', 'FIX_PROPOSED', { label: proposal.label, extraCost: proposal.extraCost, payer: proposal.payer }, { tripId: trip.id });
+  await audit(by, 'FIX_PROPOSED', { label: proposal.label, extraCost: proposal.extraCost, payer: proposal.payer }, { tripId: trip.id });
 }
 
 /** Shipper approves or rejects a fix that costs the shipper money. */
@@ -246,7 +212,7 @@ export async function decideFix(tripId: string, shipperId: string, actor: Actor,
 }
 
 /** Carrier has carried out the fix: back on the road with the new ETA (and truck, after a swap). */
-export async function resolveException(exceptionId: string, d: { newEta: Date | null; truckNumber: string | null }) {
+export async function resolveException(exceptionId: string, d: { newEta: Date | null; truckNumber: string | null }, by = 'exception-agent') {
   const ex = await prisma.tripException.findUnique({ where: { id: exceptionId } });
   if (!ex) throw notFound('No such exception.');
   if (!['OPEN', 'APPROVED'].includes(ex.status)) throw conflict('NOT_APPROVED', ex.status === 'AWAITING_SHIPPER' ? 'The shipper has not approved this fix yet.' : 'This problem is not open.');
@@ -262,5 +228,5 @@ export async function resolveException(exceptionId: string, d: { newEta: Date | 
       },
     }),
   ]);
-  await audit('exception-agent', 'EXCEPTION_RESOLVED', { label: p?.label ?? null, truck: d.truckNumber }, { tripId: ex.tripId });
+  await audit(by, 'EXCEPTION_RESOLVED', { label: p?.label ?? null, truck: d.truckNumber }, { tripId: ex.tripId });
 }

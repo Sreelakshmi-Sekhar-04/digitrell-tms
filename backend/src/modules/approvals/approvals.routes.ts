@@ -2,8 +2,7 @@ import { Router } from 'express';
 import { prisma } from '../../lib/prisma';
 import { HttpError, asyncHandler, notFound } from '../../lib/errors';
 import { Validator, toNumber } from '../../lib/validate';
-import { getPolicy } from '../policies/policies.routes';
-import { awardQuote, loadTrip, retender, scored } from '../trips/tender.service';
+import { loadTrip } from '../trips/tender.service';
 import { syncDueTrips } from '../trips/trips.routes';
 import { approveInvoice, currentInvoice, invoiceChecks, queryInvoice } from '../trips/billing.service';
 import { decideFix, type Proposal } from '../trips/exceptions.service';
@@ -40,15 +39,7 @@ export async function listApprovals(companyId: string): Promise<ApprovalItem[]> 
       const trip = await loadTrip(a.tripId, companyId);
       const lane = `${trip.pickupAddress?.city} → ${trip.dropAddress?.city}`;
       if (a.kind === 'AWARD') {
-        const { list, reason } = scored(trip);
-        if (!list.length) continue;
-        const top = list[0];
-        items.push({
-          id: a.id, kind: 'AWARD', kindLabel: 'Carrier award', tripId: trip.id, ref: trip.number,
-          summary: `Award ${lane} to ${top.carrierName}`,
-          reason: `${list.length} of ${trip.quotes.length} quoted. ${reason}`,
-          amount: top.amount, quoted: list.length, asked: trip.quotes.length, createdAt: a.createdAt,
-        });
+        continue; // carrier acceptance awards directly; old AWARD rows are rejected by migration
       } else if (a.kind === 'PAYMENT') {
         const inv = currentInvoice(trip);
         if (!inv || inv.status !== 'RECEIVED') continue;
@@ -91,7 +82,7 @@ async function pending(id: string, companyId: string) {
   return a;
 }
 
-/** Approve: award the recommended carrier, or approve the invoice for payment. */
+/** Approve: award the carrier that accepted, or approve the invoice for payment. */
 approvalsRouter.post(
   '/:id/approve',
   asyncHandler(async (req, res) => {
@@ -105,15 +96,11 @@ approvalsRouter.post(
       await decideFix(a.tripId!, req.user!.companyId, { ...actor, role: req.user!.role }, true, null);
       return res.json({ ok: true });
     }
-    const trip = await loadTrip(a.tripId!, req.user!.companyId);
-    const top = scored(trip).list[0];
-    if (!top) throw new HttpError(409, 'NO_QUOTES', 'There is no quote to award yet.');
-    await awardQuote(trip.id, top.id, actor);
-    res.json({ ok: true, carrier: top.carrierName, amount: top.amount, text: `${inr(top.amount)} to ${top.carrierName}` });
+    throw new HttpError(409, 'NOT_WAITING', 'Carrier acceptance awards the trip directly; there is nothing to approve.');
   }),
 );
 
-/** Reject: re-request quotes (award), or query the invoice back to the carrier (payment). Reason required. */
+/** Reject: not approve the accepted carrier and offer the next one (award), or query the invoice back to the carrier (payment). Reason required. */
 approvalsRouter.post(
   '/:id/reject',
   asyncHandler(async (req, res) => {
@@ -130,8 +117,6 @@ approvalsRouter.post(
       await decideFix(a.tripId!, req.user!.companyId, { ...actor, role: req.user!.role }, false, reason);
       return res.json({ ok: true });
     }
-    const policy = await getPolicy(req.user!.companyId);
-    await retender(a.tripId!, req.user!.companyId, actor, reason!, policy.quoteWindowHours);
-    res.json({ ok: true });
+    throw new HttpError(409, 'NOT_WAITING', 'Carrier acceptance awards the trip directly; there is nothing to reject.');
   }),
 );

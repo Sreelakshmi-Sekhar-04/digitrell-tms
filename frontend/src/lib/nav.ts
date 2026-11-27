@@ -1,4 +1,4 @@
-/** Shipper navigation, in the order of the approved design (Navigation and journeys artboard). */
+/** Navigation for each workspace, in the order of the approved design (Navigation and journeys artboard). */
 export interface NavItem {
   href: string;
   label: string;
@@ -16,11 +16,23 @@ export const SHIPPER_NAV: NavItem[] = [
   { href: '/policies', label: 'Policies' },
 ];
 
+export const CARRIER_NAV: NavItem[] = [
+  { href: '/carrier', label: 'Home', primaryOnPhone: true },
+  { href: '/carrier/loads', label: 'Loads', primaryOnPhone: true },
+  { href: '/carrier/approvals', label: 'Approvals', primaryOnPhone: true },
+  { href: '/carrier/fleet', label: 'Carrier management' },
+  { href: '/carrier/reports', label: 'Reports' },
+  { href: '/carrier/policies', label: 'Policies' },
+];
+
+/** Each workspace's Home is active only on its own page. */
+const HOMES = ['/', '/carrier'];
+
 /** Pages without a menu item of their own, highlighted under the item they belong to. */
 const SECTION_OF: Record<string, string> = { '/bookings': '/trips' };
 
 export function isActive(pathname: string, href: string) {
-  if (href === '/') return pathname === '/';
+  if (HOMES.includes(href)) return pathname === href;
   const under = (p: string, base: string) => p === base || p.startsWith(base + '/');
   if (under(pathname, href)) return true;
   return Object.entries(SECTION_OF).some(([base, section]) => section === href && under(pathname, base));
