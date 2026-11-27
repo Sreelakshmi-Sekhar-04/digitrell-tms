@@ -17,6 +17,12 @@ import { integrationRouter } from './modules/integration/integration.routes';
 import { insightsRouter } from './modules/insights/insights.routes';
 import { activityRouter } from './modules/activity/activity.routes';
 import { profileRouter } from './modules/users/profile.routes';
+import { bulkRouter } from './lib/bulk';
+import { carriersBulk } from './modules/masters/carriers.bulk';
+import { rateCardsBulk } from './modules/masters/rateCards.bulk';
+import { lanesBulk } from './modules/masters/lanes.bulk';
+import { addressesBulk } from './modules/masters/addresses.bulk';
+import { bookingsBulk } from './modules/trips/bookings.bulk';
 
 /** Builds the Express app (kept separate from server.ts so tests can import it). */
 export function createApp() {
@@ -39,6 +45,13 @@ export function createApp() {
 
   // Shipper module: signed-in users of a shipper company only, always scoped to their company.
   const shipper = [requireAuth, requireShipper];
+  // Bulk upload for each creation screen (docs/shipper/BULK_UPLOAD.md). Mounted before the
+  // resource routers so `/bulk/...` is never read as a record id.
+  app.use('/api/addresses/bulk', shipper, bulkRouter(addressesBulk));
+  app.use('/api/carriers/bulk', shipper, bulkRouter(carriersBulk));
+  app.use('/api/rate-cards/bulk', shipper, bulkRouter(rateCardsBulk));
+  app.use('/api/lanes/bulk', shipper, bulkRouter(lanesBulk));
+  app.use('/api/bookings/bulk', shipper, bulkRouter(bookingsBulk));
   app.use('/api/addresses', shipper, addressesRouter);
   app.use('/api/carriers', shipper, carriersRouter);
   app.use('/api/lanes', shipper, lanesRouter);

@@ -13,6 +13,7 @@ import { Card, EmptyState, PageHeader, Skeleton } from '@/components/ui/Card';
 import { SelectField, TextField } from '@/components/ui/Field';
 import { ChoiceChips, fromRupeeInput, toRupeeInput } from '@/components/ui/Choice';
 import { useToast } from '@/components/ui/Toast';
+import { BulkUpload } from '@/components/bulk/BulkUpload';
 import type { Address } from '@/components/masters/types';
 
 interface Form {
@@ -87,6 +88,7 @@ export default function NewBookingPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<{ message: string; noLane?: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [bulkOpen, setBulkOpen] = useState(false);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [windowHours, setWindowHours] = useState<number | null>(null);
   const [laneInfo, setLaneInfo] = useState<LaneInfo | null>(null);
@@ -228,7 +230,21 @@ export default function NewBookingPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <PageHeader title="New booking" subtitle={preview ? 'Check the details. Nothing is sent until you confirm.' : 'Six fields and your budget. Pick a recent booking to fill them in one click.'} />
+      <PageHeader
+        title="New booking"
+        subtitle={preview ? 'Check the details. Nothing is sent until you confirm.' : 'Six fields and your budget. Pick a recent booking to fill them in one click.'}
+        actions={preview ? undefined : <Button variant="secondary" onClick={() => setBulkOpen(true)}>Bulk upload</Button>}
+      />
+      <BulkUpload
+        open={bulkOpen}
+        onClose={() => setBulkOpen(false)}
+        base="/bookings/bulk"
+        noun="booking"
+        title="Bulk upload bookings"
+        columns={['pickup', 'drop', 'pickupDate']}
+        onImported={() => recent.reload()}
+        doneAction={<Link href="/trips" className="inline-flex min-h-[44px] items-center rounded-btn border border-line-strong bg-white px-[18px] text-sm font-semibold text-ink hover:bg-brand-tint">Go to Trips</Link>}
+      />
       <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
         {preview && pickup && drop ? (
           <Card className="p-6">

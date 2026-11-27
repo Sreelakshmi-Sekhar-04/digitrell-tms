@@ -14,7 +14,7 @@ const view = (a: Address) => ({
   contactName: a.contactName, contactPhone: a.contactPhone, hours: a.hours, isActive: a.isActive,
 });
 
-function readAddress(body: Record<string, unknown>, partial: boolean) {
+export function readAddress(body: Record<string, unknown>, partial: boolean) {
   const v = new Validator(body);
   const req = !partial;
   const out: Record<string, unknown> = {};
@@ -30,7 +30,7 @@ function readAddress(body: Record<string, unknown>, partial: boolean) {
   return out;
 }
 
-async function assertUniqueName(companyId: string, name: unknown, exceptId?: string) {
+export async function assertUniqueName(companyId: string, name: unknown, exceptId?: string) {
   if (typeof name !== 'string') return;
   const dup = await prisma.address.findFirst({ where: { companyId, name: { equals: name, mode: 'insensitive' }, NOT: exceptId ? { id: exceptId } : undefined } });
   if (dup) throw conflict(`You already have an address called "${dup.name}".`, { name: 'This name is already used. Pick another or edit the existing one.' });
