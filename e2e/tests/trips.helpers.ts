@@ -19,30 +19,35 @@ export async function refs(client: Client) {
   };
 }
 
-/** Books Chennai → Bengaluru, 32ft MXL (seeded "Ask me" lane with 4 carriers) unless overridden. */
+/**
+ * Books Chennai → Bengaluru, 32ft MXL unless overridden. There is no budget: the offer list comes from the
+ * shipper's contract rates (seed: Deccan ₹43,800 is lowest, then Kaveri ₹44,500, then NorthStar ₹45,200;
+ * Sai Ganesh has no rate and is never offered).
+ */
 export async function book(client: Client, r: Awaited<ReturnType<typeof refs>>, over: Record<string, unknown> = {}) {
   const res = await client.post('/bookings', {
     pickupAddressId: r.ambattur, dropAddressId: r.hosur, pickupDate: tomorrow(), truckType: '32ft MXL',
-    material: 'Biscuits (packed cartons)', weightTonnes: 14, budget: 46000, ...over,
+    material: 'Biscuits (packed cartons)', weightTonnes: 14, ...over,
   });
   expect(res.status(), await res.text()).toBe(201);
-  return (await res.json()).trip as { id: string; number: string };
+  return (await res.json()).trip as { id: string; number: string; quoteDeadline: string; carriersInLine: number; offeredTo: { id: string; name: string; rate: number } };
 }
+
+/** Pune → Hyderabad, 20ft SXL: Kaveri is offered first at ₹38,500, then NorthStar at ₹39,000 (both have portal users). */
+export const PUNE = (r: Awaited<ReturnType<typeof refs>>) => ({ pickupAddressId: r.chakan, dropAddressId: r.medchal, truckType: '20ft SXL', material: 'Spices (packed)', weightTonnes: 9 });
+export const bookPune = (client: Client, r: Awaited<ReturnType<typeof refs>>, over: Record<string, unknown> = {}) => book(client, r, { ...PUNE(r), ...over });
 
 const KEY = { 'x-integration-key': 'dev-integration-key' };
 
-/** Plays the carrier module: the carrier quotes `amount`, or passes when `amount` is null. */
-export async function carrierQuotes(request: APIRequestContext, tripNumber: string, carrierId: string, amount: number | null) {
-  const res = await request.post(`${API_URL}/integration/quotes`, { headers: KEY, data: { tripNumber, carrierId, amount } });
-  return res;
+/** Plays the carrier module for the carrier that holds the offer: accepts, or passes (optional reason). The price is the contract rate. */
+export async function carrierRespond(request: APIRequestContext, tripNumber: string, carrierId: string, accept: boolean, reason?: string) {
+  return request.post(`${API_URL}/integration/quotes`, { headers: KEY, data: { tripNumber, carrierId, accept, reason } });
 }
+export const carrierAccepts = (request: APIRequestContext, n: string, carrierId: string) => carrierRespond(request, n, carrierId, true);
+export const carrierPasses = (request: APIRequestContext, n: string, carrierId: string, reason?: string) => carrierRespond(request, n, carrierId, false, reason);
 
 export async function expireQuotes(request: APIRequestContext, tripNumber: string) {
   expect((await request.post(`${API_URL}/integration/trips/${tripNumber}/expire-quotes`, { headers: KEY })).status()).toBe(200);
-}
-
-export async function ageAward(request: APIRequestContext, tripNumber: string) {
-  expect((await request.post(`${API_URL}/integration/trips/${tripNumber}/age-award`, { headers: KEY })).status()).toBe(200);
 }
 
 export const shipperHead = (request: APIRequestContext) => asUser(request, USERS.shipperHead);
@@ -73,19 +78,20 @@ export async function setPolicy(client: Client, p: { podRule?: string; billing?:
   expect(res.status(), await res.text()).toBe(200);
 }
 
-/** Books Chennai → Bengaluru, gets a ₹42,500 Kaveri quote and awards it. */
-export async function awardedTrip(request: APIRequestContext, client: Client, r: Awaited<ReturnType<typeof refs>>, amount = 42500) {
-  const trip = await book(client, r);
-  await carrierQuotes(request, trip.number, r.kaveri, amount);
-  const t = (await (await client.get(`/trips/${trip.id}`)).json()).trip;
-  const res = await client.post(`/trips/${trip.id}/award`, { quoteId: t.quotes.find((q: { carrierId: string }) => q.carrierId === r.kaveri).id });
-  expect(res.status()).toBe(200);
-  return trip;
+/**
+ * Books a trip and the first carrier in line accepts: the trip is awarded at once at that carrier's contract rate.
+ * Default lane Chennai → Bengaluru (Deccan, ₹43,800); `{ pune: true }` uses Pune → Hyderabad (Kaveri, ₹38,500).
+ */
+export async function awardedTrip(request: APIRequestContext, client: Client, r: Awaited<ReturnType<typeof refs>>, opts: { pune?: boolean } = {}) {
+  const trip = opts.pune ? await bookPune(client, r) : await book(client, r);
+  expect((await carrierAccepts(request, trip.number, trip.offeredTo.id)).status()).toBe(200);
+  expect((await client.get(`/trips/${trip.id}`).then((r) => r.json())).trip.status).toBe('AWARDED');
+  return { ...trip, carrierId: trip.offeredTo.id, amount: trip.offeredTo.rate };
 }
 
 /** Runs an awarded trip through truck, loading and delivery. */
-export async function deliveredTrip(request: APIRequestContext, client: Client, r: Awaited<ReturnType<typeof refs>>, damaged = 0, amount = 42500) {
-  const trip = await awardedTrip(request, client, r, amount);
+export async function deliveredTrip(request: APIRequestContext, client: Client, r: Awaited<ReturnType<typeof refs>>, damaged = 0) {
+  const trip = await awardedTrip(request, client, r);
   expect((await integration.truck(request, trip.number)).status()).toBe(200);
   await integration.event(request, trip.number, 'REACHED_PICKUP');
   await integration.event(request, trip.number, 'LOADED', { eta: new Date(Date.now() + 86400_000).toISOString() });
@@ -119,7 +125,13 @@ export async function ownLane(client: Client, carriers = 1) {
   // A city of its own per call: lanes are unique per pickup city, drop city and truck type.
   const city = `Karur ${tag}`;
   const to = (await (await client.post('/addresses', { name: `Karur DC ${tag}`, city, line1: 'Thanthonimalai', kind: 'DROP' })).json()).address;
-  const lane = (await (await client.post('/lanes', { origin: 'Madurai', destination: city, truckType: '17ft', awardRule: 'ASK', carrierIds: made.slice(0, carriers).map((c) => c.id) })).json()).lane;
-  // The budget is set per booking (₹20,000 for bookings made with `booking`).
-  return { lane, carriers: made, spare: made[carriers], booking: { pickupAddressId: from.id, dropAddressId: to.id, truckType: '17ft', material: 'Rice bags', weightTonnes: 7, budget: 20000 } };
+  const lane = (await (await client.post('/lanes', { origin: 'Madurai', destination: city, truckType: '17ft', carrierIds: made.slice(0, carriers).map((c) => c.id) })).json()).lane;
+  // Contract rates drive the offers: carrier 0 is cheapest (₹19,000), each next one ₹500 more; the spare carrier has none.
+  const rates: number[] = [];
+  for (let i = 0; i < carriers; i++) {
+    rates.push(19000 + i * 500);
+    const put = await client.put(`/rate-cards/${made[i].id}`, { lines: [{ origin: 'Madurai', destination: city, truckType: '17ft', rate: rates[i], transitDays: 1 }] });
+    expect(put.status(), await put.text()).toBe(201);
+  }
+  return { lane, carriers: made, rates, spare: made[carriers], booking: { pickupAddressId: from.id, dropAddressId: to.id, truckType: '17ft', material: 'Rice bags', weightTonnes: 7 } };
 }

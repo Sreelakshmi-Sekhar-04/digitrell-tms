@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { NAV, USERS, asUser, expect, loginUi, test, uniq } from './helpers';
-import { carrierQuotes } from './trips.helpers';
+import { carrierAccepts } from './trips.helpers';
 
 /** A field by its visible label, ignoring the "*" / "(optional)" suffix. */
 const field = (scope: Page | ReturnType<Page['getByRole']>, label: string) =>
@@ -34,7 +34,7 @@ test.describe('Navigation', () => {
   });
 });
 
-test('master data to booking: carrier → rate card → lane → booking with a budget', async ({ page, request }) => {
+test('master data to booking: carrier → rate card → lane → booking offered at the contract rate', async ({ page, request }) => {
   test.setTimeout(240_000);
   const tag = uniq();
   const carrierName = `Pandian Roadlines ${tag}`;
@@ -113,7 +113,7 @@ test('master data to booking: carrier → rate card → lane → booking with a 
   // 3. Create a lane and approve the carrier on it.
   await page.getByRole('tab', { name: 'Lanes' }).click();
   await page.getByRole('button', { name: '+ Add lane' }).click();
-  await expect(field(drawer(page), 'Budget per trip (₹)')).toHaveCount(0);
+  await expect(drawer(page).getByText('Lowest within budget')).toHaveCount(0); // no award rule or budget on a lane any more
   await field(drawer(page), 'Pickup city').fill('Madurai');
   await field(drawer(page), 'Drop city').fill(dropCity);
   await drawer(page).getByText('17ft', { exact: true }).click();
@@ -127,7 +127,7 @@ test('master data to booking: carrier → rate card → lane → booking with a 
   await page.getByRole('tab', { name: 'Carriers' }).click();
   await expect(page.getByRole('row', { name: new RegExp(carrierName) })).toContainText('2 rates');
 
-  // 4. New booking (from Trips) with a budget, using the rate card as a reference.
+  // 4. New booking (from Trips): no price to type; the rate card decides who is offered the load.
   await mainNav(page).getByRole('link', { name: /^Trips/ }).click();
   await page.getByRole('link', { name: '+ New booking' }).click();
   await page.getByRole('button', { name: 'Clear' }).click();
@@ -136,36 +136,31 @@ test('master data to booking: carrier → rate card → lane → booking with a 
   await field(page, 'Weight (tonnes)').fill('6');
   await page.getByText('17ft', { exact: true }).click();
   await field(page, 'Material').fill('Cotton yarn bales');
-  const reference = page.getByRole('region', { name: 'Rate card reference' });
-  await expect(reference).toContainText(carrierName);
-  await expect(reference).toContainText('₹19,000');
-  await expect(reference).toContainText('No rate card: Kaveri Roadlines');
-  await reference.getByRole('button', { name: 'Use lowest rate (₹19,000)' }).click();
-  await expect(field(page, 'Budget per trip (₹)')).toHaveValue('19,000');
-  await field(page, 'Budget per trip (₹)').fill('20500'); // the user decides; the rate card is only a guide
-  await expect(field(page, 'Budget per trip (₹)')).toHaveValue('20,500');
+  await expect(page.getByLabel(/Budget/)).toHaveCount(0);
+  const onContract = page.getByRole('region', { name: 'Carriers on contract for this lane' });
+  await expect(onContract).toContainText(carrierName);
+  await expect(onContract).toContainText('Offered first');
+  await expect(onContract).toContainText('₹19,000');
+  await expect(onContract).not.toContainText('Kaveri Roadlines'); // on the lane, but no contract rate for it
   await page.getByRole('button', { name: 'Review and confirm' }).click();
   await expect(page.getByRole('heading', { name: 'Check and confirm' })).toBeVisible();
-  await expect(page.getByText(`2 approved carriers: ${carrierName} (rate card ₹19,000), Kaveri Roadlines`)).toBeVisible();
-  await expect(page.getByText('₹20,500', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Confirm and ask for quotes' }).click();
-  await expect(page.getByRole('heading', { name: 'Waiting for quotes' })).toBeVisible();
+  await expect(page.getByText(`${carrierName} at ₹19,000 (contract rate)`)).toBeVisible();
+  await expect(page.getByText('No other carrier on contract for this lane.')).toBeVisible();
+  await page.getByRole('button', { name: 'Confirm and offer the load' }).click();
+  await expect(page.getByRole('heading', { name: `Offered to ${carrierName}` })).toBeVisible();
   const tripId = page.url().split('/').pop()!;
 
-  // 5. The booking belongs to the lane, its carriers were asked to quote, and it carries the budget.
+  // 5. The booking belongs to the lane and only the carrier with the contract rate was offered it, at that rate.
   const { trip } = await (await anita.get(`/trips/${tripId}`)).json();
-  expect(trip).toMatchObject({ origin: 'Madurai', destination: dropCity, truckType: '17ft', budget: 20500, status: 'QUOTES_REQUESTED' });
-  expect(trip.quotes.map((q: { carrier: string }) => q.carrier).sort()).toEqual([carrierName, 'Kaveri Roadlines'].sort());
+  expect(trip).toMatchObject({ origin: 'Madurai', destination: dropCity, truckType: '17ft', status: 'QUOTES_REQUESTED' });
+  expect(trip).not.toHaveProperty('budget');
+  expect(trip.quotes.map((q: { carrier: string; status: string; amount: number }) => [q.carrier, q.status, q.amount])).toEqual([[carrierName, 'REQUESTED', 19000]]);
   const lane = (await (await anita.get('/lanes')).json()).lanes.find((l: { destination: string }) => l.destination === dropCity);
   expect((await (await anita.get(`/trips?laneId=${lane.id}`)).json()).trips.map((t: { id: string }) => t.id)).toEqual([tripId]);
 
-  // The carriers answer; the comparison uses the booking's budget.
-  const idOf = (name: string) => trip.quotes.find((q: { carrier: string }) => q.carrier === name).carrierId;
-  await carrierQuotes(request, trip.number, idOf(carrierName), 19800);
-  await carrierQuotes(request, trip.number, idOf('Kaveri Roadlines'), 21400);
+  // The carrier accepts; the load is awarded at once at the contract rate.
+  expect((await carrierAccepts(request, trip.number, trip.quotes[0].carrierId)).status()).toBe(200);
   await page.reload();
-  await expect(page.getByRole('heading', { name: 'Choose a carrier' })).toBeVisible();
-  await expect(page.getByText('2 of 2 carriers quoted. Budget for this trip: ₹20,500.')).toBeVisible();
-  const quotes = (await (await anita.get(`/trips/${tripId}`)).json()).trip.quotes;
-  expect(quotes.find((q: { carrier: string }) => q.carrier === 'Kaveri Roadlines')).toMatchObject({ amount: 21400, overBudget: true, vsBudget: 900 });
+  await expect(page.getByRole('heading', { name: `Accepted by ${carrierName} at ₹19,000 (contract rate)` })).toBeVisible();
+  expect((await (await anita.get(`/trips/${tripId}`)).json()).trip).toMatchObject({ status: 'AWARDED', carrier: carrierName, amount: 19000 });
 });

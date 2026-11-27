@@ -1,9 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { api, ApiError } from '@/lib/api';
-import { useAuth } from '@/lib/auth';
 import { useApi } from '@/lib/useApi';
 import { rupees } from '@/lib/masters';
 import { STAGES, dateShort, dateTimeIST, stageOf, timeIST, tonnes, type QuoteRow, type TripDetail } from '@/lib/trips';
@@ -13,15 +12,20 @@ import { Card, EmptyState, Skeleton } from '@/components/ui/Card';
 import { TextField } from '@/components/ui/Field';
 import { useToast } from '@/components/ui/Toast';
 import { ClaimsCard, DocumentsCard, InvoicePanel, PodAcceptedPanel, PodReviewPanel, ReadyPanel, TransitPanel } from '@/components/trips/ExecutionPanels';
-import { CancelledPanel, DelayNote, OnHoldPanel, TripActions, WidenRequest } from '@/components/trips/ExceptionPanels';
+import { CancelledPanel, DelayNote, ExtendOffer, OnHoldPanel, TripActions } from '@/components/trips/ExceptionPanels';
 
-const QUOTE_CHIP: Record<QuoteRow['status'], { label: string; tone: Tone }> = {
-  REQUESTED: { label: 'Waiting', tone: 'neutral' },
-  QUOTED: { label: 'Quoted', tone: 'success' },
-  DECLINED: { label: 'Passed', tone: 'neutral' },
-  AWARDED: { label: 'Awarded', tone: 'progress' },
-  LOST: { label: 'Not chosen', tone: 'neutral' },
-  WITHDRAWN: { label: 'Request closed', tone: 'neutral' },
+/** Chip tone for each step of the offer list. */
+const QUOTE_CHIP: Record<QuoteRow['status'], { tone: Tone }> = {
+  QUEUED: { tone: 'neutral' },
+  REQUESTED: { tone: 'progress' },
+  ACCEPTED: { tone: 'action' },
+  AWARDED: { tone: 'success' },
+  DECLINED: { tone: 'neutral' },
+  EXPIRED: { tone: 'neutral' },
+  REJECTED_BY_SHIPPER: { tone: 'danger' },
+  WITHDRAWN: { tone: 'neutral' },
+  QUOTED: { tone: 'neutral' },
+  LOST: { tone: 'neutral' },
 };
 
 function Stepper({ status }: { status: string }) {
@@ -50,235 +54,119 @@ function Stepper({ status }: { status: string }) {
   );
 }
 
-/** Reject all quotes and ask the same carriers again. Reason required (it is logged). */
-function RetenderForm({ tripId, label, onDone, onCancel }: { tripId: string; label: string; onDone: () => void; onCancel?: () => void }) {
-  const toast = useToast();
-  const [reason, setReason] = useState('');
-  const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
-  const submit = async () => {
-    if (!reason.trim()) return setError('Say why, e.g. "All quotes above budget". It is logged and kept with the trip.');
-    setBusy(true);
-    try {
-      await api(`/trips/${tripId}/retender`, { method: 'POST', json: { reason } });
-      toast({ tone: 'success', title: 'Quotes requested again.', text: 'The same approved carriers have a new deadline.' });
-      onDone();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.body.fields?.reason ?? err.body.message : 'Something went wrong.');
-    } finally {
-      setBusy(false);
-    }
-  };
+/** Every contract-rate carrier in offer order with its fixed rate and where it stands. Only the shipper sees this. */
+function OfferList({ trip }: { trip: TripDetail }) {
   return (
-    <div className="mt-4 flex flex-col gap-3 rounded-xl bg-brand-soft p-4">
-      <TextField label="Reason" required value={reason} onChange={(e) => { setReason(e.target.value); setError(''); }} error={error} placeholder="e.g. All quotes above budget" />
-      <div className="flex flex-wrap gap-2">
-        <Button size="sm" onClick={submit} loading={busy}>{label}</Button>
-        {onCancel && <Button size="sm" variant="ghost" onClick={onCancel}>Cancel</Button>}
-      </div>
+    <div className="mt-4 overflow-x-auto rounded-xl border border-line">
+      <table className="w-full border-collapse text-sm" aria-label="Carriers in offer order">
+        <thead>
+          <tr>
+            {['#', 'Carrier', 'Contract rate', 'Status'].map((h) => (
+              <th key={h} scope="col" className={`whitespace-nowrap border-b border-line bg-[#FAFBFB] px-3.5 py-2.5 text-xs font-semibold uppercase tracking-wide text-ink-muted ${h === 'Contract rate' ? 'text-right' : 'text-left'}`}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {trip.quotes.map((q, i) => (
+            <tr key={q.id} className={q.status === 'REQUESTED' || q.status === 'ACCEPTED' ? 'bg-[#F0F8F8]' : ''}>
+              <td className="border-b border-line-faint px-3.5 py-3 text-ink-muted">{q.sequence ?? i + 1}</td>
+              <td className="border-b border-line-faint px-3.5 py-3">
+                <div className="font-semibold">{q.carrier}</div>
+                {q.status === 'DECLINED' && q.declineReason && <div className="mt-0.5 text-xs text-ink-muted">“{q.declineReason}”</div>}
+                {q.status === 'REJECTED_BY_SHIPPER' && q.declineReason && <div className="mt-0.5 text-xs text-ink-muted">“{q.declineReason}”</div>}
+                {q.status === 'REQUESTED' && q.respondBy && <div className="mt-0.5 text-xs text-ink-muted">Answer by {timeIST(q.respondBy)}</div>}
+              </td>
+              <td className="tabular border-b border-line-faint px-3.5 py-3 text-right font-bold">{rupees(q.amount)}</td>
+              <td className="border-b border-line-faint px-3.5 py-3"><Chip tone={QUOTE_CHIP[q.status].tone}>{q.statusLabel}</Chip></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
 
-function ComparePanel({ trip, onChanged }: { trip: TripDetail; onChanged: () => void }) {
-  const { user } = useAuth();
-  const toast = useToast();
-  const quoted = trip.quotes.filter((q) => q.status === 'QUOTED').sort((a, b) => (a.rank ?? 99) - (b.rank ?? 99));
-  const others = trip.quotes.filter((q) => q.status !== 'QUOTED');
-  const [picked, setPicked] = useState(trip.recommendation?.quoteId ?? quoted[0]?.id);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  const [rejecting, setRejecting] = useState(false);
-  const choice = quoted.find((q) => q.id === picked) ?? quoted[0];
-  const waiting = trip.quotes.filter((q) => q.status === 'REQUESTED');
-  const limit = user?.approvalLimit ?? null;
-  const blocked = limit == null ? "Your role can't approve awards. Your logistics head or an approver will see it in Approvals." : choice?.amount != null && choice.amount > limit ? `${rupees(choice.amount)} is above your approval limit of ${rupees(limit)}. Ask your logistics head to approve it.` : '';
-
-  const award = async () => {
-    if (!choice) return;
-    setBusy(true);
-    setError('');
-    try {
-      await api(`/trips/${trip.id}/award`, { method: 'POST', json: { quoteId: choice.id } });
-      toast({ tone: 'success', title: `Awarded to ${choice.carrier}.`, text: 'Truck and driver details will follow. You can undo for 10 minutes.' });
-      onChanged();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.body.message : 'Something went wrong. Please try again.');
-      onChanged();
-    } finally {
-      setBusy(false);
-    }
-  };
-
+/** While offering: who has the load now, who is waiting in line, and who passed. */
+function OfferPanel({ trip, onChanged }: { trip: TripDetail; onChanged: () => void }) {
+  const offered = trip.quotes.find((q) => q.status === 'REQUESTED');
   return (
     <Card className="p-5">
-      <div className="mb-3.5 flex flex-wrap justify-between gap-3">
+      <div className="flex flex-wrap justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold">Choose a carrier</h2>
+          <h2 className="text-lg font-semibold">{offered ? `Offered to ${offered.carrier}` : 'Offering the load'}</h2>
           <p className="mt-1 text-sm text-ink-muted">
-            {quoted.length} of {trip.quotes.length} carriers quoted.{trip.budget != null && ` Budget for this trip: ${rupees(trip.budget)}.`}
-            {waiting.length > 0 && !trip.quotesClosedAt && trip.quoteDeadline && ` ${waiting.map((w) => w.carrier).join(', ')} can still reply until ${timeIST(trip.quoteDeadline)}.`}
+            {`The load goes to one carrier at a time, at its contract rate, lowest first. If a carrier passes or doesn't answer${trip.quoteDeadline ? ` by ${timeIST(trip.quoteDeadline)}` : ''}, it moves to the next.`}
           </p>
         </div>
-        <Chip tone="action">Your decision</Chip>
       </div>
-      <div className="hidden overflow-x-auto rounded-xl border border-line sm:block">
-        <table className="w-full border-collapse text-sm" aria-label="Quotes">
-          <thead>
-            <tr>
-              {['Pick', 'Carrier', 'Quote', 'vs budget', 'On time', 'POD speed', 'Accepts', 'Score'].map((h) => (
-                <th key={h} scope="col" className={`whitespace-nowrap border-b border-line bg-[#FAFBFB] px-3.5 py-2.5 text-xs font-semibold uppercase tracking-wide text-ink-muted ${h === 'Quote' ? 'text-right' : 'text-left'}`}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {quoted.map((q) => {
-              const on = q.id === choice?.id;
-              return (
-                <tr key={q.id} onClick={() => setPicked(q.id)} className={`cursor-pointer ${on ? 'bg-[#F0F8F8]' : 'hover:bg-[#F4F9F9]'}`}>
-                  <td className="border-b border-line-faint px-3.5 py-3">
-                    <input type="radio" name="award" checked={on} onChange={() => setPicked(q.id)} aria-label={`Pick ${q.carrier}`} className="h-[18px] w-[18px] accent-brand" />
-                  </td>
-                  <td className="border-b border-line-faint px-3.5 py-3">
-                    <div className="font-semibold">{q.carrier}</div>
-                    {q.rank === 1 && <div className="mt-0.5 text-xs font-semibold text-brand-dark">Recommended</div>}
-                    {q.trips === 0 && <div className="mt-0.5 text-xs text-ink-muted">No track record yet</div>}
-                  </td>
-                  <td className="tabular border-b border-line-faint px-3.5 py-3 text-right font-bold">{rupees(q.amount)}</td>
-                  <td className={`border-b border-line-faint px-3.5 py-3 ${q.overBudget ? 'font-semibold text-tone-danger' : 'text-tone-success'}`}>
-                    {q.vsBudget == null ? '—' : q.vsBudget <= 0 ? `${rupees(-q.vsBudget)} under` : `${rupees(q.vsBudget)} over`}
-                  </td>
-                  <td className="border-b border-line-faint px-3.5 py-3">{q.onTimePct != null ? `${q.onTimePct}%` : '—'}</td>
-                  <td className="border-b border-line-faint px-3.5 py-3">{q.podDays != null ? `${q.podDays} days` : '—'}</td>
-                  <td className="border-b border-line-faint px-3.5 py-3">{q.acceptPct != null ? `${q.acceptPct}%` : '—'}</td>
-                  <td className="border-b border-line-faint px-3.5 py-3 font-semibold">{q.score}</td>
-                </tr>
-              );
-            })}
-            {others.map((q) => (
-              <tr key={q.id} className="text-ink-muted">
-                <td className="border-b border-line-faint px-3.5 py-3" />
-                <td className="border-b border-line-faint px-3.5 py-3 font-semibold">{q.carrier}</td>
-                <td className="border-b border-line-faint px-3.5 py-3 text-right" colSpan={1}><Chip tone={QUOTE_CHIP[q.status].tone}>{QUOTE_CHIP[q.status].label}</Chip></td>
-                <td className="border-b border-line-faint px-3.5 py-3" colSpan={5} />
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      {/* Phones: one card per quote instead of a sideways-scrolling table (approved design, phone layout). */}
-      <fieldset className="flex flex-col gap-2.5 sm:hidden">
-        <legend className="sr-only">Quotes</legend>
-        {quoted.map((q) => {
-          const on = q.id === choice?.id;
-          return (
-            <label key={q.id} className={`flex cursor-pointer gap-3 rounded-xl p-3.5 ${on ? 'border-2 border-brand bg-[#F3F8F8]' : 'border border-line'}`}>
-              <input type="radio" name="award-phone" checked={on} onChange={() => setPicked(q.id)} aria-label={`Pick ${q.carrier}`} className="mt-1 h-[18px] w-[18px] flex-none accent-brand" />
-              <span className="flex-1">
-                <span className="flex justify-between gap-2"><strong>{q.carrier}</strong><strong className="tabular">{rupees(q.amount)}</strong></span>
-                {q.rank === 1 && <span className="block text-xs font-semibold text-brand-dark">Recommended · score {q.score}</span>}
-                <span className="mt-1 block text-[13px] text-ink-muted">
-                  {q.rank !== 1 && `Score ${q.score} · `}
-                  {q.onTimePct != null ? `${q.onTimePct}% on time · POD ${q.podDays} days` : 'No track record yet'}
-                  {q.vsBudget != null && ` · ${q.vsBudget <= 0 ? `${rupees(-q.vsBudget)} under` : `${rupees(q.vsBudget)} over`}`}
-                </span>
-              </span>
-            </label>
-          );
-        })}
-        {others.map((q) => (
-          <div key={q.id} className="flex items-center justify-between rounded-xl border border-dashed border-line px-3.5 py-2.5 text-sm text-ink-muted">
-            <span>{q.carrier}</span>
-            <Chip tone={QUOTE_CHIP[q.status].tone}>{QUOTE_CHIP[q.status].label}</Chip>
-          </div>
-        ))}
-      </fieldset>
-      {trip.recommendation && (
-        <p className="mt-3.5 rounded-xl bg-brand-soft px-4 py-3.5 text-sm leading-relaxed">
-          <strong>Why {trip.recommendation.carrier}:</strong> {trip.recommendation.reason}
-        </p>
-      )}
-      {error && <p role="alert" className="mt-3 text-sm font-semibold text-tone-danger">{error}</p>}
-      {blocked && <p className="mt-3 rounded-xl bg-tone-action-bg px-4 py-3 text-sm text-[#6B2E08]">{blocked}</p>}
-      <div className="mt-4 flex flex-wrap items-center gap-2.5">
-        <Button onClick={award} loading={busy} disabled={!!blocked || !choice}>
-          Award to {choice?.carrier} · {rupees(choice?.amount)}
-        </Button>
-        {!rejecting && <Button variant="danger" onClick={() => setRejecting(true)}>Reject all and ask again</Button>}
-        <span className="text-[13px] text-ink-muted">Carriers never see each other&apos;s quotes.</span>
-      </div>
-      {rejecting && <RetenderForm tripId={trip.id} label="Reject all and ask again" onDone={onChanged} onCancel={() => setRejecting(false)} />}
-      {!trip.quotesClosedAt && <WidenRequest trip={trip} onChanged={onChanged} />}
+      <OfferList trip={trip} />
+      <ExtendOffer trip={trip} onChanged={onChanged} />
     </Card>
   );
 }
 
-function AwardedPanel({ trip, onChanged }: { trip: TripDetail; onChanged: () => void }) {
+/** Every carrier passed or missed the response time. */
+function NoCarrierPanel({ trip, onChanged }: { trip: TripDetail; onChanged: () => void }) {
   const toast = useToast();
-  const [now, setNow] = useState(Date.now());
   const [busy, setBusy] = useState(false);
-  useEffect(() => {
-    const t = window.setInterval(() => setNow(Date.now()), 15_000);
-    return () => window.clearInterval(t);
-  }, []);
-  const left = trip.undoUntil ? Math.ceil((new Date(trip.undoUntil).getTime() - now) / 60_000) : 0;
-  const undo = async () => {
+  const [error, setError] = useState('');
+  const sendAgain = async () => {
     setBusy(true);
+    setError('');
     try {
-      await api(`/trips/${trip.id}/undo-award`, { method: 'POST' });
-      toast({ tone: 'success', title: 'Award undone.', text: 'Choose again from the quotes.' });
+      await api(`/trips/${trip.id}/send-again`, { method: 'POST' });
+      toast({ tone: 'success', title: 'Offers sent again.', text: 'Starting from the lowest contract rate.' });
     } catch (err) {
-      toast({ tone: 'error', title: err instanceof ApiError ? err.body.message : 'Could not undo.' });
+      setError(err instanceof ApiError ? err.body.message : 'Something went wrong. Please try again.');
     } finally {
       setBusy(false);
       onChanged();
     }
   };
   return (
-    <Card className="p-5">
-      <h2 className="text-lg font-semibold">Awarded to {trip.carrier} · {rupees(trip.amount)}</h2>
-      <p className="mt-1.5 text-sm leading-relaxed text-ink-muted">
-        Next: the carrier assigns a truck and driver. You&apos;ll get the truck number, driver contact and LR, usually within 2 hours. Nothing else is needed from you.
+    <Card className="border-[#E9C9A0] p-5">
+      <h2 className="text-lg font-semibold">No carrier accepted</h2>
+      <p className="mt-1.5 text-sm text-ink-muted">
+        Every carrier on contract for this lane passed or didn&apos;t answer in time. Send the offers again from the lowest rate, or cancel the booking. You can also check your <Link href="/masters?tab=rate-cards" className="underline">rate cards</Link> first.
       </p>
-      {left > 0 && (
-        <div className="mt-4 flex flex-wrap items-center gap-2.5">
-          <Button size="sm" variant="secondary" onClick={undo} loading={busy}>Undo award</Button>
-          <span className="text-[13px] text-ink-muted">Possible for {left} more minute{left === 1 ? '' : 's'}. Other carriers are told after that.</span>
-        </div>
-      )}
+      <OfferList trip={trip} />
+      {error && <p role="alert" className="mt-3 text-sm font-semibold text-tone-danger">{error}</p>}
+      <div className="mt-4 flex flex-wrap gap-2.5">
+        <Button onClick={sendAgain} loading={busy}>Send again</Button>
+        <span className="self-center text-[13px] text-ink-muted">To cancel, use Cancel booking above.</span>
+      </div>
+    </Card>
+  );
+}
+
+function AwardedPanel({ trip }: { trip: TripDetail }) {
+  return (
+    <Card className="p-5">
+      <h2 className="text-lg font-semibold">Accepted by {trip.carrier} at {rupees(trip.amount)} (contract rate)</h2>
+      <p className="mt-1.5 text-sm leading-relaxed text-ink-muted">
+        Next: the carrier assigns a truck and driver. You&apos;ll get the truck number, driver contact, usually within 2 hours; then the carrier issues the LR.
+      </p>
+      <OfferList trip={trip} />
+    </Card>
+  );
+}
+
+function WaitingForLr({ trip }: { trip: TripDetail }) {
+  return (
+    <Card className="p-5">
+      <h2 className="text-lg font-semibold">Truck assigned · carrier to issue the LR</h2>
+      <p className="mt-1.5 text-sm leading-relaxed text-ink-muted">
+        {trip.carrier} has assigned {trip.truck?.number ?? 'a truck'}{trip.truck?.driverName ? ` with ${trip.truck.driverName}` : ''}. The trip is ready for pickup once the carrier issues the LR; you can view and print it here then.
+      </p>
     </Card>
   );
 }
 
 function TaskPanel({ trip, onChanged }: { trip: TripDetail; onChanged: () => void }) {
-  if (trip.status === 'QUOTES_RECEIVED') return <ComparePanel trip={trip} onChanged={onChanged} />;
-  if (trip.status === 'AWARDED') return <AwardedPanel trip={trip} onChanged={onChanged} />;
-  if (trip.status === 'QUOTES_REQUESTED' && trip.noQuotes) {
-    return (
-      <Card className="border-[#E9C9A0] p-5">
-        <h2 className="text-lg font-semibold">No quotes by the deadline</h2>
-        <p className="mt-1.5 text-sm text-ink-muted">
-          None of the {trip.quotes.length} carriers quoted. Ask them again with a new deadline, or <Link href="/masters?tab=lanes" className="underline">add carriers to this lane</Link> first.
-        </p>
-        <RetenderForm tripId={trip.id} label="Ask the same carriers again" onDone={onChanged} />
-        <WidenRequest trip={trip} onChanged={onChanged} />
-      </Card>
-    );
-  }
-  if (trip.status === 'QUOTES_REQUESTED') {
-    return (
-      <Card className="p-5">
-        <h2 className="text-lg font-semibold">Waiting for quotes</h2>
-        <p className="mb-3.5 mt-1.5 text-sm text-ink-muted">
-          Sent to {trip.quotes.length} approved carriers. Closes at {trip.quoteDeadline ? timeIST(trip.quoteDeadline) : '—'}, or earlier if all reply. The quotes appear here when it&apos;s time to choose.
-        </p>
-        <div className="flex flex-wrap gap-2">
-          {trip.quotes.map((q) => <Chip key={q.id} tone={QUOTE_CHIP[q.status].tone}>{q.carrier} · {QUOTE_CHIP[q.status].label.toLowerCase()}</Chip>)}
-        </div>
-        <WidenRequest trip={trip} onChanged={onChanged} />
-      </Card>
-    );
-  }
+  if (trip.status === 'AWARDED') return <AwardedPanel trip={trip} />;
+  if (trip.status === 'QUOTES_REQUESTED' && trip.noCarrierAccepted) return <NoCarrierPanel trip={trip} onChanged={onChanged} />;
+  if (trip.status === 'QUOTES_REQUESTED') return <OfferPanel trip={trip} onChanged={onChanged} />;
+  if (trip.status === 'TRUCK_CONFIRMED') return <WaitingForLr trip={trip} />;
   if (trip.status === 'READY_FOR_PICKUP') return <ReadyPanel trip={trip} onChanged={onChanged} />;
   if (trip.status === 'IN_TRANSIT') return <><TransitPanel trip={trip} onChanged={onChanged} /><DelayNote trip={trip} /></>;
   if (trip.status === 'ON_HOLD') return <OnHoldPanel trip={trip} onChanged={onChanged} />;

@@ -8,7 +8,7 @@
  * Sign in as lakshmi.menon@vasudhafoods.test (or deepa.iyer, suresh.babu, arjun.reddy) / Demo@123.
  *
  * Only the demo company, its people and the five demo carriers are touched. Trips are created and
- * moved through the workflow by the app's own API (booking, quotes, award, truck, delivery, POD,
+ * moved through the workflow by the app's own API (booking, offers, approval, truck, delivery, POD,
  * claims, invoices, payment), each step on a past date, so statuses, scores, approvals and the
  * activity log are exactly what the app itself would produce.
  */
@@ -48,6 +48,7 @@ async function remove() {
     const byTrip = { tripId: { in: trips } };
     await prisma.$transaction([
       prisma.auditLog.deleteMany({ where: { OR: [byTrip, { actor: { in: userIds } }] } }),
+      prisma.notification.deleteMany({ where: { companyId: shipper.id } }),
       prisma.approval.deleteMany({ where: { OR: [byTrip, { companyId: shipper.id }] } }),
       prisma.invoice.deleteMany({ where: byTrip }),
       prisma.claim.deleteMany({ where: byTrip }),
@@ -59,6 +60,7 @@ async function remove() {
       prisma.rateCard.deleteMany({ where: { shipperId: shipper.id } }),
       prisma.shipperCarrier.deleteMany({ where: { shipperId: shipper.id } }),
       prisma.address.deleteMany({ where: { companyId: shipper.id } }),
+      prisma.lrSeries.deleteMany({ where: { carrierId: shipper.id } }),
       prisma.shipperPolicy.deleteMany({ where: { companyId: shipper.id } }),
       prisma.user.deleteMany({ where: { companyId: shipper.id } }),
       prisma.company.delete({ where: { id: shipper.id } }),
@@ -112,7 +114,7 @@ async function setup() {
   for (const a of D.ADDRESSES) addresses[a.name] = (await prisma.address.create({ data: { companyId: shipper.id, ...a, createdAt: since } })).id;
 
   // Carrier master and rate cards: every demo carrier, with agreed rates on the lanes it serves
-  // (the lane's usual budget, a little under or over per carrier).
+  // (the lane's usual freight, a little under or over per carrier): the cheapest is offered first.
   for (const [key, c] of Object.entries(D.CARRIERS) as [D.CarrierKey, (typeof D.CARRIERS)[D.CarrierKey]][]) {
     await prisma.shipperCarrier.create({ data: { shipperId: shipper.id, carrierId: carriers[key], contactName: c.contact, contactPhone: c.phone, city: c.city, createdAt: since } });
     const lines = Object.values(D.LANES)
@@ -129,7 +131,7 @@ async function setup() {
     await prisma.lane.create({
       data: {
         shipperId: shipper.id, origin: l.origin, destination: l.destination, truckType: l.truckType,
-        awardRule: l.awardRule, createdAt: since, carriers: { create: l.carriers.map((k) => ({ carrierId: carriers[k], createdAt: since })) },
+        createdAt: since, carriers: { create: l.carriers.map((k) => ({ carrierId: carriers[k], createdAt: since })) },
       },
     });
   }
@@ -160,7 +162,9 @@ let latestAllowed = 0;
  * `t`, keeping their order. Every demo time is at least 5 minutes before the load started.
  */
 async function at(t: number, tripId: () => string | undefined, fn: () => Promise<void>) {
-  if (t > latestAllowed) throw new Error(`Demo step at ${new RealDate(t).toISOString()} is in the future; adjust the dataset.`);
+  // Office-hour shifts can push a late step past "now" when the demo is loaded in the morning (IST);
+  // cap it at the latest allowed time instead of failing. Order is kept: later steps share the cap.
+  if (t > latestAllowed) t = latestAllowed;
   const r0 = RealDate.now();
   setClock(t);
   try {
@@ -236,33 +240,28 @@ async function runTrip(s: D.TripSpec, i: number, ctx: Ctx, now: number) {
   await at(T0, id, async () => {
     const res = await api(tok(s.by), 'POST', '/bookings', {
       pickupAddressId: ctx.addresses[lane.from], dropAddressId: ctx.addresses[lane.to], pickupDate: istDate(T0 + 20 * H),
-      truckType: lane.truckType, material: s.material, weightTonnes: s.tonnes, reference: s.reference, budget: lane.budget,
+      truckType: lane.truckType, material: s.material, weightTonnes: s.tonnes, reference: s.reference,
     });
     tripId = res.trip.id;
     number = res.trip.number;
   });
   if (!reach('quoted')) return;
 
-  // 2. Quotes, then close the request at the deadline if someone didn't reply.
-  const quoteRound = async (start: number, quotes: [D.CarrierKey, number | null][], closeAtDeadline: boolean) => {
-    for (const [k, [carrier, amount]] of quotes.entries()) {
-      await at(start + (0.35 + 0.3 * k) * H, id, () => carrierApi('POST', '/quotes', { tripNumber: number, carrierId: ctx.carriers[carrier], amount }));
+  // 2. Offers: the cheapest contract carrier is offered first; each outcome moves the offer on.
+  const PASS_REASONS = ['No truck free that day', 'Truck committed elsewhere', 'Rate no longer works for us', 'Driver shortage'];
+  const offered = async () => prisma.quote.findFirstOrThrow({ where: { tripId, status: 'REQUESTED' }, orderBy: { sequence: 'asc' } });
+  for (const [k, outcome] of s.offers.entries()) {
+    const q = await offered();
+    if (outcome === 'pass' || outcome === 'rejected') {
+      c += 0.4 * H;
+      await at(c, id, () => carrierApi('POST', '/quotes', { tripNumber: number, carrierId: q.carrierId, accept: false, reason: PASS_REASONS[k % PASS_REASONS.length] }));
+    } else if (outcome === 'noanswer') {
+      c += 2 * H + 60_000;
+      await at(c, id, () => carrierApi('POST', `/trips/${number}/expire-quotes`));
+    } else {
+      c += 0.35 * H;
+      await at(c, id, () => carrierApi('POST', '/quotes', { tripNumber: number, carrierId: q.carrierId, accept: true }));
     }
-    const asked = lane.carriers.length;
-    let end = start + (0.35 + 0.3 * quotes.length) * H;
-    if (quotes.length < asked && closeAtDeadline) {
-      end = start + 2 * H + 60_000;
-      await at(end, id, () => carrierApi('POST', `/trips/${number}/expire-quotes`));
-    }
-    return end;
-  };
-  const needsClose = reach('awarded') || !!s.retender;
-  c = await quoteRound(T0, s.quotes, needsClose);
-
-  if (s.retender) {
-    c = office(c + 0.4 * H, jitter());
-    await at(c, id, () => api(tok('lakshmi'), 'POST', `/trips/${tripId}/retender`, { reason: s.retender!.reason }));
-    c = await quoteRound(c, s.retender.quotes, true);
   }
 
   if (s.cancel && s.until === 'quoted') {
@@ -271,14 +270,9 @@ async function runTrip(s: D.TripSpec, i: number, ctx: Ctx, now: number) {
   }
   if (!reach('awarded')) return;
 
-  // 3. Award (or the lane rule already awarded it).
-  if (s.award) {
-    c = office(c + 0.25 * H, jitter());
-    const q = await prisma.quote.findFirstOrThrow({ where: { tripId, carrierId: ctx.carriers[s.award.carrier] } });
-    await at(c, id, () => api(tok(s.award!.by), 'POST', `/trips/${tripId}/award`, { quoteId: q.id }));
-  }
+  // 3. Accepting awarded the trip at once; the shipper only got a notification.
   const awarded = await prisma.trip.findUniqueOrThrow({ where: { id: tripId } });
-  if (awarded.status !== 'AWARDED' || !awarded.carrierId) throw new Error(`${number}: expected an award, trip is ${awarded.status}. Add an "award" to the dataset.`);
+  if (awarded.status !== 'AWARDED' || !awarded.carrierId) throw new Error(`${number}: expected an award, trip is ${awarded.status}. Check the offers in the dataset.`);
   const carrierKey = (Object.keys(ctx.carriers) as D.CarrierKey[]).find((k) => ctx.carriers[k] === awarded.carrierId)!;
   const carrier = D.CARRIERS[carrierKey];
   const amount = Number(awarded.awardedAmount);
@@ -398,7 +392,7 @@ async function load() {
       tokens[key] = (await api(null, 'POST', '/auth/login', { email: u.email, password: D.DEMO_PASSWORD })).token;
     }
     const ctx: Ctx = { users, tokens, carriers, addresses, invoiceSeq: {} };
-    // In booking order, so lane rules see earlier awards the way they would have.
+    // In booking order.
     const order = D.TRIPS.map((s, i) => ({ s, i, t: bookedAt(s.booked, now) })).sort((a, b) => a.t - b.t);
     for (const { s, i } of order) await runTrip(s, i, ctx, now);
     // The loader's own sign-ins are not part of the story.

@@ -11,12 +11,13 @@ const field = (page: Page, label: string) =>
   drawer(page).getByLabel(new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}( \\*| \\(optional\\))?$`));
 
 test.describe('Lanes (logistics head)', () => {
-  test('lists seeded lanes with carriers, rule and status; no budget column', async ({ page }) => {
+  test('lists seeded lanes with carriers and status; no budget column and no award rule', async ({ page }) => {
     await openMasters(page, USERS.shipperHead, 'lanes');
     const row = page.getByRole('row', { name: /Chennai → Bengaluru/ });
     await expect(row).toContainText('32ft MXL');
     await expect(row).toContainText('Kaveri Roadlines, NorthStar Logistics, Deccan Freight Carriers, Sai Ganesh Transport');
-    await expect(row).toContainText('Ask me');
+    await expect(row).not.toContainText('Ask me');
+  await expect(page.getByRole('columnheader', { name: /rule|award/i })).toHaveCount(0);
     await expect(row).toContainText('Active');
     await expect(page.getByRole('columnheader', { name: /budget/i })).toHaveCount(0);
     await expect(row).not.toContainText('₹');
@@ -32,18 +33,15 @@ test.describe('Lanes (logistics head)', () => {
     await expect(drawer(page)).toBeVisible();
   });
 
-  test('add a lane with automatic award and a new carrier (no budget on the lane)', async ({ page }) => {
+  test('add a lane with a new carrier (no budget and no award rule on the lane)', async ({ page }) => {
     await openMasters(page, USERS.shipperHead, 'lanes');
     await page.getByRole('button', { name: '+ Add lane' }).click();
     await expect(field(page, 'Budget per trip (₹)')).toHaveCount(0);
     await field(page, 'Pickup city').fill('Coimbatore');
     await field(page, 'Drop city').fill('Kochi');
     await drawer(page).getByText('19ft', { exact: true }).click();
-    await drawer(page).getByText('Lowest within budget, automatic').click();
-    await drawer(page).getByRole('button', { name: 'Save lane' }).click();
-    // Business rule: automatic award needs a carrier (the budget comes with each booking). Typed values stay.
-    await expect(drawer(page).getByText('Approve at least one carrier before turning on automatic award.')).toBeVisible();
-    await expect(field(page, 'Pickup city')).toHaveValue('Coimbatore');
+    await expect(drawer(page).getByText('Lowest within budget')).toHaveCount(0);
+    await expect(drawer(page).getByText('Ask me')).toHaveCount(0);
 
     const carrierName = `Velan Transports ${uniq()}`;
     await drawer(page).getByRole('button', { name: '+ Add a new carrier' }).click();
@@ -59,7 +57,6 @@ test.describe('Lanes (logistics head)', () => {
     await expect(page.getByRole('status').filter({ hasText: 'Lane added.' })).toBeVisible();
     await expect(drawer(page)).toBeHidden();
     const row = page.getByRole('row', { name: /Coimbatore → Kochi/ });
-    await expect(row).toContainText('Lowest within budget, automatic');
     await expect(row).toContainText(carrierName);
   });
 
@@ -251,7 +248,7 @@ test.describe('Policies (logistics head)', () => {
 
   test('invalid values show field errors; Discard restores saved values', async ({ page }) => {
     await loginUi(page, USERS.shipperHead, '/policies');
-    const hours = page.getByRole('textbox', { name: 'Quote window (hours)' });
+    const hours = page.getByRole('textbox', { name: 'Carrier response time (hours)' });
     const before = await hours.inputValue();
     await hours.fill('99');
     await page.getByRole('button', { name: 'Save changes' }).click();

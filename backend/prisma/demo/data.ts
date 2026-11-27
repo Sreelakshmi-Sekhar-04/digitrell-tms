@@ -38,12 +38,12 @@ export const ADDRESSES = [
   { name: 'Coimbatore Depot', city: 'Coimbatore', line1: 'SF 88, SIDCO Kurichi', kind: 'DROP', contactName: 'Karthikeyan', contactPhone: '+919000030006', hours: '08:00–18:00' },
 ] as const;
 
-/** Lanes: addresses, truck type, the usual budget per booking, award rule, approved carriers, transit time and a midway town. */
+/** Lanes: addresses, truck type, the usual freight per booking (contract rates are set around it), approved carriers, transit time and a midway town. */
 export const LANES = {
-  'CHE-BLR': { from: 'Sriperumbudur Plant', to: 'Whitefield DC', origin: 'Chennai', destination: 'Bengaluru', truckType: '32ft MXL', budget: 45000, awardRule: 'ASK', carriers: ['thirumala', 'godavari', 'nilgiri', 'shivam'], transitH: 9, midway: 'Krishnagiri' },
-  'MUM-PUN': { from: 'Bhiwandi Warehouse', to: 'Hinjewadi DC', origin: 'Mumbai', destination: 'Pune', truckType: '20ft SXL', budget: 16000, awardRule: 'AUTO_LOWEST', carriers: ['konkan', 'shivam'], transitH: 5, midway: 'Lonavala' },
-  'CHE-HYD': { from: 'Sriperumbudur Plant', to: 'Kompally DC', origin: 'Chennai', destination: 'Hyderabad', truckType: '32ft SXL', budget: 52000, awardRule: 'ASK', carriers: ['thirumala', 'godavari', 'shivam'], transitH: 14, midway: 'Nellore' },
-  'BLR-CBE': { from: 'Whitefield DC', to: 'Coimbatore Depot', origin: 'Bengaluru', destination: 'Coimbatore', truckType: '19ft', budget: 21000, awardRule: 'ASK', carriers: ['nilgiri', 'thirumala'], transitH: 8, midway: 'Salem' },
+  'CHE-BLR': { from: 'Sriperumbudur Plant', to: 'Whitefield DC', origin: 'Chennai', destination: 'Bengaluru', truckType: '32ft MXL', budget: 45000, carriers: ['thirumala', 'godavari', 'nilgiri', 'shivam'], transitH: 9, midway: 'Krishnagiri' },
+  'MUM-PUN': { from: 'Bhiwandi Warehouse', to: 'Hinjewadi DC', origin: 'Mumbai', destination: 'Pune', truckType: '20ft SXL', budget: 16000, carriers: ['konkan', 'shivam'], transitH: 5, midway: 'Lonavala' },
+  'CHE-HYD': { from: 'Sriperumbudur Plant', to: 'Kompally DC', origin: 'Chennai', destination: 'Hyderabad', truckType: '32ft SXL', budget: 52000, carriers: ['thirumala', 'godavari', 'shivam'], transitH: 14, midway: 'Nellore' },
+  'BLR-CBE': { from: 'Whitefield DC', to: 'Coimbatore Depot', origin: 'Bengaluru', destination: 'Coimbatore', truckType: '19ft', budget: 21000, carriers: ['nilgiri', 'thirumala'], transitH: 8, midway: 'Salem' },
 } as const;
 export type LaneKey = keyof typeof LANES;
 
@@ -62,12 +62,14 @@ export interface TripSpec {
   /** Units loaded (bags, cartons, tins). */
   units: number;
   reference?: string;
-  /** Replies in order: amount, or null to decline. Carriers not listed don't reply. */
-  quotes: [CarrierKey, number | null][];
-  /** Second round after rejecting every quote (re-tender). */
-  retender?: { reason: string; quotes: [CarrierKey, number | null][] };
-  /** Who awards which carrier. Omit on an auto-award lane when the rule awards it. */
-  award?: { carrier: CarrierKey; by: UserKey };
+  /**
+   * How the offers go, in the order the system offers the load (cheapest contract rate first):
+   * 'pass' = the offered carrier passes, 'noanswer' = it misses the response time, 'accept' = it accepts,
+   * 'rejected' = treated as a pass (there is no shipper approval any more). Empty = the first carrier is still deciding.
+   */
+  offers: ('pass' | 'noanswer' | 'accept' | 'rejected')[];
+  /** Unused: carrier acceptance awards the trip directly. */
+  approveBy?: UserKey;
   until: Stage;
   /** Hours later than promised. */
   lateH?: number;
@@ -97,87 +99,86 @@ const m = {
 
 export const TRIPS: TripSpec[] = [
   // ---------- History: delivered, billed and paid ----------
-  { lane: 'CHE-BLR', booked: { daysAgo: 85, at: '09:40' }, by: 'arjun', material: m.atta, tonnes: 16, units: 640, reference: 'PO-VAF-10412',
-    quotes: [['thirumala', 43500], ['godavari', 41800], ['nilgiri', 44900], ['shivam', null]], award: { carrier: 'godavari', by: 'lakshmi' }, until: 'closed', pay: 'UPI' },
-  { lane: 'MUM-PUN', booked: { daysAgo: 81, at: '10:15' }, by: 'arjun', material: m.spices, tonnes: 7.5, units: 900, reference: 'PO-VAF-10437',
-    quotes: [['konkan', 15200], ['shivam', 14800]], award: { carrier: 'shivam', by: 'deepa' }, until: 'closed', pay: 'BANK' },
-  { lane: 'CHE-HYD', booked: { daysAgo: 77, at: '11:05' }, by: 'arjun', material: m.rice, tonnes: 18, units: 690, reference: 'PO-VAF-10458',
-    quotes: [['thirumala', 50500], ['godavari', 48900], ['shivam', 47200]], award: { carrier: 'thirumala', by: 'lakshmi' }, until: 'closed', lateH: 5, pay: 'BANK' },
-  { lane: 'BLR-CBE', booked: { daysAgo: 72, at: '10:30' }, by: 'arjun', material: m.snacks, tonnes: 6, units: 1100, reference: 'PO-VAF-10471',
-    quotes: [['nilgiri', 19800], ['thirumala', 20500]], award: { carrier: 'nilgiri', by: 'deepa' }, until: 'closed',
+  { lane: 'CHE-BLR', booked: { daysAgo: 85, at: '09:40' }, by: 'arjun', material: m.atta, tonnes: 16, units: 640, reference: 'PO-VAF-10412', offers: ['accept'],
+    approveBy: 'lakshmi', until: 'closed', pay: 'UPI' },
+  { lane: 'MUM-PUN', booked: { daysAgo: 81, at: '10:15' }, by: 'arjun', material: m.spices, tonnes: 7.5, units: 900, reference: 'PO-VAF-10437', offers: ['accept'],
+    approveBy: 'deepa', until: 'closed', pay: 'BANK' },
+  { lane: 'CHE-HYD', booked: { daysAgo: 77, at: '11:05' }, by: 'arjun', material: m.rice, tonnes: 18, units: 690, reference: 'PO-VAF-10458', offers: ['pass', 'accept'],
+    approveBy: 'lakshmi', until: 'closed', lateH: 5, pay: 'BANK' },
+  { lane: 'BLR-CBE', booked: { daysAgo: 72, at: '10:30' }, by: 'arjun', material: m.snacks, tonnes: 6, units: 1100, reference: 'PO-VAF-10471', offers: ['accept'],
+    approveBy: 'deepa', until: 'closed',
     damaged: 8, podRemarks: '8 cartons crushed at the bottom of the stack',
     claim: { kind: 'DAMAGE', qty: 8, unitValue: 310, description: 'Crushed cartons, contents spilled', accept: true }, pay: 'UPI' },
-  { lane: 'MUM-PUN', booked: { daysAgo: 68, at: '09:50' }, by: 'arjun', material: m.oil, tonnes: 9, units: 600, reference: 'PO-VAF-10490',
-    quotes: [['konkan', 15400], ['shivam', 14900]], until: 'closed', pay: 'UPI' },
-  { lane: 'CHE-BLR', booked: { daysAgo: 64, at: '10:20' }, by: 'arjun', material: m.biscuits, tonnes: 12, units: 1500, reference: 'PO-VAF-10512',
-    quotes: [['thirumala', 42900], ['godavari', 41500], ['nilgiri', 44200], ['shivam', 39600]], award: { carrier: 'godavari', by: 'deepa' }, until: 'closed',
+  { lane: 'MUM-PUN', booked: { daysAgo: 68, at: '09:50' }, by: 'arjun', material: m.oil, tonnes: 9, units: 600, reference: 'PO-VAF-10490', offers: ['noanswer', 'accept'],
+    until: 'closed', pay: 'UPI' },
+  { lane: 'CHE-BLR', booked: { daysAgo: 64, at: '10:20' }, by: 'arjun', material: m.biscuits, tonnes: 12, units: 1500, reference: 'PO-VAF-10512', offers: ['accept'],
+    approveBy: 'deepa', until: 'closed',
     exception: { kind: 'BREAKDOWN', description: 'Clutch plate failure near Vaniyambadi', fix: { fix: 'REPAIR', label: 'Mechanic on site, repair on the spot', extraCost: 0, payer: 'CARRIER', delayH: 4 } }, pay: 'BANK' },
-  { lane: 'CHE-HYD', booked: { daysAgo: 59, at: '10:50' }, by: 'lakshmi', material: m.atta, tonnes: 17, units: 680, reference: 'PO-VAF-10533',
-    quotes: [['thirumala', 55500], ['godavari', 54800], ['shivam', 53900]],
-    retender: { reason: 'Every quote is above our ₹52,000 budget for this lane.', quotes: [['thirumala', 51800], ['godavari', 50900], ['shivam', null]] },
-    award: { carrier: 'godavari', by: 'lakshmi' }, until: 'closed', pay: 'BANK' },
-  { lane: 'CHE-BLR', booked: { daysAgo: 55, at: '10:00' }, by: 'arjun', material: m.rice, tonnes: 15, units: 575, reference: 'PO-VAF-10551',
-    quotes: [['thirumala', 43800], ['godavari', 42200], ['shivam', 40100]], award: { carrier: 'thirumala', by: 'lakshmi' }, until: 'closed', detention: 1500, pay: 'UPI' },
-  { lane: 'BLR-CBE', booked: { daysAgo: 50, at: '11:30' }, by: 'arjun', material: m.spices, tonnes: 5, units: 700, reference: 'PO-VAF-10570',
-    quotes: [['nilgiri', 19500], ['thirumala', 20900]], award: { carrier: 'nilgiri', by: 'deepa' }, until: 'closed', pay: 'UPI' },
-  { lane: 'MUM-PUN', booked: { daysAgo: 46, at: '09:45' }, by: 'arjun', material: m.snacks, tonnes: 6.5, units: 1200, reference: 'PO-VAF-10588',
-    quotes: [['konkan', 14900], ['shivam', 15100]], award: { carrier: 'konkan', by: 'deepa' }, until: 'closed', pay: 'BANK' },
-  { lane: 'CHE-HYD', booked: { daysAgo: 41, at: '10:10' }, by: 'arjun', material: m.oil, tonnes: 16, units: 1050, reference: 'PO-VAF-10604',
-    quotes: [['thirumala', 49800], ['godavari', 48500], ['shivam', 47900]], award: { carrier: 'godavari', by: 'lakshmi' }, until: 'closed', lateH: 9, pay: 'BANK' },
-  { lane: 'CHE-BLR', booked: { daysAgo: 36, at: '10:40' }, by: 'arjun', material: m.atta, tonnes: 16, units: 640, reference: 'PO-VAF-10627',
-    quotes: [['thirumala', 43200], ['godavari', 41900], ['nilgiri', 44600], ['shivam', 39800]], award: { carrier: 'shivam', by: 'lakshmi' }, until: 'closed',
+  { lane: 'CHE-HYD', booked: { daysAgo: 59, at: '10:50' }, by: 'lakshmi', material: m.atta, tonnes: 17, units: 680, reference: 'PO-VAF-10533', offers: ['rejected', 'accept'],
+    
+    approveBy: 'lakshmi', until: 'closed', pay: 'BANK' },
+  { lane: 'CHE-BLR', booked: { daysAgo: 55, at: '10:00' }, by: 'arjun', material: m.rice, tonnes: 15, units: 575, reference: 'PO-VAF-10551', offers: ['pass', 'accept'],
+    approveBy: 'lakshmi', until: 'closed', detention: 1500, pay: 'UPI' },
+  { lane: 'BLR-CBE', booked: { daysAgo: 50, at: '11:30' }, by: 'arjun', material: m.spices, tonnes: 5, units: 700, reference: 'PO-VAF-10570', offers: ['accept'],
+    approveBy: 'deepa', until: 'closed', pay: 'UPI' },
+  { lane: 'MUM-PUN', booked: { daysAgo: 46, at: '09:45' }, by: 'arjun', material: m.snacks, tonnes: 6.5, units: 1200, reference: 'PO-VAF-10588', offers: ['accept'],
+    approveBy: 'deepa', until: 'closed', pay: 'BANK' },
+  { lane: 'CHE-HYD', booked: { daysAgo: 41, at: '10:10' }, by: 'arjun', material: m.oil, tonnes: 16, units: 1050, reference: 'PO-VAF-10604', offers: ['accept'],
+    approveBy: 'lakshmi', until: 'closed', lateH: 9, pay: 'BANK' },
+  { lane: 'CHE-BLR', booked: { daysAgo: 36, at: '10:40' }, by: 'arjun', material: m.atta, tonnes: 16, units: 640, reference: 'PO-VAF-10627', offers: ['accept'],
+    approveBy: 'lakshmi', until: 'closed',
     damaged: 12, podRemarks: '12 bags short against the LR',
     claim: { kind: 'SHORTAGE', qty: 12, unitValue: 1450, description: '12 bags short at unloading', accept: false }, pay: 'BANK' },
-  { lane: 'BLR-CBE', booked: { daysAgo: 29, at: '10:05' }, by: 'arjun', material: m.biscuits, tonnes: 7, units: 900, reference: 'PO-VAF-10649',
-    quotes: [['nilgiri', 20100], ['thirumala', 20600]], award: { carrier: 'thirumala', by: 'deepa' }, until: 'closed', pay: 'UPI' },
-  { lane: 'MUM-PUN', booked: { daysAgo: 22, at: '09:55' }, by: 'arjun', material: m.atta, tonnes: 10, units: 400, reference: 'PO-VAF-10668',
-    quotes: [['konkan', 15300], ['shivam', 14700]], until: 'closed', pay: 'UPI' },
-  { lane: 'CHE-HYD', booked: { daysAgo: 16, at: '10:25' }, by: 'arjun', material: m.snacks, tonnes: 12, units: 2000, reference: 'PO-VAF-10690',
-    quotes: [['thirumala', 50200], ['godavari', 49400], ['shivam', null]], award: { carrier: 'thirumala', by: 'lakshmi' }, until: 'closed', pay: 'BANK' },
-  { lane: 'CHE-BLR', booked: { daysAgo: 12, at: '10:15' }, by: 'arjun', material: m.spices, tonnes: 9, units: 1100, reference: 'PO-VAF-10712',
-    quotes: [['thirumala', 42600], ['godavari', 41700], ['nilgiri', 43900], ['shivam', 40200]], award: { carrier: 'godavari', by: 'deepa' }, until: 'closed', pay: 'UPI' },
+  { lane: 'BLR-CBE', booked: { daysAgo: 29, at: '10:05' }, by: 'arjun', material: m.biscuits, tonnes: 7, units: 900, reference: 'PO-VAF-10649', offers: ['pass', 'accept'],
+    approveBy: 'deepa', until: 'closed', pay: 'UPI' },
+  { lane: 'MUM-PUN', booked: { daysAgo: 22, at: '09:55' }, by: 'arjun', material: m.atta, tonnes: 10, units: 400, reference: 'PO-VAF-10668', offers: ['accept'],
+    until: 'closed', pay: 'UPI' },
+  { lane: 'CHE-HYD', booked: { daysAgo: 16, at: '10:25' }, by: 'arjun', material: m.snacks, tonnes: 12, units: 2000, reference: 'PO-VAF-10690', offers: ['accept'],
+    approveBy: 'lakshmi', until: 'closed', pay: 'BANK' },
+  { lane: 'CHE-BLR', booked: { daysAgo: 12, at: '10:15' }, by: 'arjun', material: m.spices, tonnes: 9, units: 1100, reference: 'PO-VAF-10712', offers: ['accept'],
+    approveBy: 'deepa', until: 'closed', pay: 'UPI' },
 
   // ---------- Cancelled ----------
-  { lane: 'CHE-BLR', booked: { daysAgo: 20, at: '10:00' }, by: 'arjun', material: m.rice, tonnes: 14, units: 540, reference: 'PO-VAF-10675',
-    quotes: [['thirumala', 43400], ['godavari', 42000]], until: 'quoted', cancel: { reason: 'ORDER_CANCELLED', note: 'Distributor put the order on hold.', afterH: 1.5 } },
-  { lane: 'MUM-PUN', booked: { daysAgo: 14, at: '11:20' }, by: 'arjun', material: m.oil, tonnes: 8, units: 530, reference: 'PO-VAF-10701',
-    quotes: [['konkan', 15100], ['shivam', 14600]], until: 'awarded', cancel: { reason: 'WRONG_DETAILS', note: 'Booked to the wrong drop point; rebooked.', afterH: 3 } },
+  { lane: 'CHE-BLR', booked: { daysAgo: 20, at: '10:00' }, by: 'arjun', material: m.rice, tonnes: 14, units: 540, reference: 'PO-VAF-10675', offers: [],
+    until: 'quoted', cancel: { reason: 'ORDER_CANCELLED', note: 'Distributor put the order on hold.', afterH: 1.5 } },
+  { lane: 'MUM-PUN', booked: { daysAgo: 14, at: '11:20' }, by: 'arjun', material: m.oil, tonnes: 8, units: 530, reference: 'PO-VAF-10701', offers: ['accept'],
+    until: 'awarded', cancel: { reason: 'WRONG_DETAILS', note: 'Booked to the wrong drop point; rebooked.', afterH: 3 } },
 
   // ---------- Open work: billing ----------
-  { lane: 'CHE-HYD', booked: { daysAgo: 9, at: '10:30' }, by: 'arjun', material: m.rice, tonnes: 18, units: 690, reference: 'PO-VAF-10725',
-    quotes: [['godavari', 49900], ['thirumala', 50800], ['shivam', 47600]], award: { carrier: 'godavari', by: 'lakshmi' }, until: 'invoiced' },
-  { lane: 'CHE-BLR', booked: { daysAgo: 8, at: '11:00' }, by: 'arjun', material: m.atta, tonnes: 16, units: 640, reference: 'PO-VAF-10731',
-    quotes: [['thirumala', 44100], ['godavari', 43000], ['nilgiri', 44800]], award: { carrier: 'thirumala', by: 'lakshmi' }, until: 'invoiced', lateH: 3, detention: 2500 },
-  { lane: 'BLR-CBE', booked: { daysAgo: 7, at: '09:40' }, by: 'arjun', material: m.snacks, tonnes: 6, units: 1100, reference: 'PO-VAF-10738',
-    quotes: [['nilgiri', 19700], ['thirumala', 20400]], award: { carrier: 'nilgiri', by: 'deepa' }, until: 'invoiced', invoiceFreight: 20500,
-    query: 'Freight should be ₹19,700 as awarded, not ₹20,500.' },
-  { lane: 'MUM-PUN', booked: { daysAgo: 5, at: '10:10' }, by: 'arjun', material: m.spices, tonnes: 7, units: 850, reference: 'PO-VAF-10744',
-    quotes: [['konkan', 15000], ['shivam', 14500]], until: 'pod' },
-  { lane: 'CHE-BLR', booked: { daysAgo: 3, at: '10:20' }, by: 'arjun', material: m.biscuits, tonnes: 12, units: 1500, reference: 'PO-VAF-10752',
-    quotes: [['thirumala', 43300], ['godavari', 41600], ['nilgiri', 44400], ['shivam', 40500]], award: { carrier: 'godavari', by: 'deepa' }, until: 'delivered',
+  { lane: 'CHE-HYD', booked: { daysAgo: 9, at: '10:30' }, by: 'arjun', material: m.rice, tonnes: 18, units: 690, reference: 'PO-VAF-10725', offers: ['accept'],
+    approveBy: 'lakshmi', until: 'invoiced' },
+  { lane: 'CHE-BLR', booked: { daysAgo: 8, at: '11:00' }, by: 'arjun', material: m.atta, tonnes: 16, units: 640, reference: 'PO-VAF-10731', offers: ['accept'],
+    approveBy: 'lakshmi', until: 'invoiced', lateH: 3, detention: 2500 },
+  { lane: 'BLR-CBE', booked: { daysAgo: 7, at: '09:40' }, by: 'arjun', material: m.snacks, tonnes: 6, units: 1100, reference: 'PO-VAF-10738', offers: ['accept'],
+    approveBy: 'deepa', until: 'invoiced', invoiceFreight: 22000,
+    query: 'Freight should be the agreed contract rate, not ₹22,000.' },
+  { lane: 'MUM-PUN', booked: { daysAgo: 5, at: '10:10' }, by: 'arjun', material: m.spices, tonnes: 7, units: 850, reference: 'PO-VAF-10744', offers: ['accept'],
+    until: 'pod' },
+  { lane: 'CHE-BLR', booked: { daysAgo: 3, at: '10:20' }, by: 'arjun', material: m.biscuits, tonnes: 12, units: 1500, reference: 'PO-VAF-10752', offers: ['accept'],
+    approveBy: 'deepa', until: 'delivered',
     damaged: 14, podRemarks: '14 cartons wet, rain through a torn tarpaulin',
     claim: { kind: 'DAMAGE', qty: 14, unitValue: 420, description: 'Water-damaged cartons, not saleable' } },
 
   // ---------- Open work: on the road ----------
-  { lane: 'CHE-HYD', booked: { hoursAgo: 30 }, by: 'arjun', material: m.oil, tonnes: 16, units: 1050, reference: 'PO-VAF-10760',
-    quotes: [['thirumala', 50600], ['godavari', 49200], ['shivam', 48100]], award: { carrier: 'thirumala', by: 'lakshmi' }, until: 'transit',
+  { lane: 'CHE-HYD', booked: { hoursAgo: 30 }, by: 'arjun', material: m.oil, tonnes: 16, units: 1050, reference: 'PO-VAF-10760', offers: ['accept'],
+    approveBy: 'lakshmi', until: 'transit',
     exception: { kind: 'DELAY', description: 'Slow traffic at the Gudur toll plaza', fix: { fix: 'WAIT', label: 'Running about 3 hours late', extraCost: 0, payer: 'CARRIER', delayH: 3 } } },
-  { lane: 'CHE-BLR', booked: { hoursAgo: 26 }, by: 'arjun', material: m.rice, tonnes: 15, units: 575, reference: 'PO-VAF-10763',
-    quotes: [['thirumala', 43600], ['godavari', 42400], ['nilgiri', 44500], ['shivam', 40300]], award: { carrier: 'godavari', by: 'deepa' }, until: 'transit' },
-  { lane: 'BLR-CBE', booked: { hoursAgo: 27 }, by: 'arjun', material: m.biscuits, tonnes: 7, units: 900, reference: 'PO-VAF-10765',
-    quotes: [['nilgiri', 19900], ['thirumala', 20700]], award: { carrier: 'nilgiri', by: 'deepa' }, until: 'transit',
+  { lane: 'CHE-BLR', booked: { hoursAgo: 26 }, by: 'arjun', material: m.rice, tonnes: 15, units: 575, reference: 'PO-VAF-10763', offers: ['accept'],
+    approveBy: 'deepa', until: 'transit' },
+  { lane: 'BLR-CBE', booked: { hoursAgo: 27 }, by: 'arjun', material: m.biscuits, tonnes: 7, units: 900, reference: 'PO-VAF-10765', offers: ['accept'],
+    approveBy: 'deepa', until: 'transit',
     exception: { kind: 'BREAKDOWN', description: 'Gearbox failure on NH 544 near Dharmapuri', pending: true,
       fix: { fix: 'SWAP', label: 'Send a replacement 19ft truck from Salem and transfer the load', extraCost: 4500, payer: 'SHIPPER', delayH: 6 } } },
-  { lane: 'MUM-PUN', booked: { hoursAgo: 7 }, by: 'arjun', material: m.atta, tonnes: 10, units: 400, reference: 'PO-VAF-10768',
-    quotes: [['konkan', 15200], ['shivam', 14800]], until: 'truck' },
+  { lane: 'MUM-PUN', booked: { hoursAgo: 7 }, by: 'arjun', material: m.atta, tonnes: 10, units: 400, reference: 'PO-VAF-10768', offers: ['accept'],
+    until: 'truck' },
 
   // ---------- Open work: booking and quotes ----------
-  { lane: 'CHE-HYD', booked: { hoursAgo: 3.5 }, by: 'arjun', material: m.atta, tonnes: 17, units: 680, reference: 'PO-VAF-10771',
-    quotes: [['thirumala', 50900], ['godavari', 49700], ['shivam', 47900]], award: { carrier: 'godavari', by: 'lakshmi' }, until: 'awarded' },
-  { lane: 'CHE-HYD', booked: { hoursAgo: 2.5 }, by: 'arjun', material: m.spices, tonnes: 11, units: 1300, reference: 'PO-VAF-10773',
-    quotes: [['thirumala', 55200], ['godavari', 54600], ['shivam', null]], until: 'quoted' },
-  { lane: 'CHE-BLR', booked: { hoursAgo: 1.6 }, by: 'arjun', material: m.snacks, tonnes: 8, units: 1400, reference: 'PO-VAF-10775',
-    quotes: [['thirumala', 43900], ['godavari', 42700], ['nilgiri', 44300]], until: 'quoted' },
-  { lane: 'BLR-CBE', booked: { hoursAgo: 0.5 }, by: 'arjun', material: m.oil, tonnes: 6, units: 400, reference: 'PO-VAF-10777',
-    quotes: [], until: 'requested' },
+  { lane: 'CHE-HYD', booked: { hoursAgo: 3.5 }, by: 'arjun', material: m.atta, tonnes: 17, units: 680, reference: 'PO-VAF-10771', offers: ['accept'],
+    approveBy: 'lakshmi', until: 'awarded' },
+  { lane: 'CHE-HYD', booked: { hoursAgo: 2.5 }, by: 'arjun', material: m.spices, tonnes: 11, units: 1300, reference: 'PO-VAF-10773', offers: ['pass', 'accept'],
+    until: 'quoted' },
+  { lane: 'CHE-BLR', booked: { hoursAgo: 5 }, by: 'arjun', material: m.snacks, tonnes: 8, units: 1400, reference: 'PO-VAF-10775', offers: ['pass', 'noanswer', 'pass', 'pass'],
+    until: 'quoted' },
+  { lane: 'BLR-CBE', booked: { hoursAgo: 0.5 }, by: 'arjun', material: m.oil, tonnes: 6, units: 400, reference: 'PO-VAF-10777', offers: [],
+    until: 'requested' },
 ];

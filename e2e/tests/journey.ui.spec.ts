@@ -1,11 +1,11 @@
 import type { Page } from '@playwright/test';
 import { USERS, asUser, expect, loginUi, test } from './helpers';
-import { carrierQuotes, exceptions, integration, ownLane } from './trips.helpers';
+import { carrierAccepts, carrierPasses, exceptions, integration, ownLane } from './trips.helpers';
 
 /**
  * The whole shipper workflow in one go (BRD §5, steps 1–20), with every shipper action done in
  * the browser and the carrier, driver and receiver played through the integration endpoints:
- * book → quotes → award → truck → on the road → breakdown fixed → delivered with damage → claim →
+ * book → offer (lowest contract rate first) → carrier passes → next carrier accepts (awarded at once) → truck → on the road → breakdown fixed → delivered with damage → claim →
  * POD accepted → invoice with the claim deducted → approve in Approvals → pay → closed → it shows up
  * in Trips, Reports and the activity log.
  */
@@ -15,7 +15,7 @@ const field = (page: Page, label: string) =>
 test('end-to-end shipper journey: booking to paid and closed', async ({ page, request }) => {
   test.setTimeout(240_000);
   const anita = await asUser(request, USERS.shipperHead);
-  const own = await ownLane(anita, 2); // fresh lane with 2 approved carriers
+  const own = await ownLane(anita, 2); // fresh lane with 2 contract carriers: A at ₹19,000, B at ₹19,500
   const [carrierA, carrierB] = own.carriers;
   const pickup = (await (await anita.get('/addresses')).json()).addresses.find((a: { id: string }) => a.id === own.booking.pickupAddressId);
   const drop = (await (await anita.get('/addresses')).json()).addresses.find((a: { id: string }) => a.id === own.booking.dropAddressId);
@@ -28,24 +28,24 @@ test('end-to-end shipper journey: booking to paid and closed', async ({ page, re
   await field(page, 'Weight (tonnes)').fill('7');
   await page.getByText('17ft', { exact: true }).click();
   await field(page, 'Material').fill('Rice bags');
-  await field(page, 'Budget per trip (₹)').fill('20000');
+  await expect(page.getByLabel(/Budget/)).toHaveCount(0); // no price to type
+  await expect(page.getByRole('region', { name: 'Carriers on contract for this lane' })).toContainText(carrierA.name);
   await page.getByRole('button', { name: 'Review and confirm' }).click();
-  await expect(page.getByText(`2 approved carriers: ${carrierA.name}, ${carrierB.name}`)).toBeVisible();
-  await page.getByRole('button', { name: 'Confirm and ask for quotes' }).click();
-  await expect(page.getByRole('heading', { name: 'Waiting for quotes' })).toBeVisible();
+  await expect(page.getByText(`${carrierA.name} at ₹19,000 (contract rate)`)).toBeVisible();
+  await expect(page.getByText(`${carrierB.name} (₹19,500)`)).toBeVisible();
+  await page.getByRole('button', { name: 'Confirm and offer the load' }).click();
+  await expect(page.getByRole('heading', { name: `Offered to ${carrierA.name}` })).toBeVisible();
   const tripId = page.url().split('/').pop()!;
   const number = (await page.getByRole('navigation', { name: 'Breadcrumb' }).textContent())!.match(/TR-\d{5}/)![0];
 
-  // 3–5. Carriers quote; compare and award the recommended one in the browser.
-  await carrierQuotes(request, number, carrierA.id, 18500);
-  await carrierQuotes(request, number, carrierB.id, 17900);
+  // 3–5. The cheapest carrier passes, the next accepts and the load is awarded at once.
+  expect((await carrierPasses(request, number, carrierA.id, 'No truck free')).status()).toBe(200);
   await page.reload();
-  await expect(page.getByRole('heading', { name: 'Choose a carrier' })).toBeVisible();
-  await expect(page.getByText('2 of 2 carriers quoted. Budget for this trip: ₹20,000.')).toBeVisible();
-  const award = page.getByRole('button', { name: /^Award to / });
-  const awardedTo = (await award.textContent())!.replace('Award to ', '').split(' · ')[0];
-  await award.click();
-  await expect(page.getByRole('heading', { name: new RegExp(`^Awarded to ${awardedTo}`) })).toBeVisible();
+  await expect(page.getByRole('heading', { name: `Offered to ${carrierB.name}` })).toBeVisible();
+  expect((await carrierAccepts(request, number, carrierB.id)).status()).toBe(200);
+  await page.reload();
+  const awardedTo = carrierB.name;
+  await expect(page.getByRole('heading', { name: `Accepted by ${awardedTo} at ₹19,500 (contract rate)` })).toBeVisible();
 
   // 6–12. Truck confirmed, documents issued, loaded.
   await integration.truck(request, number, { truckNumber: 'TN 59 AB 1234', lrNumber: `LR-${number}` });
@@ -75,7 +75,7 @@ test('end-to-end shipper journey: booking to paid and closed', async ({ page, re
 
   // 18. Carrier accepts the claim and invoices with it deducted; approve in Approvals.
   await integration.claimResponse(request, claimNo, true);
-  const awardedAmount = awardedTo === carrierB.name ? 17900 : 18500;
+  const awardedAmount = 19500;
   await integration.invoice(request, number, { number: `INV-${number}`, freight: awardedAmount, claimDeduction: 1200 });
   await page.goto('/approvals');
   const row = page.getByRole('row', { name: new RegExp(`INV-${number}`) });
@@ -96,7 +96,7 @@ test('end-to-end shipper journey: booking to paid and closed', async ({ page, re
   await page.goto(`/reports/activity`);
   await page.getByRole('textbox', { name: 'Trip number' }).fill(number);
   const log = page.getByRole('table', { name: 'Activity' });
-  for (const s of ['Booked on the web', 'Quote request sent to 2 carriers', `Awarded to ${awardedTo}`, 'Truck TN 59 AB 1234 confirmed', 'Problem reported: breakdown', 'Back on the road', 'Delivered: 149 good, 1 damaged', `Claim ${claimNo} raised`, 'POD accepted', `Invoice INV-${number} approved`, 'Paid ₹', 'Trip closed']) {
+  for (const s of ['Booked on the web', `Offered to ${carrierA.name} at ₹19,000 (contract rate, 1 of 2)`, `${carrierA.name} passed — “No truck free”`, `Awarded to ${awardedTo} at ₹19,500 (contract rate)`, 'Truck TN 59 AB 1234 confirmed', 'Problem reported: breakdown', 'Back on the road', 'Delivered: 149 good, 1 damaged', `Claim ${claimNo} raised`, 'POD accepted', `Invoice INV-${number} approved`, 'Paid ₹', 'Trip closed']) {
     await expect(log.getByText(s).first()).toBeVisible();
   }
   await page.goto('/');

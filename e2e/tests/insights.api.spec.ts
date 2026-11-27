@@ -1,16 +1,14 @@
 import { expect, test, type APIRequestContext } from '@playwright/test';
 import { API_URL } from '../test-env';
 import { USERS, asUser, apiLogin } from './helpers';
-import { book, carrierQuotes, integration, ownLane, refs } from './trips.helpers';
+import { book, carrierAccepts, integration, ownLane, refs } from './trips.helpers';
 
 type Client = Awaited<ReturnType<typeof asUser>>;
 
 /** Runs a trip on its own lane to POD, delivered before (on time) or after (late) the promised ETA. */
-async function deliveredOn(request: APIRequestContext, client: Client, own: Awaited<ReturnType<typeof ownLane>>, amount: number, late: boolean) {
+async function deliveredOn(request: APIRequestContext, client: Client, own: Awaited<ReturnType<typeof ownLane>>, late: boolean) {
   const trip = await book(client, await refs(client), own.booking);
-  await carrierQuotes(request, trip.number, own.carriers[0].id, amount);
-  const t = (await (await client.get(`/trips/${trip.id}`)).json()).trip;
-  await client.post(`/trips/${trip.id}/award`, { quoteId: t.quotes[0].id });
+  expect((await carrierAccepts(request, trip.number, own.carriers[0].id)).status()).toBe(200); // the lowest contract rate (₹19,000) is offered first
   await integration.truck(request, trip.number);
   const eta = new Date(Date.now() + (late ? -3600_000 : 86400_000)).toISOString();
   await integration.event(request, trip.number, 'LOADED', { eta });
@@ -32,7 +30,7 @@ test.describe('Home dashboard API', () => {
     const anita = await asUser(request, USERS.shipperHead);
     const r = await refs(anita);
     const trip = await book(anita, r);
-    await carrierQuotes(request, trip.number, r.kaveri, 42500);
+    await carrierAccepts(request, trip.number, r.deccan);
     const d = await (await anita.get('/insights/dashboard')).json();
     expect(d.firstTime).toBe(false);
     expect(d.approvals.length).toBeLessThanOrEqual(3);
@@ -46,19 +44,19 @@ test.describe('Home dashboard API', () => {
 });
 
 test.describe('Reports API', () => {
-  test('on-time, POD days, spend vs budget, by lane and carrier scorecard follow the trip records', async ({ request }) => {
+  test('on-time, POD days, spend, by lane and carrier scorecard follow the trip records', async ({ request }) => {
     const anita = await asUser(request, USERS.shipperHead);
-    const own = await ownLane(anita, 1); // bookings with own.booking have a ₹20,000 budget
-    await deliveredOn(request, anita, own, 18000, false);
-    await deliveredOn(request, anita, own, 19000, true);
+    const own = await ownLane(anita, 1); // its carrier's contract rate is ₹19,000, so each trip is awarded at that
+    await deliveredOn(request, anita, own, false);
+    await deliveredOn(request, anita, own, true);
     const rep = await (await anita.get('/insights/reports?period=month')).json();
     expect(rep.period.key).toBe('month');
     const lane = rep.byLane.find((l: { lane: string }) => l.lane === `Madurai → ${own.lane.destination}`) ?? rep.byLane.find((l: { lane: string }) => l.lane.toLowerCase() === `madurai → ${own.lane.destination.toLowerCase()}`);
-    expect(lane).toMatchObject({ trips: 2, spend: 37000, budget: 40000 });
+    expect(lane).toMatchObject({ trips: 2, spend: 38000 });
     const card = rep.scorecard.find((c: { carrier: string }) => c.carrier === own.carriers[0].name);
-    expect(card).toMatchObject({ trips: 2, delivered: 2, onTimePct: 50, vsBudgetPct: -8 }); // (−10% and −5%) / 2 rounded
+    expect(card).toMatchObject({ trips: 2, delivered: 2, onTimePct: 50, vsBudgetPct: null }); // no budget any more, so no comparison
     expect(card.avgPodDays).toBeLessThan(0.1); // POD accepted right after delivery
-    expect(rep.kpis.spend).toBeGreaterThanOrEqual(37000);
+    expect(rep.kpis.spend).toBeGreaterThanOrEqual(38000);
     expect(rep.kpis.onTimePct).not.toBeNull();
 
     const last = await (await anita.get('/insights/reports?period=last-month')).json();
@@ -81,12 +79,12 @@ test.describe('Activity log API', () => {
     const anita = await asUser(request, USERS.shipperHead);
     const r = await refs(anita);
     const trip = await book(anita, r);
-    await carrierQuotes(request, trip.number, r.kaveri, 42500);
+    await carrierAccepts(request, trip.number, r.deccan);
 
     const forTrip = await (await anita.get(`/activity?q=${trip.number}&days=7`)).json();
     expect(forTrip.entries.length).toBeGreaterThanOrEqual(3);
     expect(forTrip.entries.every((e: { record: string }) => e.record === trip.number)).toBe(true);
-    expect(forTrip.entries.map((e: { text: string }) => e.text)).toContain('Kaveri Roadlines quoted ₹42,500');
+    expect(forTrip.entries.some((e: { text: string }) => e.text.includes('Deccan Freight Carriers') && e.text.includes('₹43,800') && /accepted|Awarded/.test(e.text))).toBe(true);
 
     const people = await (await anita.get('/activity?who=people')).json();
     expect(people.entries.every((e: { isPerson: boolean }) => e.isPerson)).toBe(true);

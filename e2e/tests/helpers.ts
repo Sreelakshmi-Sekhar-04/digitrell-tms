@@ -7,6 +7,10 @@ export const USERS = {
   shipperExec: { email: 'karthik@sunrisefoods.test', password: 'Shipper@123', name: 'Karthik S', company: 'Sunrise Foods Pvt Ltd' },
   inactive: { email: 'inactive@sunrisefoods.test', password: 'Shipper@123' },
   carrier: { email: 'vijay@kaveri.test', password: 'Carrier@123', name: 'Vijay Kumar', company: 'Kaveri Roadlines' },
+  carrierTraffic: { email: 'divya@kaveri.test', password: 'Carrier@123', name: 'Divya R', company: 'Kaveri Roadlines' },
+  carrierAccounts: { email: 'suresh@kaveri.test', password: 'Carrier@123', name: 'Suresh M', company: 'Kaveri Roadlines' },
+  carrierInactive: { email: 'inactive@kaveri.test', password: 'Carrier@123' },
+  otherCarrier: { email: 'arjun@northstar.test', password: 'Carrier@123', name: 'Arjun Mehta', company: 'NorthStar Logistics' },
   otherShipper: { email: 'meera@coastalpaints.test', password: 'Shipper@123', name: 'Meera Pillai', company: 'Coastal Paints' },
   // Demo company (backend/prisma/demo), loaded into the test database after the seed.
   demoHead: { email: 'lakshmi.menon@vasudhafoods.test', password: 'Demo@123', name: 'Lakshmi Menon', company: 'Vasudha Agro Foods Pvt Ltd' },
@@ -16,6 +20,7 @@ export const USERS = {
 
 // New booking is started from Trips (and Home), not the menu; master data lives under one item.
 export const NAV = ['Home', 'Trips', 'Approvals', 'Master data', 'Reports', 'Policies'];
+export const CARRIER_NAV = ['Home', 'Loads', 'Approvals', 'Fleet and rates', 'Reports', 'Policies'];
 
 /**
  * `test` with a guard that fails any UI test which logs a browser console error or an

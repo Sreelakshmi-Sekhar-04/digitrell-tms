@@ -1,7 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import { errorHandler, notFoundHandler } from './lib/errors';
-import { requireAuth, requireShipper } from './middleware/auth';
+import { requireAuth, requireCarrier, requireShipper } from './middleware/auth';
+import { carrierRouter } from './modules/carrier/carrier.routes';
 import { authRouter } from './modules/auth/auth.routes';
 import { addressesRouter } from './modules/masters/addresses.routes';
 import { carriersRouter } from './modules/masters/carriers.routes';
@@ -17,6 +18,7 @@ import { integrationRouter } from './modules/integration/integration.routes';
 import { insightsRouter } from './modules/insights/insights.routes';
 import { activityRouter } from './modules/activity/activity.routes';
 import { profileRouter } from './modules/users/profile.routes';
+import { notificationsRouter } from './modules/notifications/notifications.routes';
 
 /** Builds the Express app (kept separate from server.ts so tests can import it). */
 export function createApp() {
@@ -51,6 +53,10 @@ export function createApp() {
   app.use('/api/insights', shipper, insightsRouter);
   app.use('/api/activity', shipper, activityRouter);
   app.use('/api/profile', shipper, profileRouter);
+  app.use('/api/notifications', shipper, notificationsRouter);
+
+  // Carrier module: signed-in users of a carrier company only, always scoped to their company.
+  app.use('/api/carrier', requireAuth, requireCarrier, carrierRouter);
 
   // Stand-ins for modules not built yet (carrier quotes) and test tools. Key-protected.
   app.use('/api/integration', integrationRouter);

@@ -57,15 +57,16 @@ test.describe('Access control', () => {
 
   test('an external "next" target is ignored', async ({ page }) => {
     await loginUi(page, USERS.shipperHead, '//evil.example.com');
-    await expect(page).toHaveURL(/localhost:3100\/$/);
+    await expect(page).toHaveURL(/localhost:\d+\/$/);
   });
 
-  test('carrier users are told this workspace is for shippers', async ({ page }) => {
+  // Carrier phase 1: carriers now have their own desk instead of being blocked (carrier.foundation.ui.spec.ts).
+  test('carrier users opening a shipper screen are taken to the carrier desk', async ({ page }) => {
     await loginUi(page, USERS.carrier);
-    await expect(page.getByRole('heading', { name: 'This workspace is for shippers' })).toBeVisible();
-    await expect(page.getByRole('navigation', { name: 'Main' })).toHaveCount(0);
-    await page.getByRole('button', { name: 'Sign out' }).click();
-    await expect(page).toHaveURL(/\/login/);
+    await expect(page).toHaveURL(/\/carrier$/);
+    await page.goto('/trips');
+    await expect(page).toHaveURL(/\/carrier$/);
+    await expect(page.getByRole('navigation', { name: 'Main', exact: true }).getByRole('link', { name: 'Trips' })).toHaveCount(0);
   });
 
   test('sign out ends the session and protects screens again', async ({ page }) => {

@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Add truck and invite user</title>
+<script src="./_runtime/react.js"></script>
+<script src="./_runtime/react-dom.js"></script>
+<script src="./_runtime/support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap">
+<style>
+body{margin:0;background:#F5F7F6}
+.x *{box-sizing:border-box}
+.h{font-family:'Space Grotesk',Inter,sans-serif;letter-spacing:-.01em}
+.muted{color:#52606D}
+.cap{font:700 12px Inter,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#0A5360;margin:0 0 6px}
+.btn{min-height:44px;padding:0 18px;border-radius:10px;border:1px solid transparent;font:600 14px/1 Inter,sans-serif;display:inline-flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;white-space:nowrap}
+.bp{background:#0E6B7A;color:#fff}.bs{background:#fff;color:#17212B;border-color:#CBD5D1}.bg{background:transparent;color:#0A5360;padding:0 10px}.sm{min-height:36px;padding:0 12px;font-size:13px}
+.chip{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:999px;font:600 12px/1 Inter,sans-serif;white-space:nowrap}
+.chip:before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.cs{background:#E4F4E9;color:#166534}.ca{background:#FDF0DF;color:#8A3B0B}.cn{background:#EDF1F5;color:#334155}
+.lbl{font:600 13px Inter,sans-serif;color:#2A3642;display:block;margin-bottom:6px}
+.req{color:#B45309}
+.inp{width:100%;min-height:44px;padding:0 12px;border:1px solid #CBD5D1;border-radius:10px;font:14px Inter,sans-serif;color:#17212B;background:#fff}
+.help{font:12px/1.4 Inter,sans-serif;color:#52606D;margin-top:6px}
+.drawer{background:#fff;border-radius:16px 0 0 16px;box-shadow:-12px 0 40px rgba(23,33,43,.18);display:flex;flex-direction:column;min-height:980px}
+.dh{padding:20px 24px;border-bottom:1px solid #E1E7E5;display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.db{padding:20px 24px;display:flex;flex-direction:column;gap:18px;flex:1}
+.df{padding:16px 24px;border-top:1px solid #E1E7E5;display:flex;flex-wrap:wrap;gap:10px;background:#FAFBFB}
+.opt{min-height:44px;padding:0 14px;border-radius:10px;font:600 14px Inter,sans-serif;cursor:pointer;background:#fff;color:#2A3642;border:1px solid #CBD5D1}
+.opt.on{background:#E6F2F3;color:#0E6B7A;border:2px solid #0E6B7A}
+.rc{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border:1px solid #CBD5D1;border-radius:12px;cursor:pointer;font-size:14px}
+.rc.on{border:2px solid #0E6B7A;background:#F3F8F8}
+.dot{flex:none;width:18px;height:18px;border-radius:50%;border:2px solid #A7B4B0;margin-top:2px}
+.rc.on .dot{border:6px solid #0E6B7A}
+</style>
+</helmet>
+<div class="x" style="font-family: Inter, system-ui, sans-serif; color: #17212B; background: #F5F7F6; padding: 40px 24px 56px">
+<div style="max-width: 1360px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px">
+  <header>
+    <p class="cap">Add and edit forms</p>
+    <h1 class="h" style="margin: 0; font-size: 32px">Drawers slide over the list, so the table stays in view</h1>
+    <p class="muted" style="margin: 8px 0 0; font-size: 15px; line-height: 1.55; max-width: 860px">Every master (lane, address, truck, driver, rate card, user) uses the same drawer from the right. Edit opens the same drawer pre-filled, so create and edit look identical. Esc or Cancel closes it; unsaved changes ask once before closing.</p>
+  </header>
+
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(520px, 100%), 1fr)); gap: 32px; align-items: start">
+
+    <section aria-label="Add truck drawer">
+      <p class="muted" style="margin: 0 0 10px; font-size: 13px"><strong style="color: #17212B">Carrier › Fleet and rates › Trucks › + Add truck</strong> · document details are fetched from Vahan, not typed</p>
+      <div class="drawer">
+        <div class="dh">
+          <div><h2 class="h" style="margin: 0; font-size: 20px">Add truck</h2><div class="muted" style="font-size: 13px; margin-top: 4px">Kaveri Roadlines · 11 trucks</div></div>
+          <button type="button" class="btn bg sm" aria-label="Close">✕</button>
+        </div>
+        <div class="db">
+          <div>
+            <label class="lbl" for="tn">Truck number <span class="req">*</span></label>
+            <div style="display: flex; gap: 8px"><input id="tn" class="inp" value="TN 22 CK 6190"><button type="button" class="btn bs sm" style="min-height: 44px">Fetch details</button></div>
+            <div class="help">Spaces are added for you. We read RC, insurance, permit and fitness from Vahan.</div>
+          </div>
+          <div style="border: 1px solid #E1E7E5; border-radius: 12px; overflow: hidden">
+            <div style="padding: 10px 14px; background: #F3F8F7; font-size: 13px; font-weight: 600; display: flex; justify-content: space-between"><span>Found on Vahan · 24 Nov, 11:02</span><span class="chip ca">1 needs attention</span></div>
+            <div style="display: grid; grid-template-columns: 1fr auto; gap: 10px 12px; padding: 12px 14px; font-size: 14px">
+              <span>RC · Tata Signa 3518 · 2022</span><span class="chip cs">Valid</span>
+              <span>Insurance · to 14 Jan 2027</span><span class="chip cs">Valid</span>
+              <span>National permit · to 30 Nov 2026</span><span class="chip ca">Expires in 6 days</span>
+              <span>Fitness · to 9 Aug 2027</span><span class="chip cs">Valid</span>
+            </div>
+            <div style="padding: 0 14px 12px; font-size: 13px" class="muted">Permit renewal reminder will go to Vijay on 27 Nov. The truck can be assigned until then.</div>
+          </div>
+          <div>
+            <span class="lbl">Truck type <span class="req">*</span> <span class="muted" style="font-weight: 400">(from RC, change if wrong)</span></span>
+            <div style="display: flex; flex-wrap: wrap; gap: 8px"><button type="button" class="opt">20ft SXL</button><button type="button" class="opt">32ft SXL</button><button type="button" class="opt on">32ft MXL</button><button type="button" class="opt">Other</button></div>
+          </div>
+          <div>
+            <span class="lbl">Ownership <span class="req">*</span></span>
+            <div style="display: flex; flex-wrap: wrap; gap: 8px"><button type="button" class="opt on">Own</button><button type="button" class="opt">Attached</button></div>
+            <div class="help">Attached trucks ask for the owner's name and UPI ID (shown only when chosen).</div>
+          </div>
+          <div>
+            <label class="lbl" for="drv">Usual driver <span class="muted" style="font-weight: 400">(optional)</span></label>
+            <select id="drv" class="inp"><option>Murugan V · +91 97xxxxxx08</option><option>Add a new driver…</option></select>
+          </div>
+        </div>
+        <div class="df"><button type="button" class="btn bp">Save truck</button><button type="button" class="btn bs">Save and add another</button><button type="button" class="btn bg">Cancel</button></div>
+      </div>
+    </section>
+
+    <section aria-label="Invite user drawer">
+      <p class="muted" style="margin: 0 0 10px; font-size: 13px"><strong style="color: #17212B">Shipper › Carriers and lanes › Users and roles › + Add user</strong> · only the logistics head can invite</p>
+      <div class="drawer">
+        <div class="dh">
+          <div><h2 class="h" style="margin: 0; font-size: 20px">Invite a colleague</h2><div class="muted" style="font-size: 13px; margin-top: 4px">Sunrise Foods · 3 users</div></div>
+          <button type="button" class="btn bg sm" aria-label="Close">✕</button>
+        </div>
+        <div class="db">
+          <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px">
+            <div><label class="lbl" for="un">Name <span class="req">*</span></label><input id="un" class="inp" value="Rahul Menon"></div>
+            <div><label class="lbl" for="um">Mobile <span class="req">*</span></label><input id="um" class="inp" value="+91 99xxxxxx42"><div class="help">Used to recognise them on WhatsApp.</div></div>
+          </div>
+          <div><label class="lbl" for="ue">Email <span class="muted" style="font-weight: 400">(optional, for web login)</span></label><input id="ue" class="inp" placeholder="name@company.com"></div>
+          <div>
+            <span class="lbl">Role <span class="req">*</span></span>
+            <div style="display: flex; flex-direction: column; gap: 8px">
+              <div class="rc"><span class="dot"></span><div><strong>Booking executive</strong><div class="muted" style="font-size: 13px">Creates bookings, tracks trips. Cannot approve.</div></div></div>
+              <div class="rc on"><span class="dot"></span><div><strong>Approver</strong><div class="muted" style="font-size: 13px">Approves awards, fixes and claims up to a limit.</div></div></div>
+              <div class="rc"><span class="dot"></span><div><strong>Accounts payable</strong><div class="muted" style="font-size: 13px">Approves and pays invoices up to a limit.</div></div></div>
+            </div>
+          </div>
+          <div style="padding: 14px; border-radius: 12px; background: #F3F8F7">
+            <label class="lbl" for="ul">Can approve up to (₹ per decision) <span class="req">*</span></label>
+            <input id="ul" class="inp" value="75,000" style="max-width: 220px">
+            <div class="help">Shown because Approver is selected. Above this, it goes to you (₹2,00,000).</div>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px">
+            <div><label class="lbl" for="ulang">Message language</label><select id="ulang" class="inp"><option>English</option><option>Malayalam</option><option>Tamil</option><option>Hindi</option></select></div>
+            <div><label class="lbl" for="uch">Gets messages on</label><select id="uch" class="inp"><option>WhatsApp, then SMS</option><option>Email only</option></select></div>
+          </div>
+          <div style="border: 1px dashed #CBD5D1; border-radius: 12px; padding: 12px 14px; font-size: 13px; line-height: 1.5"><strong>Preview of the invite on WhatsApp</strong><br><span class="muted">Anita Rao added you to Sunrise Foods on DigitRell as an approver (up to ₹75,000). Reply YES to start.</span></div>
+        </div>
+        <div class="df"><button type="button" class="btn bp">Send invite</button><button type="button" class="btn bg">Cancel</button></div>
+      </div>
+    </section>
+  </div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1150}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

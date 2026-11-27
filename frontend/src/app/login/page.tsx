@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useRef, useState, type FormEvent } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useAuth } from '@/lib/auth';
+import { homeFor, inWorkspace, useAuth, type SessionUser } from '@/lib/auth';
 import { ApiError } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
 import { TextField } from '@/components/ui/Field';
@@ -15,7 +15,7 @@ function safeNext(next: string | null) {
 }
 
 function LoginForm() {
-  const { status, login } = useAuth();
+  const { status, user, login } = useAuth();
   const router = useRouter();
   const params = useSearchParams();
   const next = safeNext(params.get('next'));
@@ -28,9 +28,13 @@ function LoginForm() {
   const emailRef = useRef<HTMLInputElement>(null);
   const pwRef = useRef<HTMLInputElement>(null);
 
+  // A carrier goes to the carrier desk, a shipper to the shipper desk. A "next" page in the other
+  // workspace (e.g. an old link) is ignored rather than bounced through.
+  const target = (u: SessionUser) => (next !== '/' && inWorkspace(u, next) ? next : homeFor(u));
+
   useEffect(() => {
-    if (status === 'signed-in') router.replace(next);
-  }, [status, next, router]);
+    if (status === 'signed-in' && user) router.replace(target(user));
+  }, [status, user, next, router]); // target only depends on next and user
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -45,8 +49,8 @@ function LoginForm() {
 
     setBusy(true);
     try {
-      await login(email.trim(), password);
-      router.replace(next);
+      const u = await login(email.trim(), password);
+      router.replace(target(u));
     } catch (err) {
       if (err instanceof ApiError && err.body.fields) setErrors(err.body.fields);
       setFormError(err instanceof ApiError ? err.body.message : 'Something went wrong. Please try again.');
@@ -115,12 +119,12 @@ export default function LoginPage() {
           <span aria-hidden="true" className="flex h-10 w-10 items-center justify-center rounded-btn bg-brand font-display text-lg font-bold text-white">D</span>
           <div>
             <div className="font-display text-lg font-bold leading-tight">DigitRell TMS</div>
-            <div className="text-xs text-ink-muted">Shipper workspace</div>
+            <div className="text-xs text-ink-muted">Shipper and carrier workspace</div>
           </div>
         </div>
         <section className="rounded-card border border-line bg-white p-6 sm:p-7">
           <h1 className="text-[22px] font-bold">Sign in</h1>
-          <p className="mb-5 mt-1 text-sm text-ink-muted">Book trucks, approve awards and track trips.</p>
+          <p className="mb-5 mt-1 text-sm text-ink-muted">Book trucks or quote loads, approve decisions and track trips.</p>
           <Suspense fallback={null}>
             <LoginForm />
           </Suspense>

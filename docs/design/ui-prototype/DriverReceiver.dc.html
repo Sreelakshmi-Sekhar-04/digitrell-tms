@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Driver and receiver bot conversations</title>
+<script src="./_runtime/react.js"></script>
+<script src="./_runtime/react-dom.js"></script>
+<script src="./_runtime/support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0}
+.x *{box-sizing:border-box}
+.chat{width:400px;background:#ECE8E1;display:flex;flex-direction:column;border-radius:16px;overflow:hidden}
+.hd{display:flex;align-items:center;gap:10px;padding:14px 16px;background:#0E6B7A;color:#fff}
+.av{width:38px;height:38px;border-radius:50%;background:#fff;color:#0E6B7A;display:flex;align-items:center;justify-content:center;font-weight:700}
+.bd{padding:14px 12px 20px;display:flex;flex-direction:column;gap:8px}
+.in{align-self:flex-start;max-width:88%;background:#fff;border-radius:4px 14px 14px 14px;padding:10px 12px;font-size:14px;line-height:1.45;color:#17212B;box-shadow:0 1px 1px rgba(0,0,0,.06)}
+.out{align-self:flex-end;max-width:80%;background:#D6EFEA;border-radius:14px 4px 14px 14px;padding:10px 12px;font-size:14px;line-height:1.45;color:#17212B}
+.tm{display:block;text-align:right;font-size:11px;color:#52606D;margin-top:4px}
+.bts{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.bt{min-height:44px;border:1px solid #C8DCD7;background:#F6FBFA;border-radius:10px;font:600 14px Inter,sans-serif;color:#0A5360;cursor:pointer}
+.tag{align-self:center;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#0A5360;background:#E6F2F3;padding:6px 10px;border-radius:999px;margin:8px 0 2px}
+.img{height:120px;border-radius:8px;background:#C9D3CF;display:flex;align-items:center;justify-content:center;font-size:12px;color:#2A3642;margin-bottom:6px}
+</style>
+</helmet>
+<div class="x" style="width: 860px; min-height: 1700px; padding: 20px; background: #E9EEEC; font-family: Inter, system-ui, sans-serif; display: flex; gap: 20px; align-items: flex-start">
+
+  <div class="chat">
+    <div class="hd"><div class="av">D</div><div><div style="font-weight: 700">DigitRell Trips</div><div style="font-size: 12px; opacity: .85">To driver Murugan V · in Tamil (shown in English)</div></div></div>
+    <div class="bd">
+      <span class="tag">New trip · no app, no login</span>
+      <div class="in"><strong>Kaveri Roadlines</strong> · trip for Sunrise Foods<br>TN 10 AZ 2210 · 25 Nov<br>Pickup: Ambattur DC, Chennai · Selvam +91 94xxxxxx10<br>Drop: Hosur Plant, Bengaluru<div class="img" style="margin-top: 8px">LR KR-000491.pdf</div>
+        <div class="bts"><button type="button" class="bt">Reached pickup</button></div><span class="tm">15:10</span></div>
+      <div class="out">Reached pickup<span class="tm">16:42</span></div>
+      <div class="in">Thanks. Tap when the truck is loaded.<div class="bts"><button type="button" class="bt">Loaded</button><button type="button" class="bt">Problem</button></div><span class="tm">16:42</span></div>
+      <div class="out">Loaded<span class="tm">18:20</span></div>
+      <div class="in">Safe journey. Please share your location when I ask, about every 4 hours.<span class="tm">18:20</span></div>
+      <span class="tag">Location on request</span>
+      <div class="in">Please share your current location.<div class="bts"><button type="button" class="bt">Share location</button></div><span class="tm">22:20</span></div>
+      <div class="out"><div class="img" style="height: 80px">Location: Krishnagiri</div><span class="tm">22:24</span></div>
+      <span class="tag">Expense bill</span>
+      <div class="out"><div class="img">Photo: diesel bill</div>diesel 4200<span class="tm">23:05</span></div>
+      <div class="in">Saved: diesel ₹4,200 for TR-24131. Kaveri's accounts will see it.<span class="tm">23:05</span></div>
+      <span class="tag">At drop: POD</span>
+      <div class="in">You've reached Hosur Plant. After unloading, send a clear photo of the signed LR.<span class="tm">05:58</span></div>
+      <div class="out"><div class="img">Photo: signed LR</div><span class="tm">06:14</span></div>
+      <div class="in">POD received. It's clear and matches LR KR-000491. Trip complete.<span class="tm">06:15</span></div>
+      <div class="in" style="background: #FFF7ED">If the photo is blurry: “Photo is not clear. Hold the phone flat over the LR, in good light, and send again.” <span class="tm">example</span></div>
+    </div>
+  </div>
+
+  <div class="chat">
+    <div class="hd"><div class="av">D</div><div><div style="font-weight: 700">DigitRell Deliveries</div><div style="font-size: 12px; opacity: .85">To receiver · Hosur Plant gate office</div></div></div>
+    <div class="bd">
+      <span class="tag">Arrival notice</span>
+      <div class="in"><strong>Sunrise Foods</strong> is sending 220 cartons of biscuits.<br>Truck TN 10 AZ 2210 arrives around <strong>26 Nov, 06:00</strong>.<br>Your delivery code: <strong>4826</strong><br>Give it to the driver only after checking the goods.<span class="tm">18:22</span></div>
+      <div class="in">ETA update: now <strong>05:50</strong>. Driver Murugan V, +91 97xxxxxx08.<span class="tm">03:10</span></div>
+      <span class="tag">Confirm what you received</span>
+      <div class="in">Truck TN 10 AZ 2210 is at your gate. How was the delivery?<div class="bts"><button type="button" class="bt">All 220 cartons OK</button><button type="button" class="bt">Shortage or damage</button></div><span class="tm">06:00</span></div>
+      <div class="out">Shortage or damage<span class="tm">06:08</span></div>
+      <div class="in">How many cartons are short or damaged?<span class="tm">06:08</span></div>
+      <div class="out">2 damaged<span class="tm">06:09</span></div>
+      <div class="in">Please send a photo of the damaged cartons.<span class="tm">06:09</span></div>
+      <div class="out"><div class="img">Photo: 2 crushed cartons</div><span class="tm">06:11</span></div>
+      <div class="in">Thanks. Recorded: 218 good, 2 damaged. Please write “2 ctn damaged” on the LR before signing. Sunrise Foods has been told.<span class="tm">06:11</span></div>
+      <span class="tag">Unclear reply</span>
+      <div class="out">some boxes wet<span class="tm">06:12</span></div>
+      <div class="in">Are the wet boxes among the 2 damaged, or extra?<div class="bts"><button type="button" class="bt">Same 2 boxes</button><button type="button" class="bt">More boxes</button></div><span class="tm">06:12</span></div>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":860,"height":1700}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

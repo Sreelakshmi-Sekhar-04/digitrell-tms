@@ -1,0 +1,168 @@
+{
+  "artboards": [
+    {
+      "file": "Main.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 1100,
+      "title": "Desk app prototype (click through)",
+      "expand": "fill",
+      "is_interactive": true
+    },
+    {
+      "file": "WhatsAppShipper.dc.html",
+      "x": 1520,
+      "y": 0,
+      "w": 390,
+      "h": 1700,
+      "title": "WhatsApp bot: shipper"
+    },
+    {
+      "file": "WhatsAppCarrier.dc.html",
+      "x": 1990,
+      "y": 0,
+      "w": 390,
+      "h": 1700,
+      "title": "WhatsApp bot: carrier"
+    },
+    {
+      "file": "DesignSystem.dc.html",
+      "x": 0,
+      "y": 2120,
+      "w": 1440,
+      "h": 1900,
+      "title": "Design system",
+      "expand": "fill"
+    },
+    {
+      "file": "Journeys.dc.html",
+      "x": 1520,
+      "y": 2120,
+      "w": 1200,
+      "h": 1900,
+      "title": "Navigation and user journeys",
+      "expand": "fill"
+    },
+    {
+      "file": "Report.dc.html",
+      "x": 0,
+      "y": 4440,
+      "w": 1440,
+      "h": 2600,
+      "title": "Scenario coverage and design report",
+      "expand": "fill"
+    },
+    {
+      "file": "Forms.dc.html",
+      "x": 0,
+      "y": 7460,
+      "w": 1440,
+      "h": 1150,
+      "title": "Add truck and invite user drawers",
+      "expand": "fill"
+    },
+    {
+      "file": "CancelVoid.dc.html",
+      "x": 1520,
+      "y": 7460,
+      "w": 1100,
+      "h": 900,
+      "title": "Cancel trip and void LR",
+      "expand": "fill"
+    },
+    {
+      "file": "ClaimInvoice.dc.html",
+      "x": 2700,
+      "y": 7460,
+      "w": 1440,
+      "h": 1500,
+      "title": "Claim and invoice detail",
+      "expand": "fill"
+    },
+    {
+      "file": "AuditAdmin.dc.html",
+      "x": 0,
+      "y": 9380,
+      "w": 1440,
+      "h": 1450,
+      "title": "Audit log and DigitRell admin",
+      "expand": "fill"
+    },
+    {
+      "file": "Messaging.dc.html",
+      "x": 1520,
+      "y": 9380,
+      "w": 1100,
+      "h": 1350,
+      "title": "Message failures and language settings",
+      "expand": "fill"
+    },
+    {
+      "file": "Mobile.dc.html",
+      "x": 2700,
+      "y": 9380,
+      "w": 900,
+      "h": 980,
+      "title": "Desk app at phone width"
+    },
+    {
+      "file": "DriverReceiver.dc.html",
+      "x": 3680,
+      "y": 9380,
+      "w": 860,
+      "h": 1700,
+      "title": "WhatsApp bot: driver and receiver"
+    }
+  ],
+  "annotations": [
+    {
+      "id": "row1",
+      "x": 0,
+      "y": -300,
+      "w": 240,
+      "maxW": 2380,
+      "text": "Prototype: desk app + WhatsApp bot",
+      "kind": "title1"
+    },
+    {
+      "id": "row2",
+      "x": 0,
+      "y": 1820,
+      "w": 240,
+      "maxW": 2720,
+      "text": "Design system, navigation and journeys",
+      "kind": "title1"
+    },
+    {
+      "id": "row3",
+      "x": 0,
+      "y": 4140,
+      "w": 240,
+      "maxW": 1440,
+      "text": "Coverage, improvements and build readiness",
+      "kind": "title1"
+    },
+    {
+      "id": "row4",
+      "x": 0,
+      "y": 7160,
+      "w": 240,
+      "maxW": 4140,
+      "text": "Forms, dialogs and records",
+      "kind": "title1"
+    },
+    {
+      "id": "row5",
+      "x": 0,
+      "y": 9080,
+      "w": 240,
+      "maxW": 4540,
+      "text": "Admin, messaging, phone and field users",
+      "kind": "title1"
+    }
+  ],
+  "launch": {
+    "view": "canvas"
+  }
+}

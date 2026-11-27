@@ -8,7 +8,7 @@ import { ToastProvider } from '@/components/ui/Toast';
 const inter = Inter({ subsets: ['latin'], weight: ['400', '500', '600', '700'], variable: '--font-inter', display: 'swap' });
 const grotesk = Space_Grotesk({ subsets: ['latin'], weight: ['500', '600', '700'], variable: '--font-grotesk', display: 'swap' });
 
-export const metadata = { title: 'DigitRell TMS', description: 'Shipper workspace for DigitRell road freight' };
+export const metadata = { title: 'DigitRell TMS', description: 'Shipper and carrier workspace for DigitRell road freight' };
 export const viewport = { width: 'device-width', initialScale: 1 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

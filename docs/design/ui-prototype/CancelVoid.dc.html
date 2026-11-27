@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Cancel trip and void LR</title>
+<script src="./_runtime/react.js"></script>
+<script src="./_runtime/react-dom.js"></script>
+<script src="./_runtime/support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap">
+<style>
+body{margin:0;background:#F5F7F6}
+.x *{box-sizing:border-box}
+.h{font-family:'Space Grotesk',Inter,sans-serif;letter-spacing:-.01em}
+.muted{color:#52606D}
+.cap{font:700 12px Inter,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#0A5360;margin:0 0 6px}
+.btn{min-height:44px;padding:0 18px;border-radius:10px;border:1px solid transparent;font:600 14px/1 Inter,sans-serif;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;white-space:nowrap}
+.bs{background:#fff;color:#17212B;border-color:#CBD5D1}.bd{background:#9F1D1D;color:#fff}
+.lbl{font:600 13px Inter,sans-serif;color:#2A3642;display:block;margin-bottom:6px}
+.req{color:#B45309}
+.inp{width:100%;min-height:44px;padding:0 12px;border:1px solid #CBD5D1;border-radius:10px;font:14px Inter,sans-serif;color:#17212B;background:#fff}
+.scrim{background:rgba(23,33,43,.45);border-radius:16px;padding:40px 24px;display:flex;justify-content:center;align-items:flex-start;min-height:640px}
+.dlg{background:#fff;border-radius:16px;box-shadow:0 20px 48px rgba(23,33,43,.25);width:100%;max-width:440px;padding:24px;display:flex;flex-direction:column;gap:16px}
+.chip{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:999px;font:600 12px/1 Inter,sans-serif}
+.chip:before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+</style>
+</helmet>
+<div class="x" style="font-family: Inter, system-ui, sans-serif; color: #17212B; background: #F5F7F6; padding: 40px 24px 56px">
+<div style="max-width: 1040px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px">
+  <header>
+    <p class="cap">Irreversible actions</p>
+    <h1 class="h" style="margin: 0; font-size: 30px">Say what will happen, ask for a reason, then do it</h1>
+    <p class="muted" style="margin: 8px 0 0; font-size: 15px; line-height: 1.55">These are the only places a confirm dialog appears. The red button repeats the action; the safe choice is on the left and has focus.</p>
+  </header>
+
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(460px, 100%), 1fr)); gap: 24px">
+    <div>
+      <p class="muted" style="margin: 0 0 8px; font-size: 13px"><strong style="color: #17212B">Trip TR-24133 › More › Cancel booking</strong> · allowed before Delivered</p>
+      <div class="scrim">
+        <div class="dlg" role="dialog" aria-labelledby="ct">
+          <h2 id="ct" class="h" style="margin: 0; font-size: 20px">Cancel TR-24133, Chennai → Vijayawada?</h2>
+          <ul style="margin: 0; padding-left: 18px; font-size: 14px; line-height: 1.6">
+            <li>4 carriers are told the request is withdrawn.</li>
+            <li>No truck or LR is assigned yet, so nothing is voided.</li>
+            <li>No cancellation charge applies at this stage.</li>
+          </ul>
+          <div><label class="lbl" for="cr">Reason <span class="req">*</span></label>
+            <select id="cr" class="inp"><option>Order cancelled by customer</option><option>Wrong details, will rebook</option><option>Moved to another mode</option><option>Other (write below)</option></select></div>
+          <div><label class="lbl" for="cn">Note <span class="muted" style="font-weight: 400">(optional)</span></label><input id="cn" class="inp" placeholder="Seen by carriers and in the log"></div>
+          <div style="display: flex; justify-content: flex-end; gap: 10px"><button type="button" class="btn bs">Keep booking</button><button type="button" class="btn bd">Cancel booking</button></div>
+        </div>
+      </div>
+      <p class="muted" style="margin: 10px 0 0; font-size: 13px; line-height: 1.5">After truck confirmation the dialog adds the carrier's cancellation charge from the rate card, and the trip moves to <span class="chip" style="background: #EDF1F5; color: #334155">Cancelled</span> with the reason shown in its header.</p>
+    </div>
+
+    <div>
+      <p class="muted" style="margin: 0 0 8px; font-size: 13px"><strong style="color: #17212B">Carrier › Load TR-24131 › Documents › LR › Void</strong> · owner or LR clerk only</p>
+      <div class="scrim">
+        <div class="dlg" role="dialog" aria-labelledby="vl">
+          <h2 id="vl" class="h" style="margin: 0; font-size: 20px">Void LR KR-000491?</h2>
+          <ul style="margin: 0; padding-left: 18px; font-size: 14px; line-height: 1.6">
+            <li>KR-000491 is marked <strong>void</strong>. The number is never reused.</li>
+            <li>A new LR <strong>KR-000492</strong> is issued with the corrected details and sent to the shipper and driver.</li>
+            <li>The e-way bill is updated to the new LR number.</li>
+          </ul>
+          <div><label class="lbl" for="vr">Reason <span class="req">*</span></label>
+            <select id="vr" class="inp"><option>Wrong weight or quantity</option><option>Wrong consignee</option><option>Truck changed</option><option>Trip cancelled</option></select></div>
+          <div style="padding: 12px 14px; border-radius: 12px; background: #FDF0DF; color: #6B2E08; font-size: 13px; line-height: 1.5">The driver may hold a printed copy of KR-000491. The new LR will be sent on WhatsApp with “Replace your old LR” at the top.</div>
+          <div style="display: flex; justify-content: flex-end; gap: 10px"><button type="button" class="btn bs">Keep LR</button><button type="button" class="btn bd">Void and reissue</button></div>
+        </div>
+      </div>
+      <p class="muted" style="margin: 10px 0 0; font-size: 13px; line-height: 1.5">Logged as: Vijay Kumar voided KR-000491, reason “Wrong weight or quantity”, 24 Nov 15:40.</p>
+    </div>
+  </div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1100,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

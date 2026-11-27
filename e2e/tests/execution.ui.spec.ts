@@ -60,20 +60,20 @@ test.describe('Trip execution on the trip page', () => {
     await setPolicy(anita);
     const trip = await deliveredTrip(request, anita, r);
     await integration.pod(request, trip.number);
-    await integration.invoice(request, trip.number, { number: 'INV-U1', freight: 42500 });
+    await integration.invoice(request, trip.number, { number: 'INV-U1', freight: 43800 });
     await loginUi(page, USERS.shipperHead, `/trips/${trip.id}`);
-    await expect(page.getByRole('heading', { name: 'Invoice INV-U1 · ₹42,500' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Invoice INV-U1 · ₹43,800' })).toBeVisible();
     const checks = page.getByRole('list', { name: 'Checks' });
     await expect(checks).toContainText('Freight: Matches the award');
     await expect(checks).toContainText('POD: Accepted');
-    await page.getByRole('button', { name: 'Approve ₹42,500' }).click();
+    await page.getByRole('button', { name: 'Approve ₹43,800' }).click();
     await expect(page.getByText(/^Approved · due /)).toBeVisible();
 
-    await page.getByRole('button', { name: 'Record payment ₹42,500' }).click();
+    await page.getByRole('button', { name: 'Record payment ₹43,800' }).click();
     await expect(page.getByText('Enter the UPI or bank reference.')).toBeVisible();
     await page.getByText('Bank transfer', { exact: true }).click();
     await field(page, 'Bank (UTR) reference').fill('UTR20261125001');
-    await page.getByRole('button', { name: 'Record payment ₹42,500' }).click();
+    await page.getByRole('button', { name: 'Record payment ₹43,800' }).click();
     await expect(page.getByText(/Paid .* by bank transfer, reference UTR20261125001\. Trip closed\./)).toBeVisible();
     await expect(page.getByRole('heading', { level: 1 }).locator('..').getByText('Closed', { exact: true })).toBeVisible();
     await expect(page.locator('[aria-current="step"]')).toHaveCount(0); // every stage done
@@ -89,13 +89,13 @@ test.describe('Trip execution on the trip page', () => {
     await loginUi(page, USERS.shipperHead, '/approvals');
     const row = page.getByRole('row', { name: /INV-U2/ });
     await expect(row).toContainText('Payment');
-    await expect(row).toContainText('freight — ₹44,000 billed, award was ₹42,500');
+    await expect(row).toContainText('freight — ₹44,000 billed, award was ₹43,800');
     await row.getByRole('button', { name: 'Query' }).click();
-    await field(page, 'What is wrong with invoice INV-U2?').fill('Freight should be ₹42,500');
+    await field(page, 'What is wrong with invoice INV-U2?').fill('Freight should be ₹43,800');
     await page.getByRole('button', { name: 'Send query' }).click();
     await expect(page.getByRole('status').filter({ hasText: 'Invoice INV-U2 queried.' })).toBeVisible();
     await page.goto(`/trips/${trip.id}`);
-    await expect(page.getByText('You queried this invoice: “Freight should be ₹42,500”.')).toBeVisible();
+    await expect(page.getByText('You queried this invoice: “Freight should be ₹43,800”.')).toBeVisible();
   });
 
   test('"both" POD rule: payment waits for the hard copy', async ({ page, request }) => {
@@ -104,13 +104,13 @@ test.describe('Trip execution on the trip page', () => {
     await setPolicy(anita, { podRule: 'BOTH' });
     const trip = await deliveredTrip(request, anita, r);
     await integration.pod(request, trip.number);
-    await integration.invoice(request, trip.number, { number: 'INV-U3', freight: 42500 });
+    await integration.invoice(request, trip.number, { number: 'INV-U3', freight: 43800 });
     await anita.post(`/trips/${trip.id}/invoice/approve`);
     await loginUi(page, USERS.shipperHead, `/trips/${trip.id}`);
     await expect(page.getByText('Your POD rule needs the original LR before payment.')).toBeVisible();
     await expect(page.getByRole('button', { name: /^Record payment/ })).toHaveCount(0);
     await page.getByRole('button', { name: 'Mark hard copy received' }).click();
-    await expect(page.getByRole('button', { name: 'Record payment ₹42,500' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Record payment ₹43,800' })).toBeVisible();
     await setPolicy(anita);
   });
 
@@ -120,9 +120,9 @@ test.describe('Trip execution on the trip page', () => {
     await setPolicy(anita);
     const trip = await deliveredTrip(request, anita, r);
     await integration.pod(request, trip.number);
-    await integration.invoice(request, trip.number, { number: 'INV-U4', freight: 42500 });
+    await integration.invoice(request, trip.number, { number: 'INV-U4', freight: 43800 });
     await loginUi(page, USERS.shipperExec, `/trips/${trip.id}`);
     await expect(page.getByText("Your role can't approve or record payments.")).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Approve ₹42,500' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Approve ₹43,800' })).toBeDisabled();
   });
 });

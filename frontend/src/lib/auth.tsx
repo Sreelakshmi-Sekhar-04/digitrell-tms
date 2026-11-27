@@ -8,6 +8,8 @@ export interface SessionUser {
   name: string;
   email: string | null;
   role: string;
+  /** Every role held, main role first (carrier users may hold several). */
+  roles: string[];
   companyId: string;
   companyName: string;
   companyType: 'SHIPPER' | 'CARRIER';
@@ -31,8 +33,21 @@ export const ROLE_LABELS: Record<string, string> = {
   BOOKING_EXECUTIVE: 'Booking executive',
   ACCOUNTS_PAYABLE: 'Accounts payable',
   APPROVER: 'Approver',
-  OWNER: 'Owner',
+  OWNER: 'Owner (approver)',
+  TRAFFIC_MANAGER: 'Traffic manager',
+  ACCOUNTS: 'Accounts',
 };
+
+/** Where each kind of company works: shippers at `/`, carriers at `/carrier`. */
+export function homeFor(user: Pick<SessionUser, 'companyType'>) {
+  return user.companyType === 'CARRIER' ? '/carrier' : '/';
+}
+
+/** True when `path` belongs to the workspace of this kind of company. */
+export function inWorkspace(user: Pick<SessionUser, 'companyType'>, path: string) {
+  const carrierPath = path === '/carrier' || path.startsWith('/carrier/');
+  return user.companyType === 'CARRIER' ? carrierPath : !carrierPath;
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<Status>('loading');

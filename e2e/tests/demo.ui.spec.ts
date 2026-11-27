@@ -32,18 +32,18 @@ test.describe('Demo data on screen', () => {
 
     await page.goto('/trips?q=PO-VAF-10471&days=all');
     await expect(table.getByRole('row')).toHaveCount(2);
-    await expect(table.getByRole('row').nth(1)).toContainText('Nilgiri Logistics');
+    await expect(table.getByRole('row').nth(1)).toContainText('Thirumala Roadways');
     await expect(table.getByRole('row').nth(1)).toContainText('Closed');
   });
 
-  test('Approvals lists the awards, payments and exception fix waiting', async ({ page, request }) => {
+  test('Approvals lists the payments and exception fix waiting (no award approvals)', async ({ page, request }) => {
     const lakshmi = await asUser(request, USERS.demoHead);
     const { approvals } = await (await lakshmi.get('/approvals')).json();
     const payments = approvals.filter((a: { kind: string }) => a.kind === 'PAYMENT').length;
     await loginUi(page, USERS.demoHead, '/approvals');
     const table = page.getByRole('table', { name: 'Approvals' });
     await expect(table.getByRole('row')).toHaveCount(approvals.length + 1);
-    await expect(table.getByRole('row', { name: /Carrier award/ })).toHaveCount(2);
+    await expect(table.getByRole('row', { name: /Carrier award/ })).toHaveCount(0);
     await expect(table.getByRole('row', { name: /Payment/ })).toHaveCount(payments);
     await expect(table.getByRole('row', { name: /Exception fix/ })).toHaveCount(1);
   });

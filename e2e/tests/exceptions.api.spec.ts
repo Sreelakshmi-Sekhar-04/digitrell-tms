@@ -1,18 +1,17 @@
 import { expect, test } from '@playwright/test';
 import { USERS, asUser } from './helpers';
-import { awardedTrip, book, carrierQuotes, deliveredTrip, exceptions, expireQuotes, integration, onTheRoad, ownLane, refs, tomorrow } from './trips.helpers';
+import { awardedTrip, book, carrierAccepts, carrierPasses, deliveredTrip, exceptions, expireQuotes, integration, onTheRoad, refs, tomorrow } from './trips.helpers';
 
 const dayAfter = () => new Date(Date.now() + 5.5 * 3600_000 + 2 * 86400_000).toISOString().slice(0, 10);
 
 test.describe('Cancel a booking', () => {
-  test('before the award: preview says what happens; reason required; carriers withdrawn; nothing more accepted', async ({ request }) => {
+  test('before the award: preview says what happens; reason required; offers withdrawn; nothing more accepted', async ({ request }) => {
     const anita = await asUser(request, USERS.shipperHead);
     const r = await refs(anita);
     const trip = await book(anita, r);
-    await carrierQuotes(request, trip.number, r.kaveri, 42500);
     let t = (await (await anita.get(`/trips/${trip.id}`)).json()).trip;
     expect(t.cancel.allowed).toBe(true);
-    expect(t.cancel.consequences).toEqual(['4 carriers are told the request is withdrawn.', 'No LR has been issued yet, so nothing is voided.']);
+    expect(t.cancel.consequences).toEqual(['Deccan Freight Carriers is told the offer is withdrawn.', 'No LR has been issued yet, so nothing is voided.']);
 
     expect((await (await anita.post(`/trips/${trip.id}/cancel`, {})).json()).error.fields.reason).toBeTruthy();
     expect((await (await anita.post(`/trips/${trip.id}/cancel`, { reason: 'OTHER' })).json()).error.fields.note).toBe('Say what the reason is.');
@@ -23,7 +22,7 @@ test.describe('Cancel a booking', () => {
     expect(t.quotes.every((q: { status: string }) => q.status === 'WITHDRAWN')).toBe(true);
     expect(t.activity[0].text).toBe('Booking cancelled — “Order cancelled by the customer: Buyer postponed”');
     expect((await (await anita.get('/approvals')).json()).approvals.some((a: { ref: string }) => a.ref === trip.number)).toBe(false);
-    expect((await carrierQuotes(request, trip.number, r.northstar, 41000)).status()).toBe(409);
+    expect((await carrierAccepts(request, trip.number, r.deccan)).status()).toBe(409);
     expect((await anita.post(`/trips/${trip.id}/cancel`, { reason: 'ORDER_CANCELLED' })).status()).toBe(409);
   });
 
@@ -34,7 +33,7 @@ test.describe('Cancel a booking', () => {
     await integration.truck(request, trip.number);
     let t = (await (await anita.get(`/trips/${trip.id}`)).json()).trip;
     const lrNo = `KR-${trip.number.slice(3)}`;
-    expect(t.cancel.consequences).toContain('Kaveri Roadlines is told the award is cancelled.');
+    expect(t.cancel.consequences).toContain('Deccan Freight Carriers is told the award is cancelled.');
     expect(t.cancel.consequences.join(' ')).toContain(`LR ${lrNo} and e-way bill`);
     await anita.post(`/trips/${trip.id}/cancel`, { reason: 'WRONG_DETAILS' });
     t = (await (await anita.get(`/trips/${trip.id}`)).json()).trip;
@@ -61,21 +60,21 @@ test.describe('Cancel a booking', () => {
 });
 
 test.describe('Edit a booking', () => {
-  test('changing the load after quotes arrive asks every carrier again; extras do not', async ({ request }) => {
+  test('a new pickup date restarts the offers from the lowest rate; weight and extras do not', async ({ request }) => {
     const anita = await asUser(request, USERS.shipperHead);
     const r = await refs(anita);
     const trip = await book(anita, r);
     expect((await (await anita.patch(`/trips/${trip.id}`, { reference: 'PO-1' })).json()).requoted).toBe(false);
-    expect((await (await anita.patch(`/trips/${trip.id}`, { weightTonnes: 15 })).json()).requoted).toBe(false); // nobody had answered
+    expect((await (await anita.patch(`/trips/${trip.id}`, { weightTonnes: 15 })).json()).requoted).toBe(false); // contract rates do not depend on weight
 
-    await carrierQuotes(request, trip.number, r.kaveri, 42500);
-    await carrierQuotes(request, trip.number, r.deccan, null);
+    await carrierPasses(request, trip.number, r.deccan); // Kaveri now holds the offer
     const res = await anita.patch(`/trips/${trip.id}`, { pickupDate: dayAfter(), weightTonnes: 16 });
     expect((await res.json()).requoted).toBe(true);
     const t = (await (await anita.get(`/trips/${trip.id}`)).json()).trip;
     expect(t).toMatchObject({ status: 'QUOTES_REQUESTED', weightTonnes: 16, pickupDate: dayAfter(), reference: 'PO-1' });
-    expect(t.quotes.every((q: { status: string; amount: number | null }) => q.status === 'REQUESTED' && q.amount == null)).toBe(true);
-    expect(t.activity[0].text).toBe('Booking edited; carriers asked to quote again');
+    const live = t.quotes.filter((q: { status: string }) => ['REQUESTED', 'QUEUED'].includes(q.status));
+    expect(live.map((q: { carrier: string; status: string }) => [q.carrier, q.status])).toEqual([['Deccan Freight Carriers', 'REQUESTED'], ['Kaveri Roadlines', 'QUEUED'], ['NorthStar Logistics', 'QUEUED']]);
+    expect(t.activity[0].text).toBe('Booking edited; offers restarted from the lowest rate');
     expect((await (await anita.get('/approvals')).json()).approvals.some((a: { ref: string }) => a.ref === trip.number)).toBe(false);
   });
 
@@ -99,43 +98,27 @@ test.describe('Edit a booking', () => {
   });
 });
 
-test.describe('Widen a quote request', () => {
-  test('extend reopens a request that closed with no quotes; refused once everyone answered', async ({ request }) => {
+test.describe('Give the offered carrier more time', () => {
+  test('extend adds hours to the open offer; refused once no carrier is holding an offer', async ({ request }) => {
     const anita = await asUser(request, USERS.shipperHead);
     const r = await refs(anita);
     const trip = await book(anita, r);
-    await expireQuotes(request, trip.number);
-    expect((await (await anita.get(`/trips/${trip.id}`)).json()).trip.noQuotes).toBe(true);
     const bad = await anita.post(`/trips/${trip.id}/extend`, { hours: 99 });
     expect((await bad.json()).error.fields.hours).toBeTruthy();
     const ok = await anita.post(`/trips/${trip.id}/extend`, { hours: 2 });
     expect(ok.status()).toBe(200);
     const t = (await (await anita.get(`/trips/${trip.id}`)).json()).trip;
-    expect(t.noQuotes).toBe(false);
-    expect(t.nextStep).toMatch(/^Quotes close /);
-    expect(new Date(t.quoteDeadline).getTime()).toBeGreaterThan(Date.now() + 1.9 * 3600_000);
+    expect(t.nextStep).toMatch(/^Offered to Deccan Freight Carriers at ₹43,800; answer by /);
+    expect(new Date(t.quoteDeadline).getTime()).toBeGreaterThan(Date.now() + 3.9 * 3600_000); // the 2 h window plus 2 h
+    expect(t.activity[0].text).toBe('Response time extended by 2 h');
 
-    const answered = await book(anita, r);
-    for (const c of [r.kaveri, r.northstar, r.deccan, r.sai]) await carrierQuotes(request, answered.number, c, null);
-    const refused = await anita.post(`/trips/${answered.id}/extend`, { hours: 1 });
+    // Nobody left to extend once every carrier has passed or not answered; use Send again instead.
+    await expireQuotes(request, trip.number);
+    await carrierPasses(request, trip.number, r.kaveri);
+    await carrierPasses(request, trip.number, r.northstar);
+    const refused = await anita.post(`/trips/${trip.id}/extend`, { hours: 1 });
     expect(refused.status()).toBe(409);
-    expect((await refused.json()).error.code).toBe('ALL_ANSWERED');
-  });
-
-  test('a carrier approved for the lane after booking can be asked too', async ({ request }) => {
-    const anita = await asUser(request, USERS.shipperHead);
-    const r = await refs(anita);
-    const own = await ownLane(anita, 1);
-    const trip = await book(anita, r, own.booking);
-    await anita.patch(`/lanes/${own.lane.id}`, { carrierIds: [own.carriers[0].id, own.spare.id] });
-    let t = (await (await anita.get(`/trips/${trip.id}`)).json()).trip;
-    expect(t.carriersNotAsked.map((c: { id: string }) => c.id)).toEqual([own.spare.id]);
-    expect((await anita.post(`/trips/${trip.id}/carriers`, { carrierIds: ['nope'] })).status()).toBe(400);
-    expect((await anita.post(`/trips/${trip.id}/carriers`, { carrierIds: [own.spare.id] })).status()).toBe(200);
-    t = (await (await anita.get(`/trips/${trip.id}`)).json()).trip;
-    expect(t.quotes).toHaveLength(2);
-    expect(t.carriersNotAsked).toEqual([]);
-    expect(t.activity[0].text).toBe('1 more carrier asked to quote');
+    expect((await refused.json()).error.code).toBe('WRONG_STATE');
   });
 });
 

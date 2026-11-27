@@ -1,0 +1,1024 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>DigitRell TMS desk app</title>
+<script src="./_runtime/react.js"></script>
+<script src="./_runtime/react-dom.js"></script>
+<script src="./_runtime/support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap">
+<style>
+body{margin:0;background:#F5F7F6}
+a{color:#0E6B7A}a:hover{color:#0A5360}
+.app *{box-sizing:border-box}
+.h{font-family:'Space Grotesk',Inter,system-ui,sans-serif;letter-spacing:-0.01em}
+.btn{min-height:44px;padding:0 18px;border-radius:10px;border:1px solid transparent;font:600 14px/1 Inter,system-ui,sans-serif;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap}
+.btn-p{background:var(--p);color:#fff}
+.btn-p:hover{filter:brightness(0.92)}
+.btn-s{background:#fff;color:#17212B;border-color:#CBD5D1}
+.btn-s:hover{background:#F1F5F4}
+.btn-g{background:transparent;color:#0A5360;padding:0 10px}
+.btn-g:hover{background:#E6F2F3}
+.btn-d{background:#fff;color:#9F1D1D;border-color:#E9B8B8}
+.btn-sm{min-height:36px;padding:0 12px;font-size:13px;border-radius:8px}
+.chip{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:999px;font:600 12px/1 Inter,system-ui,sans-serif;white-space:nowrap}
+.chip:before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.c-neutral{background:#EDF1F5;color:#334155}
+.c-action{background:#FDF0DF;color:#8A3B0B}
+.c-progress{background:#E1F0FA;color:#0B4F78}
+.c-success{background:#E4F4E9;color:#166534}
+.c-danger{background:#FCE9E9;color:#9F1D1D}
+.c-billing{background:#ECE9FB;color:#4C2B9A}
+.card{background:#fff;border:1px solid #E1E7E5;border-radius:14px}
+.tbl{width:100%;border-collapse:collapse;font:14px/1.4 Inter,system-ui,sans-serif}
+.tbl th{text-align:left;font-weight:600;font-size:12px;color:#52606D;text-transform:uppercase;letter-spacing:.04em;padding:10px 14px;border-bottom:1px solid #E1E7E5;background:#FAFBFB;white-space:nowrap}
+.tbl td{padding:11px 14px;border-bottom:1px solid #EEF2F1;color:#17212B;vertical-align:middle}
+.tbl tr.row{cursor:pointer}
+.tbl tr.row:hover td{background:#F4F9F9}
+.lbl{font:600 13px/1.2 Inter,system-ui,sans-serif;color:#2A3642;display:block;margin-bottom:6px}
+.req{color:#B45309}
+.inp{width:100%;min-height:44px;padding:0 12px;border:1px solid #CBD5D1;border-radius:10px;font:14px Inter,system-ui,sans-serif;color:#17212B;background:#fff}
+.inp:focus{outline:2px solid var(--p);outline-offset:1px;border-color:var(--p)}
+.inp-err{border-color:#B91C1C;background:#FFFBFB}
+.help{font:12px/1.4 Inter,system-ui,sans-serif;color:#52606D;margin-top:6px}
+.err{font:600 12px/1.4 Inter,system-ui,sans-serif;color:#9F1D1D;margin-top:6px}
+.muted{color:#52606D}
+.seg{display:inline-flex;border:1px solid #CBD5D1;border-radius:10px;overflow:hidden;background:#fff}
+.seg button{min-height:36px;padding:0 14px;border:0;border-right:1px solid #CBD5D1;font:600 13px Inter,system-ui,sans-serif;cursor:pointer}
+.seg button:last-child{border-right:0}
+.nav-btn{width:100%;min-height:44px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;border:0;border-radius:10px;font:500 14px Inter,system-ui,sans-serif;cursor:pointer;text-align:left}
+.badge{min-width:22px;height:22px;padding:0 7px;border-radius:999px;background:#B45309;color:#fff;font:700 12px/22px Inter,system-ui,sans-serif;text-align:center}
+.tab{min-height:40px;padding:0 14px;border:0;border-bottom:2px solid transparent;background:transparent;font:600 14px Inter,system-ui,sans-serif;cursor:pointer}
+.kpi{font:700 28px/1.1 'Space Grotesk',Inter,sans-serif;color:#17212B}
+</style>
+</helmet>
+<div class="app" style="--p: {{primary}}; min-height: 100vh; font-family: Inter, system-ui, sans-serif; color: #17212B; background: #F5F7F6; display: flex; flex-direction: column">
+
+<header style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 24px; background: #fff; border-bottom: 1px solid #E1E7E5">
+  <div style="display: flex; align-items: center; gap: 12px">
+    <div style="width: 36px; height: 36px; border-radius: 10px; background: {{primary}}; color: #fff; display: flex; align-items: center; justify-content: center; font: 700 16px 'Space Grotesk', sans-serif">D</div>
+    <div>
+      <div class="h" style="font-weight: 700; font-size: 17px">DigitRell TMS</div>
+      <div class="muted" style="font-size: 12px">{{companyName}}</div>
+    </div>
+  </div>
+  <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px">
+    <label style="display: flex; align-items: center; gap: 8px; min-width: 260px; height: 40px; padding: 0 12px; border: 1px solid #CBD5D1; border-radius: 10px; background: #FAFBFB">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#52606D" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+      <input aria-label="Search trips, LR numbers, trucks" placeholder="Search trip, LR no., truck no." style="border: 0; outline: 0; background: transparent; font: 14px Inter, sans-serif; width: 100%">
+    </label>
+    <div style="display: flex; align-items: center; gap: 8px">
+      <span class="muted" style="font-size: 12px">Demo: view as</span>
+      <div class="seg">
+        <button type="button" style="{{shipperSegStyle}}" onClick="{{ setShipper }}">Shipper</button>
+        <button type="button" style="{{carrierSegStyle}}" onClick="{{ setCarrier }}">Carrier</button>
+      </div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px; padding-left: 8px">
+      <div style="width: 36px; height: 36px; border-radius: 50%; background: #E6F2F3; color: #0A5360; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px">{{initials}}</div>
+      <div style="font-size: 13px; line-height: 1.25"><div style="font-weight: 600">{{userName}}</div><div class="muted">{{userRole}}</div></div>
+    </div>
+  </div>
+</header>
+
+<div style="display: flex; flex-wrap: wrap; flex: 1; align-items: stretch">
+  <nav aria-label="Main" style="flex: 1 1 220px; max-width: 100%; padding: 16px 12px; background: #fff; border-right: 1px solid #E1E7E5; display: flex; flex-direction: column; gap: 4px">
+    <sc-for list="{{ navItems }}" as="n" hint-placeholder-count="7">
+      <button type="button" class="nav-btn" style="{{ n.style }}" onClick="{{ n.go }}">
+        <span>{{ n.label }}</span>
+        <sc-if value="{{ n.hasBadge }}" hint-placeholder-val="{{ false }}"><span class="badge">{{ n.badge }}</span></sc-if>
+      </button>
+    </sc-for>
+    <div style="margin-top: auto; padding: 14px; border-radius: 12px; background: #F3F8F7; font-size: 12px; line-height: 1.5; color: #2A3642">
+      <div style="font-weight: 700; margin-bottom: 4px">Most work happens on WhatsApp</div>
+      Approvals, quotes and updates also reach you as WhatsApp messages with buttons. This desk app shows the same items.
+    </div>
+  </nav>
+
+  <main style="flex: 999 1 560px; min-width: 0; padding: 24px 28px 48px; display: flex; flex-direction: column; gap: 20px">
+
+    <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+      <div role="status" style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-radius: 12px; background: #E4F4E9; border: 1px solid #B7E0C3; color: #14532D; font-size: 14px">
+        <div style="display: flex; align-items: center; gap: 10px">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#166534" stroke-width="2.4" aria-hidden="true"><path d="M5 12l5 5L20 7"></path></svg>
+          <span><strong>{{toastTitle}}</strong> {{toastText}}</span>
+        </div>
+        <button type="button" class="btn btn-g btn-sm" onClick="{{ closeToast }}">Dismiss</button>
+      </div>
+    </sc-if>
+
+    <!-- ============ HOME ============ -->
+    <sc-if value="{{ isHome }}" hint-placeholder-val="{{ true }}">
+      <div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px">
+        <div>
+          <h1 class="h" style="margin: 0; font-size: 26px">Good afternoon, {{firstName}}</h1>
+          <p class="muted" style="margin: 6px 0 0; font-size: 15px">{{homeSubtitle}}</p>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 10px">
+          <sc-if value="{{ isShipper }}" hint-placeholder-val="{{ true }}">
+            <button type="button" class="btn btn-s" onClick="{{ repeatLast }}">Repeat last booking</button>
+            <button type="button" class="btn btn-p" onClick="{{ goBooking }}">+ New booking</button>
+          </sc-if>
+          <sc-if value="{{ isCarrier }}" hint-placeholder-val="{{ false }}">
+            <button type="button" class="btn btn-p" onClick="{{ goTrips }}">Open quote requests</button>
+          </sc-if>
+        </div>
+      </div>
+
+      <sc-if value="{{ firstTime }}" hint-placeholder-val="{{ false }}">
+        <section class="card" style="padding: 22px">
+          <h2 class="h" style="margin: 0 0 4px; font-size: 18px">Set up in four steps</h2>
+          <p class="muted" style="margin: 0 0 16px; font-size: 14px">About 10 minutes. You can book before finishing, but quotes go only to carriers you approve.</p>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: 12px">
+            <sc-for list="{{ setupSteps }}" as="s" hint-placeholder-count="4">
+              <div style="border: 1px solid #E1E7E5; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+                <div style="display: flex; align-items: center; gap: 10px">
+                  <div style="{{ s.dotStyle }}">{{ s.num }}</div>
+                  <div style="font-weight: 600">{{ s.title }}</div>
+                </div>
+                <div class="muted" style="font-size: 13px; line-height: 1.5">{{ s.text }}</div>
+                <button type="button" class="btn btn-s btn-sm" style="align-self: flex-start" onClick="{{ s.go }}">{{ s.cta }}</button>
+              </div>
+            </sc-for>
+          </div>
+        </section>
+      </sc-if>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr)); gap: 20px; align-items: start">
+        <section class="card" style="padding: 20px">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px">
+            <h2 class="h" style="margin: 0; font-size: 17px">Needs your decision</h2>
+            <button type="button" class="btn btn-g btn-sm" onClick="{{ goApprovals }}">See all</button>
+          </div>
+          <sc-if value="{{ noApprovals }}" hint-placeholder-val="{{ false }}">
+            <div style="padding: 28px 12px; text-align: center">
+              <div class="h" style="font-weight: 600; font-size: 16px">Nothing waiting for you</div>
+              <div class="muted" style="font-size: 14px; margin-top: 6px">New approvals arrive here and on WhatsApp.</div>
+            </div>
+          </sc-if>
+          <div style="display: flex; flex-direction: column; gap: 10px">
+            <sc-for list="{{ approvalsTop }}" as="a" hint-placeholder-count="3">
+              <div style="border: 1px solid #E1E7E5; border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px">
+                <div style="display: flex; justify-content: space-between; gap: 12px; align-items: flex-start">
+                  <div>
+                    <div style="font-size: 12px; font-weight: 600; color: #8A3B0B; text-transform: uppercase; letter-spacing: .04em">{{ a.kind }} · {{ a.ref }}</div>
+                    <div style="font-weight: 600; margin-top: 4px">{{ a.summary }}</div>
+                    <div class="muted" style="font-size: 13px; margin-top: 4px">{{ a.why }}</div>
+                  </div>
+                  <div class="h" style="font-weight: 700; font-size: 17px; white-space: nowrap">{{ a.amount }}</div>
+                </div>
+                <div style="display: flex; flex-wrap: wrap; gap: 8px">
+                  <button type="button" class="btn btn-p btn-sm" onClick="{{ a.approve }}">Approve</button>
+                  <button type="button" class="btn btn-s btn-sm" onClick="{{ a.open }}">Review</button>
+                  <button type="button" class="btn btn-d btn-sm" onClick="{{ a.reject }}">Reject</button>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </section>
+
+        <section class="card" style="padding: 20px">
+          <h2 class="h" style="margin: 0 0 12px; font-size: 17px">This month</h2>
+          <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+            <sc-for list="{{ homeStats }}" as="k" hint-placeholder-count="4">
+              <div style="border: 1px solid #EEF2F1; border-radius: 12px; padding: 14px">
+                <div class="muted" style="font-size: 13px">{{ k.label }}</div>
+                <div class="kpi" style="font-size: 24px; margin-top: 6px">{{ k.value }}</div>
+                <div style="font-size: 12px; margin-top: 4px; {{ k.noteStyle }}">{{ k.note }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </section>
+      </div>
+
+      <section class="card" style="overflow: hidden">
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 16px 20px">
+          <h2 class="h" style="margin: 0; font-size: 17px">Active trips</h2>
+          <button type="button" class="btn btn-g btn-sm" onClick="{{ goTrips }}">All trips</button>
+        </div>
+        <sc-if value="{{ firstTime }}" hint-placeholder-val="{{ false }}">
+          <div style="padding: 36px 20px 44px; text-align: center; border-top: 1px solid #EEF2F1">
+            <div class="h" style="font-weight: 600; font-size: 17px">No trips yet</div>
+            <p class="muted" style="margin: 8px auto 16px; max-width: 460px; font-size: 14px; line-height: 1.5">Book here, or send pickup, drop, date and load to the DigitRell WhatsApp number [YOUR WHATSAPP NUMBER]. A voice note or a photo of the dispatch slip works too.</p>
+            <button type="button" class="btn btn-p" onClick="{{ goBooking }}">Book your first truck</button>
+          </div>
+        </sc-if>
+        <sc-if value="{{ hasTrips }}" hint-placeholder-val="{{ true }}">
+          <div style="overflow-x: auto">
+            <table class="tbl">
+              <thead><tr><th>Trip</th><th>Lane</th><th>{{partyHeader}}</th><th>Status</th><th>Next step</th></tr></thead>
+              <tbody>
+                <sc-for list="{{ tripsActive }}" as="t" hint-placeholder-count="4">
+                  <tr class="row" onClick="{{ t.open }}">
+                    <td style="font-weight: 600">{{ t.id }}</td>
+                    <td>{{ t.lane }}<div class="muted" style="font-size: 12px">{{ t.truck }} · {{ t.weight }}</div></td>
+                    <td>{{ t.party }}</td>
+                    <td><span class="chip {{ t.chipClass }}">{{ t.status }}</span></td>
+                    <td class="muted">{{ t.next }}</td>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+          </div>
+        </sc-if>
+      </section>
+    </sc-if>
+
+    <!-- ============ TRIPS LIST ============ -->
+    <sc-if value="{{ isTrips }}" hint-placeholder-val="{{ false }}">
+      <div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px">
+        <div>
+          <h1 class="h" style="margin: 0; font-size: 26px">{{tripsTitle}}</h1>
+          <p class="muted" style="margin: 6px 0 0; font-size: 14px">Click a row to open it. Filters are saved for next time.</p>
+        </div>
+        <sc-if value="{{ isShipper }}" hint-placeholder-val="{{ true }}">
+          <button type="button" class="btn btn-p" onClick="{{ goBooking }}">+ New booking</button>
+        </sc-if>
+      </div>
+      <section class="card" style="overflow: hidden">
+        <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 16px 0; border-bottom: 1px solid #E1E7E5">
+          <div role="tablist" style="display: flex; flex-wrap: wrap; gap: 4px">
+            <sc-for list="{{ tripTabs }}" as="tb" hint-placeholder-count="5">
+              <button type="button" role="tab" class="tab" style="{{ tb.style }}" onClick="{{ tb.pick }}">{{ tb.label }} <span class="muted" style="font-weight: 500">{{ tb.count }}</span></button>
+            </sc-for>
+          </div>
+          <div style="display: flex; flex-wrap: wrap; gap: 8px; padding-bottom: 8px">
+            <select class="inp" aria-label="Lane filter" style="min-height: 36px; width: auto"><option>All lanes</option><option>Chennai → Bengaluru</option><option>Pune → Hyderabad</option></select>
+            <select class="inp" aria-label="Date filter" style="min-height: 36px; width: auto"><option>Last 30 days</option><option>This week</option><option>Custom range</option></select>
+          </div>
+        </div>
+        <sc-if value="{{ tripsEmpty }}" hint-placeholder-val="{{ false }}">
+          <div style="padding: 40px 20px; text-align: center">
+            <div class="h" style="font-weight: 600; font-size: 16px">No trips match this filter</div>
+            <div class="muted" style="font-size: 14px; margin-top: 6px">Try another tab or clear the lane and date filters.</div>
+          </div>
+        </sc-if>
+        <div style="overflow-x: auto">
+          <table class="tbl">
+            <thead><tr><th>Trip</th><th>Lane and load</th><th>Pickup</th><th>{{partyHeader}}</th><th>Status</th><th>Next step</th><th style="text-align: right">Amount</th></tr></thead>
+            <tbody>
+              <sc-for list="{{ tripsFiltered }}" as="t" hint-placeholder-count="6">
+                <tr class="row" onClick="{{ t.open }}">
+                  <td style="font-weight: 600">{{ t.id }}</td>
+                  <td>{{ t.lane }}<div class="muted" style="font-size: 12px">{{ t.material }} · {{ t.truck }} · {{ t.weight }}</div></td>
+                  <td style="white-space: nowrap">{{ t.date }}</td>
+                  <td>{{ t.party }}</td>
+                  <td><span class="chip {{ t.chipClass }}">{{ t.status }}</span></td>
+                  <td class="muted">{{ t.next }}</td>
+                  <td style="text-align: right; font-weight: 600; white-space: nowrap">{{ t.amount }}</td>
+                </tr>
+              </sc-for>
+            </tbody>
+          </table>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; font-size: 13px" class="muted">
+          <span>Showing {{shownCount}} trips</span>
+          <div style="display: flex; gap: 6px"><button type="button" class="btn btn-s btn-sm">Previous</button><button type="button" class="btn btn-s btn-sm">Next</button></div>
+        </div>
+      </section>
+    </sc-if>
+
+    <!-- ============ TRIP DETAIL ============ -->
+    <sc-if value="{{ isTrip }}" hint-placeholder-val="{{ false }}">
+      <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px" class="muted">
+        <button type="button" class="btn btn-g btn-sm" onClick="{{ goTrips }}">← {{tripsTitle}}</button>
+        <span>/</span><span style="color: #17212B; font-weight: 600">{{ trip.id }}</span>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 16px">
+        <div>
+          <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px">
+            <h1 class="h" style="margin: 0; font-size: 26px">{{ trip.lane }}</h1>
+            <span class="chip {{ trip.chipClass }}">{{ trip.status }}</span>
+          </div>
+          <p class="muted" style="margin: 6px 0 0; font-size: 14px">{{ trip.id }} · {{ trip.material }} · {{ trip.truck }} · {{ trip.weight }} · Pickup {{ trip.date }}</p>
+        </div>
+        <div style="display: flex; gap: 8px">
+          <button type="button" class="btn btn-s btn-sm">Share tracking link</button>
+          <button type="button" class="btn btn-s btn-sm">More ▾</button>
+        </div>
+      </div>
+
+      <section class="card" style="padding: 18px 20px; overflow-x: auto">
+        <ol aria-label="Trip progress" style="list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(7, minmax(110px, 1fr)); gap: 8px">
+          <sc-for list="{{ stages }}" as="st" hint-placeholder-count="7">
+            <li style="display: flex; flex-direction: column; gap: 8px">
+              <div style="display: flex; align-items: center; gap: 6px">
+                <span style="{{ st.dotStyle }}"></span>
+                <span style="{{ st.barStyle }}"></span>
+              </div>
+              <div style="font-size: 13px; {{ st.labelStyle }}">{{ st.label }}</div>
+            </li>
+          </sc-for>
+        </ol>
+      </section>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(360px, 100%), 1fr)); gap: 20px; align-items: start">
+
+        <!-- Panel: compare quotes (shipper) -->
+        <sc-if value="{{ pQuotes }}" hint-placeholder-val="{{ false }}">
+          <section class="card" style="padding: 20px; grid-column: 1 / -1">
+            <div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; margin-bottom: 14px">
+              <div>
+                <h2 class="h" style="margin: 0; font-size: 18px">Choose a carrier</h2>
+                <p class="muted" style="margin: 4px 0 0; font-size: 14px">3 of 4 carriers quoted. Budget for this lane: ₹46,000. Sai Ganesh Transport can still reply until 14:30.</p>
+              </div>
+              <span class="chip c-action">Your decision</span>
+            </div>
+            <div style="overflow-x: auto; border: 1px solid #E1E7E5; border-radius: 12px">
+              <table class="tbl">
+                <thead><tr><th>Pick</th><th>Carrier</th><th style="text-align: right">Quote</th><th>vs budget</th><th>On time</th><th>POD speed</th><th>Accepts</th><th>Score</th></tr></thead>
+                <tbody>
+                  <sc-for list="{{ quotes }}" as="q" hint-placeholder-count="4">
+                    <tr class="row" style="{{ q.rowStyle }}" onClick="{{ q.pick }}">
+                      <td><span style="{{ q.radioStyle }}"></span></td>
+                      <td><div style="font-weight: 600">{{ q.name }}</div><sc-if value="{{ q.rec }}" hint-placeholder-val="{{ false }}"><div style="font-size: 12px; color: #0A5360; font-weight: 600; margin-top: 2px">Recommended</div></sc-if></td>
+                      <td style="text-align: right; font-weight: 700">{{ q.amount }}</td>
+                      <td style="{{ q.vsStyle }}">{{ q.vs }}</td>
+                      <td>{{ q.onTime }}</td>
+                      <td>{{ q.pod }}</td>
+                      <td>{{ q.accept }}</td>
+                      <td style="font-weight: 600">{{ q.score }}</td>
+                    </tr>
+                  </sc-for>
+                </tbody>
+              </table>
+            </div>
+            <div style="margin-top: 14px; padding: 14px 16px; border-radius: 12px; background: #F3F8F7; font-size: 14px; line-height: 1.5">
+              <strong>Why Kaveri Roadlines:</strong> ₹700 more than the cheapest quote, but 96% on time and PODs in 1.2 days on this lane over the last 40 trips. Deccan Freight is cheapest, but 3 of its last 10 trips here arrived late.
+            </div>
+            <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 16px">
+              <button type="button" class="btn btn-p" onClick="{{ approveAward }}">Award to {{pickedName}} · {{pickedAmount}}</button>
+              <button type="button" class="btn btn-s">Wait for all quotes</button>
+              <button type="button" class="btn btn-d" onClick="{{ rejectAll }}">Reject all and re-tender</button>
+              <span class="muted" style="font-size: 13px">Losing carriers are told automatically. They never see each other's quotes.</span>
+            </div>
+          </section>
+        </sc-if>
+
+        <!-- Panel: send quote (carrier) -->
+        <sc-if value="{{ pQuoteReq }}" hint-placeholder-val="{{ false }}">
+          <section class="card" style="padding: 20px; grid-column: 1 / -1">
+            <div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; margin-bottom: 14px">
+              <div>
+                <h2 class="h" style="margin: 0; font-size: 18px">Quote request from Sunrise Foods</h2>
+                <p class="muted" style="margin: 4px 0 0; font-size: 14px">Closes today at 14:30 (1 h 12 min left). The shipper sees only your quote, never others'.</p>
+              </div>
+              <span class="chip c-action">Reply needed</span>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr)); gap: 12px; margin-bottom: 16px">
+              <div style="border: 1px solid #EEF2F1; border-radius: 12px; padding: 14px"><div class="muted" style="font-size: 13px">Your rate card</div><div class="kpi" style="font-size: 22px; margin-top: 4px">₹42,500</div><div class="muted" style="font-size: 12px; margin-top: 2px">Band ₹40,400 – ₹44,600</div></div>
+              <div style="border: 1px solid #EEF2F1; border-radius: 12px; padding: 14px"><div class="muted" style="font-size: 13px">Lane average, last 30 days</div><div class="kpi" style="font-size: 22px; margin-top: 4px">₹43,100</div><div class="muted" style="font-size: 12px; margin-top: 2px">12 trips</div></div>
+              <div style="border: 1px solid #EEF2F1; border-radius: 12px; padding: 14px"><div class="muted" style="font-size: 13px">32ft MXL trucks free on 25 Nov</div><div class="kpi" style="font-size: 22px; margin-top: 4px">2</div><div class="muted" style="font-size: 12px; margin-top: 2px">TN 09 BX 4471, TN 10 AZ 2210</div></div>
+            </div>
+            <div style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px">
+              <div style="width: 220px">
+                <label class="lbl" for="qamt">Your quote (₹, per trip) <span class="req">*</span></label>
+                <input id="qamt" class="inp {{ quoteInpClass }}" inputmode="numeric" value="{{ quoteAmount }}" onChange="{{ setQuoteAmount }}">
+              </div>
+              <button type="button" class="btn btn-p" onClick="{{ sendQuote }}">{{quoteBtnLabel}}</button>
+              <button type="button" class="btn btn-s">Pass on this load</button>
+            </div>
+            <sc-if value="{{ quoteOutOfBand }}" hint-placeholder-val="{{ false }}">
+              <div class="err" style="color: #8A3B0B">Outside your rate band, so it goes to the owner for approval first. Inside the band it is sent straight away.</div>
+            </sc-if>
+          </section>
+        </sc-if>
+
+        <sc-if value="{{ pWaiting }}" hint-placeholder-val="{{ false }}">
+          <section class="card" style="padding: 20px; grid-column: 1 / -1">
+            <h2 class="h" style="margin: 0 0 6px; font-size: 18px">Waiting for quotes</h2>
+            <p class="muted" style="margin: 0 0 14px; font-size: 14px">Sent to 4 approved carriers at 12:30. Closes at 14:30, or earlier if all reply. You'll get a WhatsApp message when it's time to choose.</p>
+            <div style="display: flex; flex-wrap: wrap; gap: 8px">
+              <span class="chip c-success">Kaveri Roadlines · quoted</span><span class="chip c-neutral">Deccan Freight · reminded</span><span class="chip c-neutral">NorthStar Logistics · seen</span><span class="chip c-neutral">Sai Ganesh Transport · not seen</span>
+            </div>
+            <div style="display: flex; gap: 8px; margin-top: 16px"><button type="button" class="btn btn-s btn-sm">Extend by 1 hour</button><button type="button" class="btn btn-s btn-sm">Add a carrier</button><button type="button" class="btn btn-d btn-sm">Cancel booking</button></div>
+          </section>
+        </sc-if>
+
+        <sc-if value="{{ pAwarded }}" hint-placeholder-val="{{ false }}">
+          <section class="card" style="padding: 20px; grid-column: 1 / -1">
+            <h2 class="h" style="margin: 0 0 6px; font-size: 18px">Awarded to {{awardedName}} · {{awardedAmount}}</h2>
+            <p class="muted" style="margin: 0 0 14px; font-size: 14px">Next: the carrier assigns a truck and driver. You'll get the truck number, driver contact and LR on WhatsApp, usually within 2 hours. Nothing else is needed from you.</p>
+            <div style="display: flex; gap: 8px"><button type="button" class="btn btn-s btn-sm" onClick="{{ undoAward }}">Undo award (within 10 min)</button></div>
+          </section>
+        </sc-if>
+
+        <sc-if value="{{ pTransit }}" hint-placeholder-val="{{ false }}">
+          <section class="card" style="padding: 20px">
+            <h2 class="h" style="margin: 0 0 12px; font-size: 18px">On the road</h2>
+            <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; font-size: 14px">
+              <div><div class="muted" style="font-size: 12px">ETA at drop</div><div style="font-weight: 700; font-size: 18px">25 Nov, 18:00</div><div style="font-size: 12px; color: #166534">On schedule</div></div>
+              <div><div class="muted" style="font-size: 12px">Last update</div><div style="font-weight: 600">Loaded · Solapur bypass</div><div class="muted" style="font-size: 12px">Driver shared location 40 min ago</div></div>
+              <div><div class="muted" style="font-size: 12px">Truck</div><div style="font-weight: 600">MH 12 QW 8841</div></div>
+              <div><div class="muted" style="font-size: 12px">Driver</div><div style="font-weight: 600">Ramesh K · +91 98xxxxxx21</div></div>
+            </div>
+            <div style="display: flex; gap: 8px; margin-top: 16px"><button type="button" class="btn btn-s btn-sm">Ask driver for location</button><button type="button" class="btn btn-s btn-sm">Send ETA to receiver</button></div>
+          </section>
+        </sc-if>
+
+        <sc-if value="{{ pHold }}" hint-placeholder-val="{{ false }}">
+          <section class="card" style="padding: 20px; grid-column: 1 / -1; border-color: #E9B8B8">
+            <div style="display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap">
+              <h2 class="h" style="margin: 0 0 6px; font-size: 18px">Breakdown near Hubballi: fix proposed</h2>
+              <span class="chip c-danger">On hold</span>
+            </div>
+            <p class="muted" style="margin: 0 0 14px; font-size: 14px">Driver reported a clutch failure at 09:40 with 2 photos. Repair estimate 18 hours. The agent proposes swapping to a free truck from Belagavi; it adds 5 hours to the ETA.</p>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr)); gap: 10px; margin-bottom: 14px">
+              <div style="border: 2px solid {{primary}}; border-radius: 12px; padding: 12px"><div style="font-weight: 700">Swap truck (recommended)</div><div class="muted" style="font-size: 13px">New ETA 26 Nov, 11:00 · extra cost ₹3,500, carrier pays</div></div>
+              <div style="border: 1px solid #E1E7E5; border-radius: 12px; padding: 12px"><div style="font-weight: 700">Wait for repair</div><div class="muted" style="font-size: 13px">New ETA 27 Nov, 04:00 · no extra cost</div></div>
+            </div>
+            <div style="display: flex; flex-wrap: wrap; gap: 8px"><button type="button" class="btn btn-p btn-sm" onClick="{{ approveFix }}">Approve truck swap</button><button type="button" class="btn btn-s btn-sm">Choose wait instead</button><button type="button" class="btn btn-s btn-sm">Edit message to shipper</button></div>
+          </section>
+        </sc-if>
+
+        <sc-if value="{{ pPod }}" hint-placeholder-val="{{ false }}">
+          <section class="card" style="padding: 20px; grid-column: 1 / -1">
+            <h2 class="h" style="margin: 0 0 6px; font-size: 18px">Delivered · POD needs a look</h2>
+            <p class="muted" style="margin: 0 0 14px; font-size: 14px">Receiver confirmed with code at 16:05. The signed LR photo matches LR KR-000482 by QR, but it notes “2 cartons damaged”.</p>
+            <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start">
+              <div style="width: 180px; height: 220px; border-radius: 10px; background: #EEF2F1; border: 1px dashed #A7B4B0; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 12px" class="muted">Signed LR photo<br>(tap to zoom)</div>
+              <div style="flex: 1 1 240px; font-size: 14px; line-height: 1.6">
+                <div><strong>Read from POD:</strong> 220 cartons received, 2 damaged</div>
+                <div><strong>Claim drafted:</strong> ₹3,200 (2 × ₹1,600 invoice value)</div>
+                <div><strong>Billing:</strong> waits until the claim is settled or waived</div>
+                <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px"><button type="button" class="btn btn-p btn-sm">Raise claim ₹3,200</button><button type="button" class="btn btn-s btn-sm">Accept POD, no claim</button></div>
+              </div>
+            </div>
+          </section>
+        </sc-if>
+
+        <sc-if value="{{ pBilled }}" hint-placeholder-val="{{ false }}">
+          <section class="card" style="padding: 20px; grid-column: 1 / -1">
+            <h2 class="h" style="margin: 0 0 6px; font-size: 18px">Invoice INV-0871 · ₹48,500</h2>
+            <p class="muted" style="margin: 0 0 14px; font-size: 14px">Sent 23 Nov with LR and POD attached. Due 8 Dec. Payment by UPI or bank transfer.</p>
+            <div style="display: flex; flex-wrap: wrap; gap: 8px"><button type="button" class="btn btn-p btn-sm">{{billedAction}}</button><button type="button" class="btn btn-s btn-sm">Download invoice PDF</button></div>
+          </section>
+        </sc-if>
+
+        <sc-if value="{{ pClosed }}" hint-placeholder-val="{{ false }}">
+          <section class="card" style="padding: 20px; grid-column: 1 / -1">
+            <h2 class="h" style="margin: 0 0 6px; font-size: 18px">Closed · paid 22 Nov</h2>
+            <p class="muted" style="margin: 0; font-size: 14px">Payment posted to Tally. All documents are below.</p>
+          </section>
+        </sc-if>
+
+        <section class="card" style="padding: 20px">
+          <h2 class="h" style="margin: 0 0 12px; font-size: 16px">Details</h2>
+          <dl style="display: grid; grid-template-columns: 120px 1fr; gap: 8px 12px; margin: 0; font-size: 14px">
+            <dt class="muted">Pickup</dt><dd style="margin: 0">{{ trip.from }}</dd>
+            <dt class="muted">Drop</dt><dd style="margin: 0">{{ trip.to }}</dd>
+            <dt class="muted">{{partyHeader}}</dt><dd style="margin: 0">{{ trip.party }}</dd>
+            <dt class="muted">Reference</dt><dd style="margin: 0">PO-77810</dd>
+          </dl>
+          <button type="button" class="btn btn-g btn-sm" style="margin-top: 10px">Edit details</button>
+        </section>
+
+        <section class="card" style="padding: 20px">
+          <h2 class="h" style="margin: 0 0 12px; font-size: 16px">Documents</h2>
+          <div style="display: flex; flex-direction: column; gap: 8px; font-size: 14px">
+            <sc-for list="{{ trip.docs }}" as="d" hint-placeholder-count="2">
+              <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid #EEF2F1"><span>{{ d.name }}</span><span class="chip {{ d.chipClass }}">{{ d.state }}</span></div>
+            </sc-for>
+          </div>
+        </section>
+
+        <section class="card" style="padding: 20px">
+          <h2 class="h" style="margin: 0 0 12px; font-size: 16px">Activity</h2>
+          <ol style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; font-size: 13px">
+            <sc-for list="{{ trip.log }}" as="l" hint-placeholder-count="3">
+              <li style="display: grid; grid-template-columns: 54px 1fr; gap: 8px"><span class="muted">{{ l.t }}</span><span>{{ l.x }}</span></li>
+            </sc-for>
+          </ol>
+        </section>
+      </div>
+    </sc-if>
+
+    <!-- ============ NEW BOOKING ============ -->
+    <sc-if value="{{ isBooking }}" hint-placeholder-val="{{ false }}">
+      <div>
+        <h1 class="h" style="margin: 0; font-size: 26px">New booking</h1>
+        <p class="muted" style="margin: 6px 0 0; font-size: 14px">Six fields. Defaults come from your last booking on this lane.</p>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr)); gap: 20px; align-items: start">
+        <sc-if value="{{ bookingForm }}" hint-placeholder-val="{{ true }}">
+          <section class="card" style="padding: 22px; grid-column: span 2; min-width: 0">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); gap: 16px">
+              <div><label class="lbl" for="bp">Pickup <span class="req">*</span></label>
+                <select id="bp" class="inp" onChange="{{ setPickup }}"><sc-for list="{{ pickupOpts }}" as="o" hint-placeholder-count="3"><option selected="{{ o.sel }}">{{ o.label }}</option></sc-for></select>
+                <div class="help">Saved addresses. Type to search or add new.</div></div>
+              <div><label class="lbl" for="bd">Drop <span class="req">*</span></label>
+                <select id="bd" class="inp" onChange="{{ setDrop }}"><sc-for list="{{ dropOpts }}" as="o" hint-placeholder-count="3"><option selected="{{ o.sel }}">{{ o.label }}</option></sc-for></select></div>
+              <div><label class="lbl" for="bdt">Pickup date <span class="req">*</span></label>
+                <input id="bdt" class="inp" type="date" value="{{ form.date }}" onChange="{{ setDate }}"></div>
+              <div><label class="lbl" for="bw">Weight (tonnes) <span class="req">*</span></label>
+                <input id="bw" class="inp {{ weightClass }}" inputmode="decimal" placeholder="e.g. 14" value="{{ form.weight }}" onChange="{{ setWeight }}" aria-invalid="{{ weightError }}">
+                <sc-if value="{{ weightError }}" hint-placeholder-val="{{ false }}"><div class="err">Enter the weight in tonnes, e.g. 14. Everything else you typed is kept.</div></sc-if></div>
+            </div>
+            <div style="margin-top: 18px">
+              <span class="lbl">Truck type <span class="req">*</span></span>
+              <div style="display: flex; flex-wrap: wrap; gap: 8px">
+                <sc-for list="{{ truckChips }}" as="c" hint-placeholder-count="5">
+                  <button type="button" style="{{ c.style }}" onClick="{{ c.pick }}">{{ c.label }}</button>
+                </sc-for>
+              </div>
+            </div>
+            <div style="margin-top: 18px; max-width: 420px"><label class="lbl" for="bm">Material</label>
+              <input id="bm" class="inp" value="{{ form.material }}" onChange="{{ setMaterial }}"></div>
+            <button type="button" class="btn btn-g btn-sm" style="margin-top: 14px" onClick="{{ toggleMore }}">{{moreLabel}}</button>
+            <sc-if value="{{ showMore }}" hint-placeholder-val="{{ false }}">
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); gap: 16px; margin-top: 10px; padding-top: 14px; border-top: 1px solid #EEF2F1">
+                <div><label class="lbl" for="bc">Receiver contact <span class="muted" style="font-weight: 400">(optional)</span></label><input id="bc" class="inp" placeholder="Name and mobile"><div class="help">Gets the ETA and the delivery code.</div></div>
+                <div><label class="lbl" for="br">Your reference <span class="muted" style="font-weight: 400">(optional)</span></label><input id="br" class="inp" placeholder="PO or order no."></div>
+                <div><label class="lbl" for="bn">Notes for carrier <span class="muted" style="font-weight: 400">(optional)</span></label><input id="bn" class="inp" placeholder="e.g. tarpaulin needed"></div>
+              </div>
+            </sc-if>
+            <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px; padding-top: 18px; border-top: 1px solid #EEF2F1">
+              <button type="button" class="btn btn-p" onClick="{{ reviewBooking }}">Review and confirm</button>
+              <button type="button" class="btn btn-s" onClick="{{ goHome }}">Cancel</button>
+              <span class="muted" style="font-size: 13px; align-self: center">Draft is saved as you type.</span>
+            </div>
+          </section>
+        </sc-if>
+
+        <sc-if value="{{ bookingConfirm }}" hint-placeholder-val="{{ false }}">
+          <section class="card" style="padding: 22px; grid-column: span 2; min-width: 0">
+            <h2 class="h" style="margin: 0 0 4px; font-size: 18px">Check and confirm</h2>
+            <p class="muted" style="margin: 0 0 16px; font-size: 14px">Confirming asks your approved carriers for quotes.</p>
+            <dl style="display: grid; grid-template-columns: 150px 1fr; gap: 10px 14px; margin: 0; font-size: 15px">
+              <dt class="muted">Lane</dt><dd style="margin: 0; font-weight: 600">{{form.pickup}} → {{form.drop}}</dd>
+              <dt class="muted">Pickup date</dt><dd style="margin: 0; font-weight: 600">{{form.date}}</dd>
+              <dt class="muted">Load</dt><dd style="margin: 0; font-weight: 600">{{form.material}} · {{form.weight}} t · {{form.truck}}</dd>
+              <dt class="muted">Quotes from</dt><dd style="margin: 0">4 approved carriers on this lane</dd>
+              <dt class="muted">Quotes close</dt><dd style="margin: 0">in 2 hours <button type="button" class="btn btn-g btn-sm">Change</button></dd>
+            </dl>
+            <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px">
+              <button type="button" class="btn btn-p" onClick="{{ confirmBooking }}">Confirm and ask for quotes</button>
+              <button type="button" class="btn btn-s" onClick="{{ editBooking }}">Edit</button>
+            </div>
+          </section>
+        </sc-if>
+
+        <aside style="display: flex; flex-direction: column; gap: 16px">
+          <section class="card" style="padding: 18px">
+            <h2 class="h" style="margin: 0 0 10px; font-size: 16px">Repeat a recent booking</h2>
+            <div style="display: flex; flex-direction: column; gap: 8px">
+              <sc-for list="{{ repeatItems }}" as="r" hint-placeholder-count="3">
+                <button type="button" onClick="{{ r.use }}" style="text-align: left; min-height: 56px; padding: 10px 12px; border: 1px solid #E1E7E5; border-radius: 10px; background: #fff; cursor: pointer; font: 14px Inter, sans-serif">
+                  <div style="font-weight: 600">{{ r.lane }}</div><div class="muted" style="font-size: 12px; margin-top: 2px">{{ r.detail }}</div>
+                </button>
+              </sc-for>
+            </div>
+          </section>
+          <section class="card" style="padding: 18px">
+            <h2 class="h" style="margin: 0 0 6px; font-size: 16px">Or paste a message</h2>
+            <p class="muted" style="margin: 0 0 10px; font-size: 13px">Paste an email or WhatsApp text. The agent fills the form; you check it.</p>
+            <label class="lbl" for="paste" style="position: absolute; left: -9999px">Message to read</label>
+            <textarea id="paste" class="inp" style="min-height: 90px; padding: 10px 12px; resize: vertical" placeholder="Need 32ft truck tomorrow Ambattur to Hosur, 14 ton biscuits"></textarea>
+            <button type="button" class="btn btn-s btn-sm" style="margin-top: 10px">Fill form from message</button>
+          </section>
+        </aside>
+      </div>
+    </sc-if>
+
+    <!-- ============ APPROVALS ============ -->
+    <sc-if value="{{ isApprovals }}" hint-placeholder-val="{{ false }}">
+      <div>
+        <h1 class="h" style="margin: 0; font-size: 26px">Approvals</h1>
+        <p class="muted" style="margin: 6px 0 0; font-size: 14px">Each item shows the agent's recommendation and the reason. Nothing that costs money happens until you approve.</p>
+      </div>
+      <section class="card" style="overflow: hidden">
+        <sc-if value="{{ noApprovals }}" hint-placeholder-val="{{ false }}">
+          <div style="padding: 48px 20px; text-align: center">
+            <div class="h" style="font-weight: 600; font-size: 18px">You're all caught up</div>
+            <div class="muted" style="font-size: 14px; margin-top: 6px">New approvals appear here and on WhatsApp. Reminders go to your backup approver after 2 hours.</div>
+          </div>
+        </sc-if>
+        <div style="overflow-x: auto">
+          <table class="tbl">
+            <thead><tr><th>Type</th><th>Trip</th><th>Recommendation and reason</th><th style="text-align: right">Amount</th><th>Waiting</th><th style="text-align: right">Decision</th></tr></thead>
+            <tbody>
+              <sc-for list="{{ approvals }}" as="a" hint-placeholder-count="4">
+                <tr>
+                  <td><span class="chip c-action">{{ a.kind }}</span></td>
+                  <td style="font-weight: 600">{{ a.ref }}</td>
+                  <td><div style="font-weight: 600">{{ a.summary }}</div><div class="muted" style="font-size: 13px">{{ a.why }}</div></td>
+                  <td style="text-align: right; font-weight: 700; white-space: nowrap">{{ a.amount }}</td>
+                  <td class="muted" style="white-space: nowrap">{{ a.age }}</td>
+                  <td style="text-align: right"><div style="display: inline-flex; gap: 6px"><button type="button" class="btn btn-p btn-sm" onClick="{{ a.approve }}">Approve</button><button type="button" class="btn btn-s btn-sm" onClick="{{ a.open }}">Change</button><button type="button" class="btn btn-d btn-sm" onClick="{{ a.reject }}">Reject</button></div></td>
+                </tr>
+              </sc-for>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </sc-if>
+
+    <!-- ============ MASTERS ============ -->
+    <sc-if value="{{ isMasters }}" hint-placeholder-val="{{ false }}">
+      <div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px">
+        <div>
+          <h1 class="h" style="margin: 0; font-size: 26px">{{mastersTitle}}</h1>
+          <p class="muted" style="margin: 6px 0 0; font-size: 14px">Edit a cell to change it. Changes are saved and logged.</p>
+        </div>
+        <button type="button" class="btn btn-p">+ Add {{mastersAddLabel}}</button>
+      </div>
+      <section class="card" style="overflow: hidden">
+        <div role="tablist" style="display: flex; flex-wrap: wrap; gap: 4px; padding: 8px 16px 0; border-bottom: 1px solid #E1E7E5">
+          <sc-for list="{{ masterTabs }}" as="tb" hint-placeholder-count="4">
+            <button type="button" role="tab" class="tab" style="{{ tb.style }}" onClick="{{ tb.pick }}">{{ tb.label }}</button>
+          </sc-for>
+        </div>
+        <div style="overflow-x: auto">
+          <table class="tbl">
+            <thead><tr><sc-for list="{{ master.headers }}" as="h" hint-placeholder-count="5"><th>{{ h }}</th></sc-for><th>Status</th><th></th></tr></thead>
+            <tbody>
+              <sc-for list="{{ master.rows }}" as="r" hint-placeholder-count="4">
+                <tr>
+                  <sc-for list="{{ r.cells }}" as="c" hint-placeholder-count="5"><td>{{ c }}</td></sc-for>
+                  <td><span class="chip {{ r.chipClass }}">{{ r.chip }}</span></td>
+                  <td style="text-align: right"><button type="button" class="btn btn-g btn-sm">Edit</button></td>
+                </tr>
+              </sc-for>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </sc-if>
+
+    <!-- ============ SETTINGS ============ -->
+    <sc-if value="{{ isSettings }}" hint-placeholder-val="{{ false }}">
+      <div>
+        <h1 class="h" style="margin: 0; font-size: 26px">Policies and approvals</h1>
+        <p class="muted" style="margin: 6px 0 0; font-size: 14px">Decide what agents may do alone. Only the owner or logistics head can change these.</p>
+      </div>
+      <section class="card" style="padding: 20px">
+        <h2 class="h" style="margin: 0 0 4px; font-size: 17px">What each agent may do</h2>
+        <p class="muted" style="margin: 0 0 14px; font-size: 13px">Suggest only = drafts for you. Ask first = acts after your one-tap approval. Act within limits = acts alone below the limits below.</p>
+        <div style="display: flex; flex-direction: column">
+          <sc-for list="{{ autonomy }}" as="ag" hint-placeholder-count="4">
+            <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid #EEF2F1">
+              <div><div style="font-weight: 600">{{ ag.agent }}</div><div class="muted" style="font-size: 13px">{{ ag.desc }}</div></div>
+              <div class="seg" role="radiogroup" aria-label="{{ ag.agent }} autonomy">
+                <sc-for list="{{ ag.opts }}" as="o" hint-placeholder-count="3"><button type="button" style="{{ o.style }}" onClick="{{ o.pick }}">{{ o.label }}</button></sc-for>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </section>
+      <section class="card" style="padding: 20px">
+        <h2 class="h" style="margin: 0 0 14px; font-size: 17px">Limits</h2>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); gap: 16px">
+          <sc-for list="{{ limits }}" as="lm" hint-placeholder-count="4">
+            <div><label class="lbl">{{ lm.label }}</label><input class="inp" value="{{ lm.value }}" aria-label="{{ lm.label }}"><div class="help">{{ lm.help }}</div></div>
+          </sc-for>
+        </div>
+        <div style="display: flex; gap: 10px; margin-top: 18px"><button type="button" class="btn btn-p" onClick="{{ saveSettings }}">Save changes</button><button type="button" class="btn btn-s">Discard</button></div>
+      </section>
+    </sc-if>
+
+    <!-- ============ REPORTS ============ -->
+    <sc-if value="{{ isReports }}" hint-placeholder-val="{{ false }}">
+      <div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px">
+        <div>
+          <h1 class="h" style="margin: 0; font-size: 26px">Reports</h1>
+          <p class="muted" style="margin: 6px 0 0; font-size: 14px">November 2026 · all lanes</p>
+        </div>
+        <div style="display: flex; gap: 8px"><select class="inp" aria-label="Period" style="width: auto; min-height: 40px"><option>This month</option><option>Last month</option><option>This quarter</option></select><button type="button" class="btn btn-s">Export Excel</button></div>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr)); gap: 14px">
+        <sc-for list="{{ reportKpis }}" as="k" hint-placeholder-count="4">
+          <div class="card" style="padding: 16px"><div class="muted" style="font-size: 13px">{{ k.label }}</div><div class="kpi" style="margin-top: 6px">{{ k.value }}</div><div style="font-size: 12px; margin-top: 4px; {{ k.noteStyle }}">{{ k.note }}</div></div>
+        </sc-for>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr)); gap: 20px; align-items: start">
+        <section class="card" style="padding: 20px">
+          <h2 class="h" style="margin: 0 0 4px; font-size: 17px">{{barsTitle}}</h2>
+          <p class="muted" style="margin: 0 0 14px; font-size: 13px">{{barsSub}}</p>
+          <div style="display: flex; flex-direction: column; gap: 10px">
+            <sc-for list="{{ bars }}" as="b" hint-placeholder-count="5">
+              <div style="display: grid; grid-template-columns: 150px 1fr 70px; gap: 10px; align-items: center; font-size: 13px">
+                <span>{{ b.label }}</span>
+                <div style="height: 14px; background: #EEF2F1; border-radius: 4px"><div style="{{ b.style }}"></div></div>
+                <span style="text-align: right; font-weight: 600">{{ b.value }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </section>
+        <section class="card" style="overflow: hidden">
+          <h2 class="h" style="margin: 0; padding: 18px 20px 10px; font-size: 17px">{{scoreTitle}}</h2>
+          <div style="overflow-x: auto">
+            <table class="tbl">
+              <thead><tr><th>Name</th><th>Trips</th><th>On time</th><th>POD days</th><th>Score</th></tr></thead>
+              <tbody>
+                <sc-for list="{{ scorecard }}" as="s" hint-placeholder-count="4">
+                  <tr><td style="font-weight: 600">{{ s.name }}</td><td>{{ s.trips }}</td><td>{{ s.onTime }}</td><td>{{ s.pod }}</td><td><span class="chip {{ s.chipClass }}">{{ s.score }}</span></td></tr>
+                </sc-for>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </sc-if>
+
+  </main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"primary":{"editor":"color","default":"#0E6B7A","options":["#0E6B7A","#1D5FA8","#2F6B3F","#7A4A0E"]},"scenario":{"editor":"enum","default":"Typical day","options":["Typical day","First-time user"]},"$preview":{"width":1440,"height":1100}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = {
+      role: 'shipper', screen: 'home', tripId: 'TR-24131', tab: 'all', mtab: 0,
+      picked: 'kaveri', awarded: false, fixApproved: false, newTrip: false,
+      done: {}, toast: null, quoteAmount: '42500',
+      form: { pickup: 'Ambattur DC, Chennai', drop: 'Hosur Plant, Bengaluru', date: '2026-11-26', truck: '32ft MXL', material: 'Biscuits (packed cartons)', weight: '' },
+      weightError: false, showMore: false, confirm: false,
+      autonomy: { Intake: 2, Tender: 1, 'Bid evaluation': 1, Billing: 0, Quote: 1, 'Truck assignment': 1, Documents: 2 }
+    };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const primary = this.props.primary ?? '#0E6B7A';
+    const firstTime = (this.props.scenario ?? 'Typical day') === 'First-time user';
+    const isShipper = s.role === 'shipper';
+    const go = (screen, extra) => () => this.setState({ screen, confirm: false, ...(extra || {}) });
+    const toast = (title, text, extra) => this.setState({ toast: { title, text }, ...(extra || {}) });
+
+    const chipFor = (status) => ({
+      'Quotes requested': 'c-neutral', 'Booked': 'c-neutral', 'Quotes received': 'c-action', 'Quote requested': 'c-action',
+      'Awarded': 'c-progress', 'In transit': 'c-progress', 'Truck confirmed': 'c-progress',
+      'Delivered': 'c-success', 'POD received': 'c-success', 'Closed': 'c-success',
+      'On hold': 'c-danger', 'Invoiced': 'c-billing'
+    })[status] || 'c-neutral';
+
+    let trips = [
+      { id: 'TR-24133', lane: 'Chennai → Vijayawada', from: 'Ambattur DC, Chennai', to: 'Auto Nagar Depot, Vijayawada', material: 'Biscuits', truck: '20ft SXL', weight: '9 t', date: '26 Nov', carrier: 'Awaiting quotes', shipper: 'Sunrise Foods', status: 'Quotes requested', next: 'Quotes close 14:30', amount: '—', stage: 1, panel: 'waiting', group: 'action' },
+      { id: 'TR-24131', lane: 'Chennai → Bengaluru', from: 'Ambattur DC, Chennai', to: 'Hosur Plant, Bengaluru', material: 'Biscuits', truck: '32ft MXL', weight: '14 t', date: '25 Nov', carrier: '3 quotes in', shipper: 'Sunrise Foods', status: 'Quotes received', next: 'Choose a carrier', amount: 'Budget ₹46,000', stage: 1, panel: 'quotes', group: 'action' },
+      { id: 'TR-24128', lane: 'Pune → Hyderabad', from: 'Chakan Warehouse, Pune', to: 'Medchal DC, Hyderabad', material: 'Snacks', truck: '20ft SXL', weight: '8 t', date: '24 Nov', carrier: 'Kaveri Roadlines', shipper: 'Sunrise Foods', status: 'In transit', next: 'ETA 25 Nov, 18:00', amount: '₹38,200', stage: 4, panel: 'transit', group: 'transit' },
+      { id: 'TR-24125', lane: 'Coimbatore → Kochi', from: 'SIDCO Estate, Coimbatore', to: 'Edappally Store, Kochi', material: 'Biscuits', truck: '19ft', weight: '6 t', date: '24 Nov', carrier: 'Deccan Freight Carriers', shipper: 'Sunrise Foods', status: 'Delivered', next: 'POD shows damage: review', amount: '₹21,400', stage: 5, panel: 'pod', group: 'action' },
+      { id: 'TR-24117', lane: 'Bengaluru → Mumbai', from: 'Hosur Plant, Bengaluru', to: 'Bhiwandi DC, Mumbai', material: 'Biscuits', truck: '32ft MXL', weight: '16 t', date: '22 Nov', carrier: 'NorthStar Logistics', shipper: 'Sunrise Foods', status: 'On hold', next: 'Approve truck swap', amount: '₹78,000', stage: 4, panel: 'hold', group: 'action' },
+      { id: 'TR-24119', lane: 'Chennai → Hyderabad', from: 'Ambattur DC, Chennai', to: 'Medchal DC, Hyderabad', material: 'Snacks', truck: '32ft MXL', weight: '15 t', date: '20 Nov', carrier: 'Sai Ganesh Transport', shipper: 'Sunrise Foods', status: 'Invoiced', next: 'Payment due 8 Dec', amount: '₹48,500', stage: 6, panel: 'billed', group: 'delivered' },
+      { id: 'TR-24112', lane: 'Chennai → Madurai', from: 'Ambattur DC, Chennai', to: 'Kappalur Depot, Madurai', material: 'Biscuits', truck: '14ft', weight: '3 t', date: '18 Nov', carrier: 'Kaveri Roadlines', shipper: 'Sunrise Foods', status: 'Closed', next: 'Paid 22 Nov', amount: '₹16,900', stage: 7, panel: 'closed', group: 'closed' }
+    ];
+    if (s.newTrip) trips = [{ id: 'TR-24134', lane: s.form.pickup.split(', ')[1] + ' → ' + s.form.drop.split(', ')[1], from: s.form.pickup, to: s.form.drop, material: s.form.material, truck: s.form.truck, weight: s.form.weight + ' t', date: '26 Nov', carrier: 'Awaiting quotes', shipper: 'Sunrise Foods', status: 'Quotes requested', next: 'Quotes close 16:30', amount: '—', stage: 1, panel: 'waiting', group: 'action' }, ...trips];
+    trips = trips.map((t) => {
+      let u = { ...t };
+      if (t.id === 'TR-24131' && s.awarded) Object.assign(u, { status: 'Awarded', stage: 2, panel: 'awarded', next: 'Carrier assigning truck', amount: s.picked === 'deccan' ? '₹41,800' : s.picked === 'northstar' ? '₹45,900' : '₹42,500', carrier: this.pickedName(), group: 'transit' });
+      if (t.id === 'TR-24117' && s.fixApproved) Object.assign(u, { status: 'In transit', panel: 'transit', next: 'New ETA 26 Nov, 11:00', group: 'transit' });
+      if (!isShipper && t.id === 'TR-24131' && !s.awarded) Object.assign(u, { status: 'Quote requested', panel: 'quoteReq', next: 'Send your quote by 14:30', amount: 'Rate card ₹42,500' });
+      if (!isShipper && t.id === 'TR-24133') Object.assign(u, { status: 'Quote requested', panel: 'quoteReq', next: 'Send your quote by 14:30' });
+      return {
+        ...u, party: isShipper ? u.carrier : u.shipper, chipClass: chipFor(u.status),
+        docs: u.stage >= 3 ? [{ name: 'LR KR-000482', state: 'Issued', chipClass: 'c-success' }, { name: 'E-way bill 1810 4421 7731', state: 'Valid to 27 Nov', chipClass: 'c-success' }, { name: 'POD photo', state: u.stage >= 5 ? 'Received' : 'After delivery', chipClass: u.stage >= 5 ? 'c-success' : 'c-neutral' }] : [{ name: 'LR', state: 'After truck is confirmed', chipClass: 'c-neutral' }, { name: 'E-way bill', state: 'After truck is confirmed', chipClass: 'c-neutral' }],
+        log: [{ t: '12:41', x: 'Kaveri Roadlines quoted ₹42,500' }, { t: '12:30', x: 'Quote request sent to 4 carriers (tender agent)' }, { t: '12:22', x: 'Anita confirmed booking on WhatsApp' }, { t: '12:20', x: 'Booking read from voice note (intake agent)' }],
+        open: go('trip', { tripId: u.id })
+      };
+    });
+
+    const tabsDef = [['all', 'All'], ['action', 'Needs action'], ['transit', 'In transit'], ['delivered', 'Delivered and billed'], ['closed', 'Closed']];
+    const tripTabs = tabsDef.map(([id, label]) => ({
+      label, count: String(id === 'all' ? trips.length : trips.filter((t) => t.group === id).length),
+      style: s.tab === id ? 'color:' + primary + ';border-bottom-color:' + primary : 'color:#52606D',
+      pick: () => this.setState({ tab: id })
+    }));
+    const tripsFiltered = firstTime ? [] : (s.tab === 'all' ? trips : trips.filter((t) => t.group === s.tab));
+    const trip = trips.find((t) => t.id === s.tripId) || trips[1];
+
+    const stageNames = ['Booked', 'Quotes', 'Awarded', 'Truck and documents', 'In transit', 'Delivered and POD', 'Billed and paid'];
+    const stages = stageNames.map((label, i) => {
+      const done = i < trip.stage, cur = i === trip.stage;
+      return {
+        label,
+        dotStyle: 'flex:none;width:14px;height:14px;border-radius:50%;' + (done ? 'background:' + primary : cur ? 'background:#fff;border:3px solid ' + primary : 'background:#fff;border:2px solid #A7B4B0'),
+        barStyle: 'flex:1;height:2px;' + (i === 6 ? 'background:transparent' : done ? 'background:' + primary : 'background:#D5DDDA'),
+        labelStyle: cur ? 'font-weight:700;color:#17212B' : done ? 'color:#2A3642' : 'color:#52606D'
+      };
+    });
+
+    const quoteDefs = [
+      { id: 'kaveri', name: 'Kaveri Roadlines', amount: '₹42,500', vs: '₹3,500 under', onTime: '96%', pod: '1.2 days', accept: '91%', score: '92', rec: true },
+      { id: 'northstar', name: 'NorthStar Logistics', amount: '₹45,900', vs: '₹100 under', onTime: '93%', pod: '1.8 days', accept: '88%', score: '86', rec: false },
+      { id: 'deccan', name: 'Deccan Freight Carriers', amount: '₹41,800', vs: '₹4,200 under', onTime: '84%', pod: '3.5 days', accept: '79%', score: '81', rec: false },
+      { id: 'sai', name: 'Sai Ganesh Transport', amount: 'Awaiting', vs: '—', onTime: '90%', pod: '2.1 days', accept: '85%', score: '—', rec: false, disabled: true }
+    ];
+    const quotes = quoteDefs.map((q) => ({
+      ...q, vsStyle: q.vs.indexOf('under') > -1 ? 'color:#166534' : 'color:#52606D',
+      rowStyle: s.picked === q.id ? 'background:#F0F8F8' : q.disabled ? 'opacity:.6' : '',
+      radioStyle: 'display:inline-block;width:18px;height:18px;border-radius:50%;' + (s.picked === q.id ? 'border:6px solid ' + primary : 'border:2px solid #A7B4B0'),
+      pick: () => { if (!q.disabled) this.setState({ picked: q.id }); }
+    }));
+    const pq = quoteDefs.find((q) => q.id === s.picked);
+
+    const allApprovals = isShipper ? [
+      { id: 'a1', kind: 'Carrier award', ref: 'TR-24131', summary: 'Award Chennai → Bengaluru to Kaveri Roadlines', why: 'Best score (92): 96% on time, PODs in 1.2 days. ₹3,500 under budget.', amount: '₹42,500', age: '18 min', tripId: 'TR-24131', hide: s.awarded },
+      { id: 'a2', kind: 'Exception fix', ref: 'TR-24117', summary: 'Swap truck after breakdown near Hubballi', why: 'Repair takes 18 h. Swap adds 5 h to ETA; carrier pays the extra ₹3,500.', amount: '₹0 to you', age: '1 h 05 min', tripId: 'TR-24117', hide: s.fixApproved },
+      { id: 'a3', kind: 'Damage claim', ref: 'TR-24125', summary: 'Claim for 2 damaged cartons', why: 'Read from the signed LR. 2 × ₹1,600 invoice value.', amount: '₹3,200', age: '2 h' , tripId: 'TR-24125'},
+      { id: 'a4', kind: 'Payment', ref: 'INV-0871', summary: 'Pay Sai Ganesh Transport for TR-24119', why: 'POD accepted, invoice matches quote. Due 8 Dec.', amount: '₹48,500', age: '1 day', tripId: 'TR-24119' }
+    ] : [
+      { id: 'c1', kind: 'Quote outside band', ref: 'TR-24135', summary: 'Quote ₹39,000 to Sunrise Foods, Chennai → Salem', why: 'Below your band (₹40,400+). Truck is returning empty from Salem.', amount: '₹39,000', age: '12 min', tripId: 'TR-24131' },
+      { id: 'c2', kind: 'Exception fix', ref: 'TR-24117', summary: 'Swap to KA 22 TT 5120 from Belagavi', why: 'Clutch failure, repair 18 h. Swap costs ₹3,500, keeps ETA within 5 h.', amount: '₹3,500', age: '1 h 05 min', tripId: 'TR-24117', hide: s.fixApproved },
+      { id: 'c3', kind: 'Invoice', ref: 'TR-24119', summary: 'Send invoice to Sunrise Foods', why: 'POD accepted 22 Nov. Matches awarded quote; no claims.', amount: '₹48,500', age: '3 h', tripId: 'TR-24119' },
+      { id: 'c4', kind: 'Compliance override', ref: 'TN 09 BX 4471', summary: 'Allow truck with insurance expiring 27 Nov', why: 'Trip ends 26 Nov. Renewal booked; needs a named approver and reason.', amount: '—', age: '4 h', tripId: 'TR-24128' }
+    ];
+    const approvals = (firstTime ? [] : allApprovals.filter((a) => !a.hide && !s.done[a.id])).map((a) => ({
+      ...a,
+      approve: () => {
+        if (a.id === 'a1') { toast('Awarded to Kaveri Roadlines.', 'Other carriers are told. Truck details will follow on WhatsApp.', { awarded: true, picked: 'kaveri' }); return; }
+        if (a.id === 'a2' || a.id === 'c2') { toast('Truck swap approved.', 'Shipper and receiver get the new ETA.', { fixApproved: true }); return; }
+        toast('Approved.', a.summary + '.', { done: { ...s.done, [a.id]: true } });
+      },
+      reject: () => toast('Rejected.', 'The agent will ask what to do instead.', { done: { ...s.done, [a.id]: true } }),
+      open: go('trip', { tripId: a.tripId })
+    }));
+
+    const navShipper = [['home', 'Home'], ['trips', 'Trips'], ['booking', 'New booking'], ['approvals', 'Approvals'], ['masters', 'Carriers and lanes'], ['reports', 'Reports'], ['settings', 'Policies']];
+    const navCarrier = [['home', 'Home'], ['trips', 'Loads'], ['approvals', 'Approvals'], ['masters', 'Fleet and rates'], ['reports', 'Reports'], ['settings', 'Policies']];
+    const curNav = s.screen === 'trip' ? 'trips' : s.screen;
+    const navItems = (isShipper ? navShipper : navCarrier).map(([id, label]) => ({
+      label, badge: String(approvals.length), hasBadge: id === 'approvals' && approvals.length > 0,
+      style: curNav === id ? 'background:#E6F2F3;color:' + primary + ';font-weight:700' : 'background:transparent;color:#2A3642',
+      go: go(id)
+    }));
+
+    const masterSets = isShipper ? [
+      { label: 'Lanes and carriers', add: 'lane', headers: ['Lane', 'Truck type', 'Approved carriers', 'Budget per trip', 'Award rule'], rows: [
+        { cells: ['Chennai → Bengaluru', '32ft MXL', 'Kaveri, NorthStar, Deccan, Sai Ganesh', '₹46,000', 'Ask me'], chip: 'Active', chipClass: 'c-success' },
+        { cells: ['Pune → Hyderabad', '20ft SXL', 'Kaveri, NorthStar', '₹40,000', 'Lowest within budget, automatic'], chip: 'Active', chipClass: 'c-success' },
+        { cells: ['Chennai → Vijayawada', '20ft SXL', 'Not approved yet (4 suggested)', '—', 'Ask me'], chip: 'Needs carriers', chipClass: 'c-action' } ] },
+      { label: 'Addresses', add: 'address', headers: ['Name', 'City', 'Type', 'Contact', 'Hours'], rows: [
+        { cells: ['Ambattur DC', 'Chennai', 'Pickup', 'Selvam · +91 94xxxxxx10', '08:00–20:00'], chip: 'Active', chipClass: 'c-success' },
+        { cells: ['Hosur Plant', 'Bengaluru', 'Pickup and drop', 'Gate office · +91 80xxxxxx55', '24 h'], chip: 'Active', chipClass: 'c-success' } ] },
+      { label: 'Users and roles', add: 'user', headers: ['Name', 'Role', 'Channel', 'Approves up to', 'Language'], rows: [
+        { cells: ['Anita Rao', 'Logistics head', 'WhatsApp + web', '₹2,00,000', 'English'], chip: 'Active', chipClass: 'c-success' },
+        { cells: ['Karthik S', 'Booking executive', 'WhatsApp', 'Cannot approve', 'Tamil'], chip: 'Active', chipClass: 'c-success' },
+        { cells: ['Meena P', 'Accounts payable', 'Web', 'Payments ₹1,00,000', 'English'], chip: 'Invited', chipClass: 'c-neutral' } ] }
+    ] : [
+      { label: 'Trucks', add: 'truck', headers: ['Truck no.', 'Type', 'Ownership', 'Insurance', 'Fitness'], rows: [
+        { cells: ['TN 09 BX 4471', '32ft MXL', 'Own', 'Expires 27 Nov', 'Valid to Mar 2027'], chip: 'Expiring', chipClass: 'c-action' },
+        { cells: ['TN 10 AZ 2210', '32ft MXL', 'Attached', 'Valid to Jun 2027', 'Valid to Jan 2027'], chip: 'Ready', chipClass: 'c-success' },
+        { cells: ['MH 12 QW 8841', '20ft SXL', 'Own', 'Valid to Feb 2027', 'Valid to Aug 2027'], chip: 'On trip', chipClass: 'c-progress' } ] },
+      { label: 'Drivers', add: 'driver', headers: ['Name', 'Mobile', 'Licence', 'Language', 'Current trip'], rows: [
+        { cells: ['Ramesh K', '+91 98xxxxxx21', 'Valid to 2029', 'Hindi', 'TR-24128'], chip: 'On trip', chipClass: 'c-progress' },
+        { cells: ['Murugan V', '+91 97xxxxxx08', 'Valid to 2027', 'Tamil', '—'], chip: 'Free', chipClass: 'c-success' } ] },
+      { label: 'Rate cards', add: 'rate', headers: ['Shipper', 'Lane', 'Truck type', 'Rate', 'Band'], rows: [
+        { cells: ['Sunrise Foods', 'Chennai → Bengaluru', '32ft MXL', '₹42,500', '±5%'], chip: 'Active', chipClass: 'c-success' },
+        { cells: ['Any shipper', 'Pune → Hyderabad', '20ft SXL', '₹37,000', '±7%'], chip: 'Active', chipClass: 'c-success' } ] },
+      { label: 'Users and roles', add: 'user', headers: ['Name', 'Role', 'Channel', 'Approves up to', 'Language'], rows: [
+        { cells: ['Vijay Kumar', 'Owner', 'WhatsApp + web', 'No limit', 'Tamil'], chip: 'Active', chipClass: 'c-success' },
+        { cells: ['Divya R', 'Dispatcher', 'Web', 'Truck changes', 'English'], chip: 'Active', chipClass: 'c-success' } ] }
+    ];
+    const mIdx = Math.min(s.mtab, masterSets.length - 1);
+    const master = masterSets[mIdx];
+    const masterTabs = masterSets.map((m, i) => ({ label: m.label, style: i === mIdx ? 'color:' + primary + ';border-bottom-color:' + primary : 'color:#52606D', pick: () => this.setState({ mtab: i }) }));
+
+    const levelNames = ['Suggest only', 'Ask first', 'Act within limits'];
+    const agentDefs = isShipper ? [
+      ['Intake', 'Reads bookings from WhatsApp, email and voice notes'], ['Tender', 'Sends quote requests to approved carriers'],
+      ['Bid evaluation', 'Recommends and records the award'], ['Billing', 'Prepares payments of carrier invoices']
+    ] : [
+      ['Quote', 'Prices quote requests from your rate card'], ['Truck assignment', 'Proposes a free truck and driver'],
+      ['Documents', 'Issues LR and e-way bill'], ['Billing', 'Prepares invoices after POD']
+    ];
+    const autonomy = agentDefs.map(([agent, desc]) => ({
+      agent, desc,
+      opts: levelNames.map((label, lv) => ({
+        label,
+        style: (s.autonomy[agent] ?? 1) === lv ? 'background:' + primary + ';color:#fff' : 'background:#fff;color:#2A3642',
+        pick: () => this.setState({ autonomy: { ...s.autonomy, [agent]: lv } })
+      }))
+    }));
+    const limits = isShipper ? [
+      { label: 'Auto-award only below (₹ per trip)', value: '0 (always ask)', help: 'Set per lane under Carriers and lanes.' },
+      { label: 'Payments need approval above (₹)', value: '50,000', help: 'Smaller invoices are paid when POD is accepted.' },
+      { label: 'Quote window (hours)', value: '2', help: 'Can be changed on each booking.' },
+      { label: 'POD rule', value: 'Digital photo accepted', help: 'Or: hard copy required, or both.' }
+    ] : [
+      { label: 'Rate band around rate card (±%)', value: '5', help: 'Quotes inside the band can go out automatically.' },
+      { label: 'Margin floor (%)', value: '8', help: 'No quote is sent below this margin.' },
+      { label: 'Invoices need approval above (₹)', value: '25,000', help: 'Smaller invoices go when POD rule is met.' },
+      { label: 'Backup approver', value: 'Divya R', help: 'Gets reminders after 2 hours.' }
+    ];
+
+    const reportKpis = isShipper ? [
+      { label: 'Freight spend', value: '₹18.6 L', note: '89% of ₹21 L budget', noteStyle: 'color:#166534' },
+      { label: 'On-time delivery', value: '92%', note: '+3 pts vs October', noteStyle: 'color:#166534' },
+      { label: 'Average POD time', value: '1.6 days', note: 'Target 2 days', noteStyle: 'color:#52606D' },
+      { label: 'Trips', value: '64', note: '4 open exceptions', noteStyle: 'color:#8A3B0B' }
+    ] : [
+      { label: 'Freight billed', value: '₹24.1 L', note: '52 trips', noteStyle: 'color:#52606D' },
+      { label: 'Average margin', value: '11.4%', note: 'Floor 8%', noteStyle: 'color:#166534' },
+      { label: 'Unbilled after POD', value: '₹1.9 L', note: '5 trips over 3 days', noteStyle: 'color:#8A3B0B' },
+      { label: 'Overdue receivables', value: '₹3.2 L', note: '2 shippers', noteStyle: 'color:#8A3B0B' }
+    ];
+    const barRaw = isShipper ? [['Chennai → Bengaluru', 6.2], ['Bengaluru → Mumbai', 4.7], ['Chennai → Hyderabad', 3.4], ['Pune → Hyderabad', 2.6], ['Coimbatore → Kochi', 1.7]]
+      : [['Chennai → Bengaluru', 13.8], ['Pune → Hyderabad', 12.1], ['Chennai → Hyderabad', 10.6], ['Bengaluru → Mumbai', 9.2], ['Chennai → Madurai', 7.5]];
+    const maxV = Math.max(...barRaw.map((b) => b[1]));
+    const bars = barRaw.map(([label, v]) => ({ label, value: isShipper ? '₹' + v + ' L' : v + '%', style: 'height:14px;border-radius:4px;background:' + primary + ';width:' + Math.round((v / maxV) * 100) + '%' }));
+    const scorecard = (isShipper ? [
+      ['Kaveri Roadlines', '22', '96%', '1.2', '92', 'c-success'], ['NorthStar Logistics', '15', '93%', '1.8', '86', 'c-success'],
+      ['Sai Ganesh Transport', '14', '90%', '2.1', '83', 'c-progress'], ['Deccan Freight Carriers', '13', '84%', '3.5', '74', 'c-action']
+    ] : [
+      ['Sunrise Foods', '31', '95%', '1.4', 'Pays in 12 days', 'c-success'], ['Annapurna Mills', '12', '91%', '2.0', 'Pays in 34 days', 'c-action'],
+      ['Coastal Paints', '9', '97%', '1.1', 'Pays in 9 days', 'c-success']
+    ]).map(([name, trips, onTime, pod, score, chipClass]) => ({ name, trips, onTime, pod, score, chipClass }));
+
+    const f = (k) => (e) => this.setState({ form: { ...s.form, [k]: e.target.value }, weightError: k === 'weight' ? false : s.weightError });
+    const pickups = ['Ambattur DC, Chennai', 'Chakan Warehouse, Pune', 'Hosur Plant, Bengaluru', 'SIDCO Estate, Coimbatore'];
+    const drops = ['Hosur Plant, Bengaluru', 'Medchal DC, Hyderabad', 'Bhiwandi DC, Mumbai', 'Edappally Store, Kochi', 'Auto Nagar Depot, Vijayawada'];
+    const truckTypes = ['14ft', '19ft', '20ft SXL', '32ft SXL', '32ft MXL'];
+
+    const q = parseInt(String(s.quoteAmount).replace(/[^0-9]/g, ''), 10) || 0;
+    const outBand = q < 40400 || q > 44600;
+    const homeStats = isShipper ? [
+      { label: 'Trips', value: firstTime ? '0' : '64', note: firstTime ? 'Book your first' : '7 active now', noteStyle: 'color:#52606D' },
+      { label: 'On time', value: firstTime ? '—' : '92%', note: firstTime ? 'After first trips' : '+3 pts vs Oct', noteStyle: 'color:#166534' },
+      { label: 'Spend vs budget', value: firstTime ? '—' : '₹18.6 L', note: firstTime ? 'Set budgets per lane' : '89% of ₹21 L', noteStyle: 'color:#166534' },
+      { label: 'PODs pending', value: firstTime ? '—' : '2', note: firstTime ? '' : 'Oldest 1 day', noteStyle: 'color:#8A3B0B' }
+    ] : [
+      { label: 'Quote requests open', value: '2', note: 'First closes 14:30', noteStyle: 'color:#8A3B0B' },
+      { label: 'Trucks free tomorrow', value: '4', note: 'of 11', noteStyle: 'color:#52606D' },
+      { label: 'Unbilled after POD', value: '₹1.9 L', note: '5 trips', noteStyle: 'color:#8A3B0B' },
+      { label: 'Average margin', value: '11.4%', note: 'Floor 8%', noteStyle: 'color:#166534' }
+    ];
+
+    const setupSteps = [
+      { num: '1', title: 'Add your lanes', text: 'Pickup and drop pairs you ship on, with truck type and budget.', cta: 'Add lanes', go: go('masters', { mtab: 0 }) },
+      { num: '2', title: 'Approve carriers', text: 'Invite carriers by phone number. Quotes go only to them.', cta: 'Invite carriers', go: go('masters', { mtab: 0 }) },
+      { num: '3', title: 'Set approval limits', text: 'Who approves awards and payments, and up to what amount.', cta: 'Set limits', go: go('settings') },
+      { num: '4', title: 'Book a truck', text: 'Here or on WhatsApp. Voice notes and slip photos work.', cta: 'Book now', go: go('booking') }
+    ].map((x) => ({ ...x, dotStyle: 'width:28px;height:28px;border-radius:50%;background:#E6F2F3;color:' + primary + ';display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px' }));
+
+    const panel = trip.panel;
+    return {
+      primary, firstTime, isShipper, isCarrier: !isShipper,
+      companyName: isShipper ? 'Sunrise Foods Pvt Ltd · Shipper' : 'Kaveri Roadlines · Carrier',
+      userName: isShipper ? 'Anita Rao' : 'Vijay Kumar', firstName: isShipper ? 'Anita' : 'Vijay', initials: isShipper ? 'AR' : 'VK',
+      userRole: isShipper ? 'Logistics head (approver)' : 'Owner (approver)',
+      shipperSegStyle: isShipper ? 'background:' + primary + ';color:#fff' : 'background:#fff;color:#2A3642',
+      carrierSegStyle: !isShipper ? 'background:' + primary + ';color:#fff' : 'background:#fff;color:#2A3642',
+      setShipper: () => this.setState({ role: 'shipper', screen: 'home', mtab: 0 }),
+      setCarrier: () => this.setState({ role: 'carrier', screen: 'home', mtab: 0 }),
+      navItems,
+      isHome: s.screen === 'home', isTrips: s.screen === 'trips', isTrip: s.screen === 'trip', isBooking: s.screen === 'booking',
+      isApprovals: s.screen === 'approvals', isMasters: s.screen === 'masters', isSettings: s.screen === 'settings', isReports: s.screen === 'reports',
+      goHome: go('home'), goTrips: go('trips'), goBooking: go('booking', { weightError: false }), goApprovals: go('approvals'),
+      repeatLast: go('booking', { form: { ...s.form, pickup: 'Ambattur DC, Chennai', drop: 'Hosur Plant, Bengaluru', truck: '32ft MXL', material: 'Biscuits (packed cartons)', weight: '14' } }),
+      hasToast: !!s.toast, toastTitle: s.toast ? s.toast.title : '', toastText: s.toast ? s.toast.text : '', closeToast: () => this.setState({ toast: null }),
+      homeSubtitle: firstTime ? 'Welcome to DigitRell. Finish setup, then book your first truck.' : (approvals.length ? approvals.length + ' decisions are waiting for you. Everything else is moving.' : 'Nothing needs you right now. Everything is moving.'),
+      setupSteps, homeStats,
+      approvalsTop: approvals.slice(0, 3), approvals, noApprovals: approvals.length === 0,
+      hasTrips: !firstTime, tripsActive: firstTime ? [] : trips.filter((t) => t.group !== 'closed').slice(0, 5),
+      partyHeader: isShipper ? 'Carrier' : 'Shipper', tripsTitle: isShipper ? 'Trips' : 'Loads',
+      tripTabs, tripsFiltered, tripsEmpty: tripsFiltered.length === 0, shownCount: String(tripsFiltered.length),
+      trip, stages, quotes,
+      pQuotes: panel === 'quotes', pQuoteReq: panel === 'quoteReq', pWaiting: panel === 'waiting', pAwarded: panel === 'awarded',
+      pTransit: panel === 'transit', pHold: panel === 'hold', pPod: panel === 'pod', pBilled: panel === 'billed', pClosed: panel === 'closed',
+      pickedName: pq.name, pickedAmount: pq.amount, awardedName: this.pickedName(), awardedAmount: pq.amount,
+      approveAward: () => toast('Awarded to ' + pq.name + '.', 'Other carriers are told. Truck details will follow on WhatsApp.', { awarded: true }),
+      undoAward: () => toast('Award undone.', 'Quotes are open again.', { awarded: false }),
+      rejectAll: () => toast('All quotes rejected.', 'Choose: extend, add carriers or cancel. The agent asked on WhatsApp too.'),
+      approveFix: () => toast('Truck swap approved.', 'Shipper and receiver get the new ETA.', { fixApproved: true }),
+      billedAction: isShipper ? 'Pay ₹48,500 by UPI' : 'Send payment reminder',
+      quoteAmount: s.quoteAmount, setQuoteAmount: (e) => this.setState({ quoteAmount: e.target.value }),
+      quoteOutOfBand: outBand, quoteInpClass: outBand ? 'inp-err' : '',
+      quoteBtnLabel: outBand ? 'Send to owner for approval' : 'Send quote ₹' + q.toLocaleString('en-IN'),
+      sendQuote: () => toast(outBand ? 'Sent for approval.' : 'Quote sent.', outBand ? 'Vijay gets a WhatsApp message to approve.' : 'Sunrise Foods will see it with your on-time record.'),
+      form: s.form,
+      pickupOpts: pickups.map((p) => ({ label: p, sel: p === s.form.pickup })),
+      dropOpts: drops.map((p) => ({ label: p, sel: p === s.form.drop })),
+      setPickup: f('pickup'), setDrop: f('drop'), setDate: f('date'), setWeight: f('weight'), setMaterial: f('material'),
+      weightError: s.weightError, weightClass: s.weightError ? 'inp-err' : '',
+      truckChips: truckTypes.map((t) => ({ label: t, pick: () => this.setState({ form: { ...s.form, truck: t } }),
+        style: 'min-height:44px;padding:0 16px;border-radius:10px;font:600 14px Inter,sans-serif;cursor:pointer;' + (s.form.truck === t ? 'background:#E6F2F3;color:' + primary + ';border:2px solid ' + primary : 'background:#fff;color:#2A3642;border:1px solid #CBD5D1') })),
+      showMore: s.showMore, moreLabel: s.showMore ? '− Fewer details' : '+ Receiver contact, reference, notes',
+      toggleMore: () => this.setState({ showMore: !s.showMore }),
+      bookingForm: !s.confirm, bookingConfirm: s.confirm,
+      reviewBooking: () => { if (!String(s.form.weight).trim()) this.setState({ weightError: true }); else this.setState({ confirm: true }); },
+      editBooking: () => this.setState({ confirm: false }),
+      confirmBooking: () => toast('TR-24134 booked.', 'Quotes requested from 4 carriers; they close at 16:30.', { screen: 'trips', tab: 'all', confirm: false, newTrip: true }),
+      repeatItems: [
+        { lane: 'Chennai → Bengaluru', detail: '32ft MXL · 14 t biscuits · last on 18 Nov', use: () => this.setState({ form: { ...s.form, pickup: 'Ambattur DC, Chennai', drop: 'Hosur Plant, Bengaluru', truck: '32ft MXL', material: 'Biscuits (packed cartons)', weight: '14' }, weightError: false, confirm: false }) },
+        { lane: 'Pune → Hyderabad', detail: '20ft SXL · 8 t snacks · last on 24 Nov', use: () => this.setState({ form: { ...s.form, pickup: 'Chakan Warehouse, Pune', drop: 'Medchal DC, Hyderabad', truck: '20ft SXL', material: 'Snacks', weight: '8' }, weightError: false, confirm: false }) },
+        { lane: 'Coimbatore → Kochi', detail: '19ft · 6 t biscuits · last on 24 Nov', use: () => this.setState({ form: { ...s.form, pickup: 'SIDCO Estate, Coimbatore', drop: 'Edappally Store, Kochi', truck: '19ft', material: 'Biscuits (packed cartons)', weight: '6' }, weightError: false, confirm: false }) }
+      ],
+      mastersTitle: isShipper ? 'Carriers and lanes' : 'Fleet and rates', mastersAddLabel: master.add, masterTabs, master,
+      autonomy, limits, saveSettings: () => toast('Policies saved.', 'Logged with your name and time.'),
+      reportKpis, bars, scorecard,
+      barsTitle: isShipper ? 'Spend by lane' : 'Margin by lane', barsSub: isShipper ? '₹ lakh, this month' : 'Average margin per trip, this month',
+      scoreTitle: isShipper ? 'Carrier scorecard' : 'Shipper scorecard'
+    };
+  }
+
+  pickedName() {
+    return ({ kaveri: 'Kaveri Roadlines', northstar: 'NorthStar Logistics', deccan: 'Deccan Freight Carriers' })[this.state.picked] || 'Kaveri Roadlines';
+  }
+}
+</script>
+</body>
+</html>

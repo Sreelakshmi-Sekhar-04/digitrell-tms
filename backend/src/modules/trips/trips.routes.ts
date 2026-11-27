@@ -3,22 +3,21 @@ import type { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 import { asyncHandler, badRequest } from '../../lib/errors';
 import { Validator } from '../../lib/validate';
-import { awardQuote, loadTrip, retender, syncTrip, tripInclude, undoAward } from './tender.service';
+import { expireOffers, loadTrip, sendAgain, tripInclude } from './tender.service';
 import { GROUPS, tripDetail, tripSummary } from './trip.view';
 import { acceptPod, approveInvoice, markHardCopy, payInvoice, queryInvoice, raiseClaim, withdrawClaim } from './billing.service';
-import { CANCEL_REASONS, askMoreCarriers, cancelPreview, cancelTrip, carriersNotAsked, decideFix, editBooking, editRules, extendDeadline } from './exceptions.service';
+import { CANCEL_REASONS, cancelPreview, cancelTrip, decideFix, editBooking, editRules, extendDeadline } from './exceptions.service';
 import { getPolicy } from '../policies/policies.routes';
+import { requireRole } from '../../middleware/auth';
+import { lrHtml } from './lr.service';
 
 export const tripsRouter = Router();
+
 const PAGE_SIZE = 20;
 
-/** Closes any quote requests whose deadline has passed, so lists and inboxes are current. */
-export async function syncDueTrips(shipperId: string) {
-  const due = await prisma.trip.findMany({
-    where: { shipperId, status: { in: ['QUOTES_REQUESTED', 'QUOTES_RECEIVED'] }, quotesClosedAt: null, quoteDeadline: { lte: new Date() } },
-    select: { id: true },
-  });
-  for (const t of due) await syncTrip(t.id);
+/** Moves on any offers whose response time has passed, so lists and inboxes are current. */
+export async function syncDueTrips(_shipperId?: string) {
+  await expireOffers();
 }
 
 function groupWhere(tab: string): Prisma.TripWhereInput {
@@ -80,13 +79,14 @@ tripsRouter.get(
 export const ACTION_TEXT: Record<string, (d: Record<string, unknown>) => string> = {
   BOOKED: (d) => `Booked on the ${d.channel ?? 'web'}`,
   QUOTES_REQUESTED: (d) => `Quote request sent to ${(d.carriers as string[])?.length ?? 0} carriers`,
-  QUOTE_RECEIVED: (d) => `${d.carrier} quoted ₹${Number(d.amount).toLocaleString('en-IN')}`,
-  QUOTE_DECLINED: (d) => `${d.carrier} passed`,
-  QUOTES_CLOSED: (d) => `Quotes closed: ${d.quoted} of ${d.asked} quoted (${d.reason})`,
-  AWARDED: (d) => `Awarded to ${d.carrier} at ₹${Number(d.amount).toLocaleString('en-IN')}${d.recommended ? '' : ' (not the recommended carrier)'}`,
-  AWARD_UNDONE: (d) => `Award to ${d.carrier} undone`,
-  AUTO_AWARD_SKIPPED: (d) => `Automatic award skipped: ${d.reason}`,
-  QUOTES_REJECTED: (d) => `All quotes rejected; ${d.carriersAskedAgain} carriers asked again`,
+  OFFER_SENT: (d) => `Offered to ${d.carrier} at ₹${Number(d.amount).toLocaleString('en-IN')} (contract rate, ${d.sequence} of ${d.of})`,
+  OFFER_ACCEPTED: (d) => `${d.carrier} accepted at ₹${Number(d.amount).toLocaleString('en-IN')}`,
+  OFFER_DECLINED: (d) => `${d.carrier} passed${d.reason ? ` — “${d.reason}”` : ''}`,
+  OFFER_EXPIRED: (d) => `${d.carrier} did not answer in time`,
+  OFFERS_EXHAUSTED: () => 'No carrier accepted',
+  OFFERS_RESTARTED: (d) => `Offers sent again from the lowest rate: ${d.first} at ₹${Number(d.amount).toLocaleString('en-IN')}`,
+  ACCEPTANCE_REJECTED: (d) => `${d.carrier} was not approved; offered to the next carrier`,
+  AWARDED: (d) => `Awarded to ${d.carrier} at ₹${Number(d.amount).toLocaleString('en-IN')} (contract rate)`,
   TRUCK_CONFIRMED: (d) => `Truck ${d.truck} confirmed, driver ${d.driver}`,
   DOCUMENTS_ISSUED: (d) => `LR ${d.lr} and e-way bill ${d.ewayBill} issued`,
   TRACK_REACHED_PICKUP: () => 'Driver reached pickup',
@@ -103,13 +103,13 @@ export const ACTION_TEXT: Record<string, (d: Record<string, unknown>) => string>
   CLAIM_WITHDRAWN: (d) => `Claim ${d.claim} withdrawn`,
   INVOICE_RECEIVED: (d) => `Invoice ${d.invoice} received: ₹${Number(d.total).toLocaleString('en-IN')}`,
   INVOICE_APPROVED: (d) => `Invoice ${d.invoice} approved${d.by ? ` (${d.by})` : ''}`,
+  PAYMENT_REMINDER: (d) => `Payment reminder for invoice ${d.invoice} (due ${String(d.dueDate).slice(0, 10)})`,
   INVOICE_QUERIED: (d) => `Invoice ${d.invoice} queried`,
   INVOICE_PAID: (d) => `Paid ₹${Number(d.total).toLocaleString('en-IN')} by ${d.mode === 'UPI' ? 'UPI' : 'bank transfer'}, ref ${d.reference}`,
   TRIP_CLOSED: () => 'Trip closed',
   TRIP_CANCELLED: () => 'Booking cancelled',
-  BOOKING_EDITED: (d) => `Booking edited${d.requoted ? '; carriers asked to quote again' : ''}`,
-  DEADLINE_EXTENDED: (d) => `Quote deadline extended by ${d.hours} h`,
-  CARRIERS_ADDED: (d) => `${d.added} more carrier${Number(d.added) > 1 ? 's' : ''} asked to quote`,
+  BOOKING_EDITED: (d) => `Booking edited${d.requoted ? '; offers restarted from the lowest rate' : ''}`,
+  DEADLINE_EXTENDED: (d) => `Response time extended by ${d.hours} h`,
   DELAY_NOTICE: (d) => `Delay: ${d.description}`,
   EXCEPTION_REPORTED: (d) => `Problem reported: ${String(d.kind).toLowerCase()} — ${d.description}`,
   FIX_PROPOSED: (d) => `Fix proposed: ${d.label}${Number(d.extraCost) ? ` (₹${Number(d.extraCost).toLocaleString('en-IN')}, paid by ${d.payer === 'SHIPPER' ? 'you' : 'carrier'})` : ''}`,
@@ -127,7 +127,7 @@ tripsRouter.get(
   asyncHandler(async (req, res) => {
     const shipperId = req.user!.companyId;
     await loadTrip(req.params.id, shipperId); // 404 for other companies
-    await syncTrip(req.params.id);
+    await expireOffers();
     const trip = await loadTrip(req.params.id, shipperId);
     const logs = await prisma.auditLog.findMany({ where: { tripId: trip.id }, orderBy: { createdAt: 'desc' }, take: 50 });
     const userIds = [...new Set(logs.map((l) => l.actor).filter((a) => !a.includes('-agent') && !a.startsWith('carrier:')))];
@@ -136,11 +136,22 @@ tripsRouter.get(
       at: l.createdAt,
       actor: AGENTS[l.actor] ?? users.get(l.actor) ?? (l.actor.startsWith('carrier:') ? 'Carrier' : 'System'),
       action: l.action,
-      text: (ACTION_TEXT[l.action] ?? (() => l.action))((l.data ?? {}) as Record<string, unknown>) + (l.reason && ['QUOTES_REJECTED', 'INVOICE_QUERIED', 'TRIP_CANCELLED', 'FIX_REJECTED'].includes(l.action) ? ` — “${l.reason}”` : ''),
+      text: (ACTION_TEXT[l.action] ?? (() => l.action))((l.data ?? {}) as Record<string, unknown>) + (l.reason && ['ACCEPTANCE_REJECTED', 'INVOICE_QUERIED', 'TRIP_CANCELLED', 'FIX_REJECTED'].includes(l.action) ? ` — “${l.reason}”` : ''),
     }));
     const policy = await getPolicy(shipperId);
-    const extra = { cancel: cancelPreview(trip, req.user!.role), edit: editRules(trip), carriersNotAsked: await carriersNotAsked(trip) };
+    const extra = { cancel: cancelPreview(trip, req.user!.role), edit: editRules(trip), canApprove: false };
     res.json({ trip: { ...tripDetail(trip, activity, { podRule: policy.podRule, paymentApprovalAbove: Number(policy.paymentApprovalAbove) }), ...extra } });
+  }),
+);
+
+// ---------- LR (the carrier issues it; the shipper can view and print it) ----------
+
+/** Printable LR as an HTML page. */
+tripsRouter.get(
+  '/:id/lr',
+  asyncHandler(async (req, res) => {
+    await loadTrip(req.params.id, req.user!.companyId);
+    res.type('html').send(await lrHtml(req.params.id));
   }),
 );
 
@@ -217,39 +228,16 @@ tripsRouter.post(
   }),
 );
 
+/** After "No carrier accepted": offer again from the lowest contract rate (re-priced from current rate cards). */
 tripsRouter.post(
-  '/:id/award',
+  '/:id/send-again',
   asyncHandler(async (req, res) => {
-    const trip = await loadTrip(req.params.id, req.user!.companyId);
-    const quoteId = String(req.body?.quoteId ?? '');
-    if (!quoteId) throw badRequest('Choose a carrier to award.', { quoteId: 'Choose a carrier to award.' });
-    await awardQuote(trip.id, quoteId, { id: req.user!.id, name: req.user!.name });
-    res.json({ ok: true });
+    const r = await sendAgain(req.params.id, req.user!.companyId, { id: req.user!.id, name: req.user!.name });
+    res.json({ ok: true, ...r });
   }),
 );
 
-tripsRouter.post(
-  '/:id/undo-award',
-  asyncHandler(async (req, res) => {
-    await undoAward(req.params.id, req.user!.companyId, { id: req.user!.id, name: req.user!.name });
-    res.json({ ok: true });
-  }),
-);
-
-tripsRouter.post(
-  '/:id/retender',
-  asyncHandler(async (req, res) => {
-    const v = new Validator(req.body);
-    const reason = v.text('reason', 'why the quotes are rejected', { required: true, max: 200 });
-    const policy = await getPolicy(req.user!.companyId);
-    const hours = req.body?.windowHours == null ? policy.quoteWindowHours : v.int('windowHours', 'the quote window', 1, 48);
-    v.done();
-    await retender(req.params.id, req.user!.companyId, { id: req.user!.id, name: req.user!.name }, reason!, hours!);
-    res.json({ ok: true });
-  }),
-);
-
-// ---------- exceptions: cancel, edit, widen the request, fixes on the road ----------
+// ---------- exceptions: cancel, edit, extend, fixes on the road ----------
 
 tripsRouter.post(
   '/:id/cancel',
@@ -300,15 +288,6 @@ tripsRouter.post(
     v.done();
     const until = await extendDeadline(req.params.id, req.user!.companyId, actorOf(req), hours!);
     res.json({ ok: true, quoteDeadline: until });
-  }),
-);
-
-tripsRouter.post(
-  '/:id/carriers',
-  asyncHandler(async (req, res) => {
-    const ids = Array.isArray(req.body?.carrierIds) ? req.body.carrierIds.map(String) : [];
-    await askMoreCarriers(req.params.id, req.user!.companyId, actorOf(req), ids);
-    res.json({ ok: true });
   }),
 );
 

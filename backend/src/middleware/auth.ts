@@ -2,12 +2,15 @@ import type { NextFunction, Request, Response } from 'express';
 import type { Company, User } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { forbidden, unauthorized } from '../lib/errors';
+import { rolesOf } from '../shared/carrier';
 
 export interface AuthUser {
   id: string;
   name: string;
   email: string | null;
   role: string;
+  /** Every role held, main role first (carrier users may hold several). */
+  roles: string[];
   companyId: string;
   companyName: string;
   companyType: 'SHIPPER' | 'CARRIER';
@@ -50,6 +53,20 @@ export function requireShipper(req: Request, _res: Response, next: NextFunction)
   next();
 }
 
+/** Allows only users of a carrier company (the carrier desk). */
+export function requireCarrier(req: Request, _res: Response, next: NextFunction) {
+  if (req.user?.companyType !== 'CARRIER') return next(forbidden('This part of DigitRell is for carrier users.'));
+  next();
+}
+
+/** Allows a carrier user holding any of the given roles (main role or an extra one). */
+export function requireCarrierRole(roles: string[], message = 'Your role cannot do this. Ask your owner.') {
+  return (req: Request, _res: Response, next: NextFunction) => {
+    if (!req.user || !req.user.roles.some((r) => roles.includes(r))) return next(forbidden(message));
+    next();
+  };
+}
+
 /** Allows only the given roles (checked after requireAuth). */
 export function requireRole(...roles: string[]) {
   return (req: Request, _res: Response, next: NextFunction) => {
@@ -63,7 +80,7 @@ export function requireRole(...roles: string[]) {
 /** The user as the web app sees it (never includes the password hash or invite token). */
 export function sessionUser(u: User & { company: Company }): AuthUser {
   return {
-    id: u.id, name: u.name, email: u.email, role: u.role, companyId: u.companyId, companyName: u.company.name,
+    id: u.id, name: u.name, email: u.email, role: u.role, roles: rolesOf(u), companyId: u.companyId, companyName: u.company.name,
     companyType: u.company.type, approvalLimit: u.approvalLimit != null ? Number(u.approvalLimit.toString()) : null,
   };
 }

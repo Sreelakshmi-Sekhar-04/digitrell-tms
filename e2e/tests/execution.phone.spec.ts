@@ -14,9 +14,9 @@ test.describe('Execution on a phone (390 × 844)', () => {
 
     const billed = await deliveredTrip(request, anita, r);
     await integration.pod(request, billed.number);
-    await integration.invoice(request, billed.number, { number: 'INV-PH1', freight: 42500 });
+    await integration.invoice(request, billed.number, { number: 'INV-PH1', freight: 43800 });
     await page.goto(`/trips/${billed.id}`);
-    await expect(page.getByRole('button', { name: 'Approve ₹42,500' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Approve ₹43,800' })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
   });
 });

@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { USERS, asUser, uniq } from './helpers';
-import { book, carrierQuotes, ownLane, refs, tomorrow } from './trips.helpers';
+import { book, ownLane, refs, tomorrow } from './trips.helpers';
 
 const mobile = () => `9${Math.floor(100000000 + Math.random() * 899999999)}`;
 
@@ -134,59 +134,50 @@ test.describe('Rate cards API', () => {
   });
 });
 
-test.describe('Budget per trip at booking', () => {
-  test('lane info shows agreed rates (lowest first, expired cards left out) and the last budget', async ({ request }) => {
+test.describe('Contract rates drive the booking', () => {
+  test('lane info lists carriers on contract lowest first; expired cards and carriers without a line are left out', async ({ request }) => {
     const anita = await asUser(request, USERS.shipperHead);
-    const own = await ownLane(anita, 3);
+    const own = await ownLane(anita, 3); // ownLane already gave carriers 0..2 a rate card
     const [a, b, c] = own.carriers;
     const line = (rate: number) => ({ origin: 'Madurai', destination: own.lane.destination, truckType: '17ft', rate });
     await anita.put(`/rate-cards/${a.id}`, { lines: [line(21000)] });
     await anita.put(`/rate-cards/${b.id}`, { lines: [line(19500)] });
     await anita.put(`/rate-cards/${c.id}`, { validFrom: '2020-01-01', validTo: '2020-12-31', lines: [line(15000)] }); // expired
 
-    const q = new URLSearchParams({ pickupAddressId: own.booking.pickupAddressId, dropAddressId: own.booking.dropAddressId, truckType: '17ft' });
-    let info = await (await anita.get(`/bookings/lane-info?${q}`)).json();
-    expect(info.lane).toMatchObject({ id: own.lane.id, awardRule: 'ASK' });
-    expect(info.carriers.map((x: { name: string; rate: number | null }) => [x.name, x.rate])).toEqual([[b.name, 19500], [a.name, 21000], [c.name, null]]);
-    expect(info.lastBudget).toBeNull();
+    const q = new URLSearchParams({ pickupAddressId: own.booking.pickupAddressId, dropAddressId: own.booking.dropAddressId, truckType: '17ft', pickupDate: tomorrow() });
+    const info = await (await anita.get(`/bookings/lane-info?${q}`)).json();
+    expect(info.lane).toMatchObject({ id: own.lane.id });
+    expect(info.lane).not.toHaveProperty('awardRule');
+    expect(info).not.toHaveProperty('lastBudget');
+    expect(info.carriers.map((x: { name: string; rate: number; offeredFirst: boolean }) => [x.name, x.rate, x.offeredFirst])).toEqual([[b.name, 19500, true], [a.name, 21000, false]]);
 
-    await book(anita, await refs(anita), { ...own.booking, budget: '19,800' });
-    info = await (await anita.get(`/bookings/lane-info?${q}`)).json();
-    expect(info.lastBudget).toBe(19800);
+    // Changing the rate card changes who is offered next booking.
+    await anita.put(`/rate-cards/${a.id}`, { lines: [line(18000)] });
+    const trip = await book(anita, await refs(anita), own.booking);
+    expect(trip.offeredTo).toMatchObject({ id: a.id, rate: 18000 });
 
     const none = await (await anita.get(`/bookings/lane-info?${new URLSearchParams({ ...Object.fromEntries(q), truckType: '14ft' })}`)).json();
-    expect(none.lane).toBeNull();
+    expect(none).toMatchObject({ ready: true, lane: null, carriers: [], noContractRate: true });
   });
 
-  test('the budget is stored on the trip, drives quote comparison, and is optional on "Ask me" lanes', async ({ request }) => {
+  test('a budget is not a booking field any more: it is ignored, never stored or shown', async ({ request }) => {
     const anita = await asUser(request, USERS.shipperHead);
     const r = await refs(anita);
-    const withBudget = await book(anita, r, { budget: 45000 });
-    await carrierQuotes(request, withBudget.number, r.kaveri, 46200);
-    const t = (await (await anita.get(`/trips/${withBudget.id}`)).json()).trip;
-    expect(t.budget).toBe(45000);
-    expect(t.quotes.find((q: { carrierId: string }) => q.carrierId === r.kaveri)).toMatchObject({ amount: 46200, overBudget: true, vsBudget: 1200 });
-
-    const noBudget = await book(anita, r, { budget: null });
-    expect((await (await anita.get(`/trips/${noBudget.id}`)).json()).trip.budget).toBeNull();
-
-    const bad = await anita.post('/bookings/preview', { pickupAddressId: r.ambattur, dropAddressId: r.hosur, pickupDate: tomorrow(), truckType: '32ft MXL', material: 'x', weightTonnes: 5, budget: -10 });
-    expect(bad.status()).toBe(400);
-    expect((await bad.json()).error.fields.budget).toContain('amount in rupees');
+    const trip = await book(anita, r, { budget: 45000 });
+    expect(trip.offeredTo.rate).toBe(43800);
+    const t = (await (await anita.get(`/trips/${trip.id}`)).json()).trip;
+    expect(JSON.stringify(t)).not.toMatch(/budget|overBudget|vsBudget|recommendation/);
+    const preview = await anita.post('/bookings/preview', { pickupAddressId: r.ambattur, dropAddressId: r.hosur, pickupDate: tomorrow(), truckType: '32ft MXL', material: 'x', weightTonnes: 5, budget: -10 });
+    expect(preview.status()).toBe(200);
+    expect(await preview.json()).not.toHaveProperty('budget');
   });
 
-  test('an automatic-award lane needs a budget on every booking', async ({ request }) => {
+  test('the seeded Pune → Hyderabad lane offers Kaveri first at its agreed rate', async ({ request }) => {
     const anita = await asUser(request, USERS.shipperHead);
     const r = await refs(anita);
-    // Seeded Pune → Hyderabad, 20ft SXL: lowest within budget, automatic.
     const body = { pickupAddressId: r.chakan, dropAddressId: r.medchal, pickupDate: tomorrow(), truckType: '20ft SXL', material: 'Snacks', weightTonnes: 8 };
-    const res = await anita.post('/bookings/preview', body);
-    expect(res.status()).toBe(400);
-    expect((await res.json()).error.fields.budget).toContain('awarded automatically');
-    const ok = await (await anita.post('/bookings/preview', { ...body, budget: 39000 })).json();
-    expect(ok.budget).toBe(39000);
-    expect(ok.lane.awardRule).toBe('AUTO_LOWEST');
-    // Agreed rates of the lane's carriers come with the preview.
+    const ok = await (await anita.post('/bookings/preview', body)).json();
     expect(ok.carriers.map((c: { name: string; rate: number }) => [c.name, c.rate])).toEqual([['Kaveri Roadlines', 38500], ['NorthStar Logistics', 39000]]);
+    expect(ok.lane).not.toHaveProperty('awardRule');
   });
 });
